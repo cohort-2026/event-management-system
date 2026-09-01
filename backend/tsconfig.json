@@ -5,6 +5,17 @@
     "moduleResolution": "Node",
     "rootDir": "./src",
     "outDir": "./dist",
+    "baseUrl": "./src",
+    "paths": {
+      "@/config/*":      ["config/*"],
+      "@/controllers/*": ["controllers/*"],
+      "@/middleware/*":  ["middleware/*"],
+      "@/models/*":      ["models/*"],
+      "@/routes/*":      ["routes/*"],
+      "@/services/*":    ["services/*"],
+      "@/types/*":       ["types/*"],
+      "@/utils/*":       ["utils/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
