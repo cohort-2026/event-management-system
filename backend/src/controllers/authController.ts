@@ -8,11 +8,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { firstname, lastname, email, password } = req.body;
+    const { firstname, lastname, email, role, password } = req.body;
 
     // Required fields
-    if (!firstname || !lastname || !email || !password) {
-      res.status(400).json({ success: false, message: 'firstname, lastname, email and password are required' });
+    if (!firstname || !lastname || !email || !role || !password) {
+      res.status(400).json({ success: false, message: 'firstname, lastname, email, role and password are required' });
       return;
     }
 
@@ -38,7 +38,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
-      data: { firstname, lastname, email, passwordHash },
+      data: { firstname, lastname, email, role, passwordHash },
       select: { id: true, firstname: true, lastname: true, email: true, role: true, createdAt: true },
     });
 
