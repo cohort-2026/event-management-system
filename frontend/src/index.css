@@ -1,285 +1,229 @@
 @import "tailwindcss";
-
-/* ============================================================
-   DESIGN TOKENS
-   All custom tokens are defined here as CSS custom properties
-   and registered with Tailwind v4 via @theme.
-   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @theme {
-  /* --- Brand (Indigo) --- */
-  --color-brand-50:  #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* ── Brand: deep navy/slate (Opher-style) ── */
+  --color-brand-50:  #f0f4ff;
+  --color-brand-100: #e0e9ff;
+  --color-brand-200: #c7d7fe;
+  --color-brand-300: #a5bcfc;
+  --color-brand-400: #7c96f8;
+  --color-brand-500: #5a72f0;
+  --color-brand-600: #3d52e6;
+  --color-brand-700: #2f3fcb;
+  --color-brand-800: #2533a4;
+  --color-brand-900: #1a2480;
+  --color-brand-950: #0f1550;
 
-  /* --- Neutral (warm grey) — use for all text, borders, surfaces --- */
-  --color-neutral-50:  #fafaf9;
-  --color-neutral-100: #f5f5f4;
-  --color-neutral-200: #e7e5e4;
-  --color-neutral-300: #d6d3d1;
-  --color-neutral-400: #a8a29e;
-  --color-neutral-500: #78716c;
-  --color-neutral-600: #57534e;
-  --color-neutral-700: #44403c;
-  --color-neutral-800: #292524;
-  --color-neutral-900: #1c1917;
+  /* ── Accent: electric teal ── */
+  --color-accent-400: #34d9c3;
+  --color-accent-500: #14c9b0;
+  --color-accent-600: #0fb39c;
 
-  /* --- Purple — vendor roles & badges --- */
-  --color-purple-50:  #faf5ff;
-  --color-purple-100: #f3e8ff;
-  --color-purple-600: #9333ea;
-  --color-purple-700: #7e22ce;
+  /* ── Neutral: cool grey ── */
+  --color-neutral-50:  #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
 
-  /* --- Amber — pending/awaiting states --- */
-  --color-amber-50:  #fffbeb;
-  --color-amber-100: #fef3c7;
-  --color-amber-600: #d97706;
-  --color-amber-700: #b45309;
-
-  /* --- Emerald — published/confirmed/success states --- */
+  /* ── Status ── */
   --color-emerald-50:  #ecfdf5;
   --color-emerald-100: #d1fae5;
+  --color-emerald-500: #10b981;
   --color-emerald-600: #059669;
   --color-emerald-700: #047857;
 
-  /* --- Rose — destructive/cancelled states --- */
+  --color-amber-50:  #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+
   --color-rose-50:  #fff1f2;
   --color-rose-100: #ffe4e6;
+  --color-rose-500: #f43f5e;
   --color-rose-600: #e11d48;
   --color-rose-700: #be123c;
 
-  /* --- Sky — informational states --- */
   --color-sky-50:  #f0f9ff;
   --color-sky-100: #e0f2fe;
   --color-sky-600: #0284c7;
   --color-sky-700: #0369a1;
 
-  /* --- Semantic surfaces --- */
-  --color-surface:         #ffffff;
-  --color-surface-subtle:  #fafaf9;
-  --color-surface-sunken:  #f5f5f4;
-  --color-surface-raised:  #ffffff;
+  --color-purple-50:  #faf5ff;
+  --color-purple-100: #f3e8ff;
+  --color-purple-600: #9333ea;
+  --color-purple-700: #7e22ce;
 
-  /* --- Semantic text --- */
-  --color-text-primary:   #1c1917;
-  --color-text-secondary: #78716c;
-  --color-text-disabled:  #a8a29e;
-  --color-text-inverse:   #ffffff;
+  /* ── Surfaces ── */
+  --color-surface:        #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-surface-sunken: #f1f5f9;
 
-  /* --- Semantic borders --- */
-  --color-border:        #e7e5e4;
-  --color-border-strong: #d6d3d1;
-
-  /* --- Status colours (WCAG AA compliant on white) --- */
+  /* ── Status semantic ── */
   --color-success-bg:   #ecfdf5;
-  --color-success-text: #166534;
+  --color-success-text: #065f46;
   --color-warning-bg:   #fffbeb;
   --color-warning-text: #92400e;
   --color-danger-bg:    #fff1f2;
   --color-danger-text:  #9f1239;
-  --color-info-bg:      #f0f9ff;
+  --color-info-bg:      #eff6ff;
   --color-info-text:    #1e40af;
 
-  /* --- Typography --- */
-  --font-sans:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono:    ui-monospace, "Cascadia Code", Consolas, monospace;
+  /* ── Typography ── */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-  --text-xs:   0.75rem;   /* 12px */
-  --text-sm:   0.875rem;  /* 14px */
-  --text-base: 1rem;      /* 16px */
-  --text-lg:   1.125rem;  /* 18px */
-  --text-xl:   1.25rem;   /* 20px */
-  --text-2xl:  1.5rem;    /* 24px */
-  --text-3xl:  1.875rem;  /* 30px */
-  --text-4xl:  2.25rem;   /* 36px */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+  --text-4xl:  2.25rem;
+  --text-5xl:  3rem;
+  --text-6xl:  3.75rem;
 
-  --leading-tight:  1.25;
-  --leading-snug:   1.375;
-  --leading-normal: 1.5;
-  --leading-relaxed:1.625;
+  --leading-tight:   1.2;
+  --leading-snug:    1.35;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.65;
 
   --font-weight-normal:   400;
   --font-weight-medium:   500;
   --font-weight-semibold: 600;
   --font-weight-bold:     700;
+  --font-weight-extrabold:800;
+  --font-weight-black:    900;
 
-  /* --- Spacing scale (4px base) --- */
-  --spacing-1:  0.25rem;  /* 4px  */
-  --spacing-2:  0.5rem;   /* 8px  */
-  --spacing-3:  0.75rem;  /* 12px */
-  --spacing-4:  1rem;     /* 16px */
-  --spacing-5:  1.25rem;  /* 20px */
-  --spacing-6:  1.5rem;   /* 24px */
-  --spacing-8:  2rem;     /* 32px */
-  --spacing-10: 2.5rem;   /* 40px */
-  --spacing-12: 3rem;     /* 48px */
-  --spacing-16: 4rem;     /* 64px */
+  /* ── Spacing ── */
+  --spacing-1:  0.25rem;
+  --spacing-2:  0.5rem;
+  --spacing-3:  0.75rem;
+  --spacing-4:  1rem;
+  --spacing-5:  1.25rem;
+  --spacing-6:  1.5rem;
+  --spacing-8:  2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
 
-  /* --- Border radius --- */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  /* ── Radius ── */
+  --radius-sm:   0.25rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-2xl:  1.25rem;
+  --radius-3xl:  1.5rem;
   --radius-full: 9999px;
 
-  /* --- Shadows --- */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
-  /* --- Breakpoints --- */
+  /* ── Breakpoints ── */
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
 
-  /* --- Layout --- */
-  --container-max: 80rem; /* 1280px */
-  --navbar-height: 3.5rem;
+  /* ── Layout ── */
+  --container-max: 80rem;
+  --navbar-height: 4rem;
+  --sidebar-width: 15rem;
 }
 
-/* ============================================================
-   GLOBAL BASE STYLES
-   ============================================================ */
-
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  color: var(--color-text-primary);
-  background-color: var(--color-surface-subtle); /* warm #fafaf9 */
+  color: var(--color-neutral-900);
+  background-color: var(--color-surface-subtle);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-body {
-  margin: 0;
-  min-height: 100dvh;
-}
+body { margin: 0; min-height: 100dvh; }
 
-#root {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
 
-/* ============================================================
-   TYPOGRAPHY BASE
-   ============================================================ */
-
+/* ── Typography ── */
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   line-height: var(--leading-tight);
-  color: var(--color-text-primary);
+  color: var(--color-neutral-900);
+  letter-spacing: -0.02em;
 }
 
-h1 { font-size: var(--text-3xl); }
-h2 { font-size: var(--text-2xl); }
+h1 { font-size: var(--text-4xl); }
+h2 { font-size: var(--text-3xl); }
 h3 { font-size: var(--text-xl); }
 h4 { font-size: var(--text-lg); }
-h5 { font-size: var(--text-base); }
-h6 { font-size: var(--text-sm); }
 
-p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: var(--leading-relaxed);
-}
+p { margin: 0; color: var(--color-neutral-500); line-height: var(--leading-relaxed); }
 
-a {
-  color: var(--color-brand-600);
-  text-decoration: none;
-}
+a { color: var(--color-brand-600); text-decoration: none; }
+a:hover { color: var(--color-brand-700); }
 
-a:hover {
-  color: var(--color-brand-700);
-  text-decoration: underline;
-}
+:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
 
-/* ============================================================
-   FOCUS STYLES (accessibility)
-   ============================================================ */
-
-:focus-visible {
-  outline: 2px solid var(--color-brand-500);
-  outline-offset: 2px;
-}
-
-/* ============================================================
-   SCROLLBAR (subtle, cross-browser)
-   ============================================================ */
-
-::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: var(--color-border-strong); border-radius: var(--radius-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-disabled); }
+::-webkit-scrollbar-thumb  { background: var(--color-neutral-300); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-400); }
 
-/* ============================================================
-   UTILITY LAYER — layout helpers used across pages
-   ============================================================ */
-
+/* ── Utilities ── */
 @layer utilities {
-  /* Page container — centred, max-width, responsive padding */
   .page-container {
     width: 100%;
     max-width: var(--container-max);
     margin-inline: auto;
     padding-inline: var(--spacing-4);
   }
+  @media (min-width: 640px)  { .page-container { padding-inline: var(--spacing-6); } }
+  @media (min-width: 1024px) { .page-container { padding-inline: var(--spacing-8); } }
 
-  @media (min-width: 640px) {
-    .page-container { padding-inline: var(--spacing-6); }
-  }
+  .section-gap    { padding-block: var(--spacing-8); }
+  .section-gap-lg { padding-block: var(--spacing-16); }
 
-  @media (min-width: 1024px) {
-    .page-container { padding-inline: var(--spacing-8); }
-  }
-
-  /* Section vertical rhythm */
-  .section-gap   { padding-block: var(--spacing-8); }
-  .section-gap-lg{ padding-block: var(--spacing-12); }
-
-  /* Card grid — responsive columns */
   .card-grid {
     display: grid;
     gap: var(--spacing-5);
     grid-template-columns: 1fr;
   }
+  @media (min-width: 640px)  { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
 
-  @media (min-width: 640px) {
-    .card-grid { grid-template-columns: repeat(2, 1fr); }
-  }
+  .form-stack { display: flex; flex-direction: column; gap: var(--spacing-4); }
 
-  @media (min-width: 1024px) {
-    .card-grid { grid-template-columns: repeat(3, 1fr); }
-  }
-
-  /* Form layout */
-  .form-stack { display: flex; flex-direction: column; gap: var(--spacing-5); }
-
-  /* Visually hidden (accessible) */
   .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0,0,0,0);
-    white-space: nowrap;
-    border-width: 0;
+    position: absolute; width: 1px; height: 1px; padding: 0;
+    margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border-width: 0;
+  }
+
+  /* Glass card used in hero sections */
+  .glass {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
   }
 }

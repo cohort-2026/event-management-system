@@ -1,16 +1,11 @@
-import Navbar from './Navbar';
-
 interface PageWrapperProps {
   children: React.ReactNode;
-  title?: string;
 }
 
-export default function PageWrapper({ children, title }: PageWrapperProps) {
+export default function PageWrapper({ children }: PageWrapperProps) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Navbar />
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f6_100%)] flex flex-col">
       <main className="flex-1 page-container section-gap">
-        {title && <h1 className="text-2xl font-bold text-gray-900 mb-6">{title}</h1>}
         {children}
       </main>
     </div>
