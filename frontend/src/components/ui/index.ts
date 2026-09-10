@@ -8,3 +8,4 @@ export { default as Modal }     from './Modal';
 export { default as Table }     from './Table';
 export { default as Spinner }   from './Spinner';
 export { default as EventCard } from './EventCard';
+export { default as StatCard }  from './StatCard';

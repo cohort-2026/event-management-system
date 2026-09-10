@@ -1,28 +1,39 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User } from '@/types/user';
-import { getMe } from '@/services/authService';
+import { getMe, logout as logoutApi } from '@/services/authService';
 
 interface AuthContextValue {
   user: User | null;
-  token: string | null;
-  setAuth: (token: string, user: User) => void;
-  clearAuth: () => void;
+  loading: boolean;
+  setUser: (user: User) => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]   = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+  const [user, setUser]       = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // On mount, call /api/auth/me to restore session from the httpOnly cookie.
+  // If the cookie is absent or expired the request returns 401 and we stay logged out.
   useEffect(() => {
-    if (token) getMe().then(r => setUser(r.data)).catch(() => clearAuth());
-  }, [token]);
+    getMe()
+      .then(res => setUser(res.data.data))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const setAuth = (t: string, u: User) => { localStorage.setItem('token', t); setToken(t); setUser(u); };
-  const clearAuth = () => { localStorage.removeItem('token'); setToken(null); setUser(null); };
+  const logout = async () => {
+    await logoutApi().catch(() => null);
+    setUser(null);
+  };
 
-  return <AuthContext.Provider value={{ user, token, setAuth, clearAuth }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, setUser, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export const useAuth = () => {
