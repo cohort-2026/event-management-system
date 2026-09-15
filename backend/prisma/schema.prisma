@@ -78,15 +78,30 @@ model User {
   passwordHash String   @map("password_hash")
   role         Role     @default(ATTENDEE)
   isActive     Boolean  @default(true) @map("is_active")
+  emailVerified Boolean  @default(false) @map("email_verified")
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Relations
+  emailVerification  EmailVerification?
   organizedEvents     Event[]
   bookings            Booking[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
 
   @@map("users")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
 }
 
 model Event {
