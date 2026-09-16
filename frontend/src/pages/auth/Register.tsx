@@ -45,7 +45,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register({ firstname: form.firstname, lastname: form.lastname, email: form.email, password: form.password, role: form.role as UserRole });
-      navigate('/login', { replace: true, state: { registrationSuccess: true, email: form.email } });
+      navigate('/verify-email', { replace: true, state: { email: form.email } });
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;

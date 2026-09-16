@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { login } from '@/services/authService';
+import { login, resendVerificationEmail } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import axios from 'axios';
@@ -16,6 +16,8 @@ export default function Login() {
   const [password, setPassword]       = useState('');
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
+  const [showVerificationLink, setShowVerificationLink] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
   const [loading, setLoading]         = useState(false);
 
   const validate = (): boolean => {
@@ -30,6 +32,7 @@ export default function Login() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setServerError('');
+    setShowVerificationLink(false);
     if (!validate()) return;
     setLoading(true);
     try {
@@ -39,9 +42,40 @@ export default function Login() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
+        const unverified = err.response?.status === 403 && msg === 'Please verify your email before signing in';
+        setShowVerificationLink(unverified);
         setServerError(err.response?.status === 401 ? (msg ?? 'Invalid email or password') : (msg ?? 'Something went wrong.'));
       }
     } finally { setLoading(false); }
+  };
+
+  const handleVerifyEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (sendingVerification) return;
+
+    setSendingVerification(true);
+    try {
+      const response = await resendVerificationEmail(email);
+      navigate('/verify-email', {
+        state: { email, verificationNotice: response.data.message },
+      });
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
+        navigate('/verify-email', {
+          state: {
+            email,
+            verificationNotice: err.response.data.message,
+            resendCooldown: err.response.data.retryAfter,
+          },
+        });
+      } else if (axios.isAxiosError(err)) {
+        setServerError(err.response?.data?.message ?? 'The verification code could not be sent.');
+      } else {
+        setServerError('The verification code could not be sent.');
+      }
+    } finally {
+      setSendingVerification(false);
+    }
   };
 
   return (
@@ -106,6 +140,16 @@ export default function Login() {
           {serverError && (
             <div className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
               {serverError}
+              {showVerificationLink && (
+                <Link
+                  to="/verify-email"
+                  state={{ email }}
+                  onClick={handleVerifyEmail}
+                  className="block mt-2 font-semibold text-brand-600 hover:text-brand-700"
+                >
+                  {sendingVerification ? 'Sending verification code...' : 'Verify your email'}
+                </Link>
+              )}
             </div>
           )}
 

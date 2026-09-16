@@ -10,6 +10,8 @@ Sessions are maintained via a signed **httpOnly cookie** — no tokens in `local
 | Method | Path               | Auth required |
 |--------|--------------------|---------------|
 | POST   | `/api/auth/register` | No          |
+| POST   | `/api/auth/verify-email` | No       |
+| POST   | `/api/auth/resend-verification` | No |
 | POST   | `/api/auth/login`    | No          |
 | POST   | `/api/auth/logout`   | No          |
 | GET    | `/api/auth/me`       | Yes         |
@@ -18,7 +20,7 @@ Sessions are maintained via a signed **httpOnly cookie** — no tokens in `local
 
 ## POST /api/auth/register
 
-Creates a new user account.
+Creates a new unverified user account and sends a six-digit OTP to the email address. The account must be verified before login.
 
 **Request body**
 ```json
@@ -47,6 +49,39 @@ Creates a new user account.
 | 400    | Validation failed        | `{ success: false, message: "..." }`                                 |
 | 409    | Email already registered | `{ success: false, message: "Email already registered" }`            |
 
+The OTP expires after 10 minutes. OTP values are stored only as bcrypt hashes.
+
+## POST /api/auth/verify-email
+
+Verifies an account using the OTP sent during registration.
+
+**Request body**
+```json
+{
+  "email": "jane.doe@example.com",
+  "code": "123456"
+}
+```
+
+The endpoint allows five failed attempts. A successful verification marks the
+user's email as verified and deletes the OTP record.
+
+## POST /api/auth/resend-verification
+
+Sends a new six-digit OTP for an unverified active account. The previous code
+is replaced, the ten-minute expiry is restarted, and the failed-attempt count
+is reset. Resend requests are limited to one per 60 seconds.
+
+**Request body**
+```json
+{
+  "email": "jane.doe@example.com"
+}
+```
+
+The verification screen displays the ten-minute countdown and informs the user
+that they have five attempts to enter the code.
+
 ---
 
 ## POST /api/auth/login
@@ -68,6 +103,7 @@ Authenticates a user and sets an `auth_token` httpOnly cookie.
 | 200    | Login successful   | `{ success: true, data: { id, firstname, lastname, email, role, createdAt } }` |
 | 400    | Missing fields     | `{ success: false, message: "email and password are required" }`     |
 | 401    | Wrong credentials  | `{ success: false, message: "Invalid email or password" }`           |
+| 403    | Email not verified | `{ success: false, message: "Please verify your email before signing in" }` |
 
 On success, the server sets:
 ```
