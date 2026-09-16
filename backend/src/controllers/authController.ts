@@ -29,7 +29,10 @@ const USER_SELECT = {
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { firstname, lastname, email, role, password } = req.body;
+    const { firstname, lastname, email, password } = req.body;
+
+    const allow_self_registration = ['ATTENDEE','VENDOR']
+    const role = allow_self_registration.includes(req.body.role) ? req.body.role : 'ATTENDEE';
 
     if (!firstname || !lastname || !email || !role || !password) {
       res.status(400).json({ success: false, message: 'firstname, lastname, email, role and password are required' });
