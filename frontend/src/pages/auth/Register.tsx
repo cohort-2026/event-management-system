@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import type { UserRole } from '@/types/user';
 import axios from 'axios';
 
-interface FieldErrors { firstname?: string; lastname?: string; email?: string; password?: string; role?: string; }
+interface FieldErrors { firstname?: string; lastname?: string; email?: string; password?: string; confirmPassword?: string; role?: string; }
 
 const ROLES: { value: UserRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
@@ -14,9 +14,17 @@ const ROLES: { value: UserRole; label: string; desc: string }[] = [
   { value: 'VENDOR',    label: 'Vendor',    desc: 'Apply for vendor stands' },
 ];
 
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
+  { label: 'One uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { label: 'One number', test: (value: string) => /\d/.test(value) },
+  { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+];
+
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', role: '' as UserRole | '' });
+  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', confirmPassword: '', role: '' as UserRole | '' });
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading]         = useState(false);
@@ -25,6 +33,26 @@ export default function Register() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm(f => ({ ...f, [field]: e.target.value }));
 
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const password = e.target.value;
+    const passwordIsValid = PASSWORD_RULES.every(rule => rule.test(password));
+    setForm(f => ({ ...f, password }));
+    setErrors(current => ({
+      ...current,
+      password: password && !passwordIsValid ? 'Password does not meet all requirements' : undefined,
+      confirmPassword: form.confirmPassword && password !== form.confirmPassword ? 'Passwords do not match' : undefined,
+    }));
+  };
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const confirmPassword = e.target.value;
+    setForm(f => ({ ...f, confirmPassword }));
+    setErrors(current => ({
+      ...current,
+      confirmPassword: confirmPassword && confirmPassword !== form.password ? 'Passwords do not match' : undefined,
+    }));
+  };
+
   const validate = (): boolean => {
     const next: FieldErrors = {};
     if (!form.firstname.trim())  next.firstname = 'First name is required';
@@ -32,7 +60,9 @@ export default function Register() {
     if (!form.email)             next.email     = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = 'Enter a valid email address';
     if (!form.password)          next.password  = 'Password is required';
-    else if (form.password.length < 8) next.password = 'Minimum 8 characters';
+    else if (!PASSWORD_RULES.every(rule => rule.test(form.password))) next.password = 'Password does not meet all requirements';
+    if (!form.confirmPassword) next.confirmPassword = 'Please confirm your password';
+    else if (form.password !== form.confirmPassword) next.confirmPassword = 'Passwords do not match';
     if (!form.role)              next.role      = 'Please select a role';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -120,8 +150,21 @@ export default function Register() {
             </div>
             <Input label="Email address" type="email" autoComplete="email"
               value={form.email} onChange={set('email')} error={errors.email} />
-            <Input label="Password" type="password" autoComplete="new-password"
-              value={form.password} onChange={set('password')} error={errors.password} helperText="Minimum 8 characters" />
+            <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle
+              value={form.password} onChange={handlePasswordChange} error={errors.password} />
+            <div className="-mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" aria-live="polite">
+              {PASSWORD_RULES.map(rule => {
+                const passed = rule.test(form.password);
+                return (
+                  <span key={rule.label} className={passed ? 'text-emerald-600' : 'text-neutral-400'}>
+                    <span className="mr-1 font-semibold">{passed ? '✓' : '○'}</span>{rule.label}
+                  </span>
+                );
+              })}
+            </div>
+            <Input label="Confirm password" type="password" autoComplete="new-password"
+              showPasswordToggle value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword}
+              helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 
             {/* Role selector */}
             <div className="flex flex-col gap-1.5">
