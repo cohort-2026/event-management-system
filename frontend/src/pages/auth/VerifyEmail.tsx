@@ -95,7 +95,9 @@ export default function VerifyEmail() {
       <div className="w-full max-w-sm rounded-xl bg-white border border-neutral-200 shadow-sm p-8">
         <Link to="/" className="flex items-center gap-2 mb-10">
           <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <span className="text-white font-black text-sm">E</span>
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
           </span>
           <span className="font-extrabold text-neutral-900 text-lg tracking-tight">EventMS</span>
         </Link>
@@ -110,7 +112,6 @@ export default function VerifyEmail() {
             <span>Code expires in</span>
             <strong className="font-mono text-base">{formatTime(secondsRemaining)}</strong>
           </div>
-          <p className="mt-1 text-xs text-brand-700">You have 5 attempts to verify this code.</p>
         </div>
 
         {serverError && (
@@ -131,6 +132,7 @@ export default function VerifyEmail() {
             type="email"
             autoComplete="email"
             value={email}
+            disabled
             onChange={event => setEmail(event.target.value)}
           />
           <Input

@@ -27,4 +27,30 @@ export const config = {
     (() => {
       throw new Error("JWT_EXPIRES_IN is not defined in environment variables");
     })(),
+  mailHost:
+    process.env.MAIL_HOST ??
+    (() => {
+      throw new Error("MAIL_HOST is not defined in environment variables");
+    })(),
+  mailPort: Number(
+    process.env.MAIL_PORT ??
+      (() => {
+        throw new Error("MAIL_PORT is not defined in environment variables");
+      })(),
+  ),
+  mailUser:
+    process.env.MAIL_USER ??
+    (() => {
+      throw new Error("MAIL_USER is not defined in environment variables");
+    })(),
+  mailPassword:
+    process.env.MAIL_PASSWORD ??
+    (() => {
+      throw new Error("MAIL_PASSWORD is not defined in environment variables");
+    })(),
+  mailFrom:
+    process.env.MAIL_FROM ??
+    (() => {
+      throw new Error("MAIL_FROM is not defined in environment variables");
+    })(),
 };
