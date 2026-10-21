@@ -56,7 +56,7 @@ export default function ResetPassword() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-[linear-gradient(135deg,#fff1f2,#eef3f8)] px-4 py-12">
       <section className="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-8 shadow-xl">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-md">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">
           <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
@@ -104,7 +104,7 @@ export default function ResetPassword() {
             value={confirmPassword}
             onChange={event => setConfirmPassword(event.target.value)}
           />
-          <Button type="submit" loading={loading} variant="danger" className="w-full" size="lg">
+          <Button type="submit" loading={loading} className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus-visible:ring-blue-500" size="lg">
             Create new password
           </Button>
         </form>
