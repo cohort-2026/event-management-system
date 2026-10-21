@@ -8,6 +8,10 @@ export const verifyEmail = (data: { email: string; code: string }) =>
 	api.post<{ success: boolean; message: string }>('/auth/verify-email', data);
 export const resendVerificationEmail = (email: string) =>
 	api.post<{ success: boolean; message: string; expiresIn?: number; retryAfter?: number }>('/auth/resend-verification', { email });
+export const requestPasswordReset = (email: string) =>
+	api.post<{ success: boolean; message: string }>('/auth/forgot-password', { email });
+export const resetPassword = (data: { email: string; code: string; password: string }) =>
+	api.post<{ success: boolean; message: string }>('/auth/reset-password', data);
 export const login    = (data: LoginDto)        => api.post<ApiResponse<User>>('/auth/login', data);
 export const logout   = ()                      => api.post('/auth/logout');
 export const getMe    = ()                      => api.get<ApiResponse<User>>('/auth/me');

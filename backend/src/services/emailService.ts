@@ -19,3 +19,12 @@ export const sendVerificationCode = async (email: string, code: string): Promise
     text: `Your EventMS verification code is ${code}. It expires in 10 minutes.`,
   });
 };
+
+export const sendPasswordResetCode = async (email: string, code: string): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: email,
+    subject: 'Your EventMS password reset code',
+    text: `Your EventMS password reset code is ${code}. It expires in 10 minutes and can only be used once. If you did not request a password reset, you can ignore this email.`,
+  });
+};

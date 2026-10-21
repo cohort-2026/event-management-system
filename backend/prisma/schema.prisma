@@ -83,6 +83,7 @@ model User {
 
   // Relations
   emailVerification  EmailVerification?
+  passwordResetToken PasswordResetToken?
   organizedEvents     Event[]
   bookings            Booking[]
   tickets             Ticket[]
@@ -102,6 +103,19 @@ model EmailVerification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("email_verifications")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 model Event {
