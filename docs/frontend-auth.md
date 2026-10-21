@@ -14,12 +14,14 @@ backed by an **httpOnly cookie** set by the backend — no tokens are stored in
 |---|---|
 | `src/types/user.ts` | `User` shape matches backend (`firstname`/`lastname`) |
 | `src/services/api.ts` | `withCredentials: true` on every request |
-| `src/services/authService.ts` | Typed wrappers for all four auth endpoints |
+| `src/services/authService.ts` | Typed wrappers for authentication endpoints |
 | `src/context/AuthContext.tsx` | Central auth state, session restore on mount |
 | `src/components/layout/ProtectedRoute.tsx` | Waits for session restore before redirecting |
 | `src/components/layout/Navbar.tsx` | Shows user name and role-based nav links |
 | `src/pages/auth/Login.tsx` | Login form with field-level validation |
 | `src/pages/auth/Register.tsx` | Registration form with field-level validation |
+| `src/pages/auth/ForgotPassword.tsx` | Requests a password reset code by email |
+| `src/pages/auth/ResetPassword.tsx` | Sets a new password using a single-use email code |
 
 ---
 
@@ -126,6 +128,18 @@ A server error banner appears above the form.
 ### On success
 
 Calls `setUser(res.data.data)` then navigates to `/`.
+
+---
+
+## Password Reset
+
+The login page links to `/forgot-password`. Submitting a valid email requests
+`POST /api/auth/forgot-password`; the response is intentionally the same whether
+or not an active account exists. If eligible, the user receives a six-digit code
+that expires after 10 minutes. The reset form requires the code and matching
+passwords of at least 8 characters, then submits them to
+`POST /api/auth/reset-password`. A code can only be used once and is limited to
+five attempts. The backend stores a bcrypt hash of the code.
 
 ---
 

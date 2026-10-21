@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { config } from '@/config/index';
-import { sendVerificationCode } from '@/services/emailService';
+import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
 
 const prisma = new PrismaClient();
 
@@ -249,6 +249,137 @@ export const resendVerificationEmail = async (req: Request, res: Response, next:
       message: 'A new verification code has been sent',
       expiresIn: OTP_EXPIRY_MINUTES * 60,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Password reset ────────────────────────────────────────────────────────
+
+export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rawEmail = req.body.email;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
+
+    if (!email || !EMAIL_REGEX.test(email)) {
+      res.status(400).json({ success: false, message: 'A valid email address is required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user?.isActive) {
+      const existingReset = await prisma.passwordResetToken.findUnique({ where: { userId: user.id } });
+      if (
+        existingReset &&
+        Date.now() - existingReset.createdAt.getTime() < RESEND_COOLDOWN_SECONDS * 1000
+      ) {
+        res.json({
+          success: true,
+          message: 'If an active account exists for that email, a reset code has been sent.',
+        });
+        return;
+      }
+
+      const code = createOtp();
+      const codeHash = await bcrypt.hash(code, 12);
+      await prisma.passwordResetToken.upsert({
+        where: { userId: user.id },
+        update: {
+          tokenHash: codeHash,
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+          attempts: 0,
+          createdAt: new Date(),
+        },
+        create: {
+          userId: user.id,
+          tokenHash: codeHash,
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+        },
+      });
+      await sendPasswordResetCode(email, code);
+    }
+
+    res.json({
+      success: true,
+      message: 'If an active account exists for that email, a reset code has been sent.',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rawEmail = req.body.email;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
+    const { code, password } = req.body;
+
+    if (
+      typeof email !== 'string' ||
+      !EMAIL_REGEX.test(email) ||
+      typeof code !== 'string' ||
+      !/^\d{6}$/.test(code) ||
+      typeof password !== 'string' ||
+      password.length < 8
+    ) {
+      res.status(400).json({ success: false, message: 'A valid email, six-digit reset code and password of at least 8 characters are required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const resetCode = user
+      ? await prisma.passwordResetToken.findUnique({ where: { userId: user.id } })
+      : null;
+    if (
+      !resetCode ||
+      resetCode.expiresAt <= new Date() ||
+      resetCode.attempts >= MAX_OTP_ATTEMPTS
+    ) {
+      res.status(400).json({ success: false, message: 'This reset code is invalid or has expired' });
+      return;
+    }
+
+    const codeMatches = await bcrypt.compare(code, resetCode.tokenHash);
+    if (!codeMatches) {
+      await prisma.passwordResetToken.updateMany({
+        where: {
+          id: resetCode.id,
+          attempts: { lt: MAX_OTP_ATTEMPTS },
+          expiresAt: { gt: new Date() },
+        },
+        data: { attempts: { increment: 1 } },
+      });
+      res.status(400).json({ success: false, message: 'This reset code is invalid or has expired' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const wasReset = await prisma.$transaction(async transaction => {
+      const consumedToken = await transaction.passwordResetToken.deleteMany({
+        where: {
+          id: resetCode.id,
+          userId: resetCode.userId,
+          tokenHash: resetCode.tokenHash,
+          expiresAt: { gt: new Date() },
+          attempts: { lt: MAX_OTP_ATTEMPTS },
+        },
+      });
+
+      if (consumedToken.count !== 1) return false;
+
+      await transaction.user.update({
+        where: { id: resetCode.userId },
+        data: { passwordHash },
+      });
+      return true;
+    });
+
+    if (!wasReset) {
+      res.status(400).json({ success: false, message: 'This reset code is invalid or has expired' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Your password has been reset. You can now sign in.' });
   } catch (err) {
     next(err);
   }

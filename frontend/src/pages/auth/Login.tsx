@@ -137,6 +137,12 @@ export default function Login() {
             </div>
           )}
 
+          {location.state?.passwordResetSuccess && (
+            <div role="status" className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+              Your password has been reset. Please sign in with your new password.
+            </div>
+          )}
+
           {serverError && (
             <div className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
               {serverError}
@@ -158,8 +164,11 @@ export default function Login() {
               value={email} onChange={e => setEmail(e.target.value)} error={errors.email} />
             <Input label="Password" type="password" autoComplete="current-password"
               value={password} onChange={e => setPassword(e.target.value)} error={errors.password} />
-            <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-xs font-semibold text-brand-600 hover:text-brand-700">
+            <div className="-mt-2 flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-sm font-semibold text-black hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
+              >
                 Forgot password?
               </Link>
             </div>
