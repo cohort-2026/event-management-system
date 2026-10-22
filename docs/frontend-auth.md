@@ -134,10 +134,11 @@ Calls `setUser(res.data.data)` then navigates to `/`.
 ## Password Reset
 
 The login page links to `/forgot-password`. Submitting a valid email requests
-`POST /api/auth/forgot-password`; the response is intentionally the same whether
-or not an active account exists. If eligible, the user receives a six-digit code
-that expires after 10 minutes. The reset form requires the code and matching
-passwords of at least 8 characters, then submits them to
+`POST /api/auth/forgot-password`. The endpoint only sends a code to an active
+registered account; unregistered or inactive email addresses receive a `404`
+with a clear error message. A valid account receives a six-digit code that
+expires after 10 minutes. The reset form requires the code and matching passwords
+of at least 8 characters, then submits them to
 `POST /api/auth/reset-password`. A code can only be used once and is limited to
 five attempts. The backend stores a bcrypt hash of the code.
 
