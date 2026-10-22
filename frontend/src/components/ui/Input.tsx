@@ -5,6 +5,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   helperText?: string;
   showPasswordToggle?: boolean;
+  passwordrules?: string;
 }
 
 export default function Input({ label, error, helperText, showPasswordToggle = false, id, className = '', type, ...props }: InputProps) {

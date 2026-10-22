@@ -5,6 +5,14 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { resetPassword } from '@/services/authService';
 
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
+  { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { label: 'One uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+  { label: 'One number', test: (value: string) => /\d/.test(value) },
+];
+
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -16,6 +24,8 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const passwordsMismatch = password.length > 0 && password !== confirmPassword;
+  const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -29,8 +39,8 @@ export default function ResetPassword() {
       setError('Enter the six-digit code sent to your email.');
       return;
     }
-    if (password.length < 8) {
-      setError('Your password must be at least 8 characters.');
+    if (!PASSWORD_RULES.every(rule => rule.test(password))) {
+      setError('Your password does not meet all requirements.');
       return;
     }
     if (password !== confirmPassword) {
@@ -92,17 +102,39 @@ export default function ResetPassword() {
             label="New password"
             type="password"
             autoComplete="new-password"
+            passwordrules="minlength: 8; required: lower; required: upper; required: special; required: digit;"
             showPasswordToggle
             value={password}
-            onChange={event => setPassword(event.target.value)}
+            error={passwordsMismatch ? 'Passwords do not match.' : undefined}
+            onChange={event => {
+              const nextPassword = event.target.value;
+              setPassword(nextPassword);
+              if (error === 'The passwords do not match.' && nextPassword === confirmPassword) setError('');
+            }}
           />
+          <ul aria-label="Password requirements" className="mt-2 space-y-1 text-xs text-neutral-500">
+            {PASSWORD_RULES.map(rule => {
+              const isMet = rule.test(password);
+              return (
+                <li key={rule.label} className={`flex items-center gap-2 ${isMet ? 'text-emerald-700' : ''}`}>
+                  <span aria-hidden="true" className="w-3">{isMet ? '✓' : '•'}</span>
+                  {rule.label}
+                </li>
+              );
+            })}
+          </ul>
           <Input
             label="Confirm new password"
             type="password"
             autoComplete="new-password"
             showPasswordToggle
             value={confirmPassword}
-            onChange={event => setConfirmPassword(event.target.value)}
+            error={passwordsMismatch ? 'Passwords do not match.' : undefined}
+            helperText={passwordsMatch ? 'Passwords match.' : undefined}
+            onChange={event => {
+              setConfirmPassword(event.target.value);
+              if (error === 'The passwords do not match.') setError('');
+            }}
           />
           <Button type="submit" loading={loading} className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus-visible:ring-blue-500" size="lg">
             Create new password

@@ -326,9 +326,13 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
       typeof code !== 'string' ||
       !/^\d{6}$/.test(code) ||
       typeof password !== 'string' ||
-      password.length < 8
+      password.length < 8 ||
+      !/[a-z]/.test(password) ||
+      !/[A-Z]/.test(password) ||
+      !/[^A-Za-z0-9]/.test(password) ||
+      !/\d/.test(password)
     ) {
-      res.status(400).json({ success: false, message: 'A valid email, six-digit reset code and password of at least 8 characters are required' });
+      res.status(400).json({ success: false, message: 'A valid email, six-digit reset code and password meeting all requirements are required' });
       return;
     }
 
