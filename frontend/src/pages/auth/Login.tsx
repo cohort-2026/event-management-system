@@ -1,67 +1,81 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { login, resendVerificationEmail } from '@/services/authService';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import axios from 'axios';
+import { useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { login, resendVerificationEmail } from "@/services/authService";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import axios from "axios";
 
-interface FieldErrors { email?: string; password?: string; }
+interface FieldErrors {
+  email?: string;
+  password?: string;
+}
 
 export default function Login() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail]             = useState(location.state?.email ?? '');
-  const [password, setPassword]       = useState('');
-  const [errors, setErrors]           = useState<FieldErrors>({});
-  const [serverError, setServerError] = useState('');
+  const [email, setEmail] = useState(location.state?.email ?? "");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [serverError, setServerError] = useState("");
   const [showVerificationLink, setShowVerificationLink] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
-  const [loading, setLoading]         = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!email)                                          next.email    = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email    = 'Enter a valid email address';
-    if (!password)                                       next.password = 'Password is required';
+    if (!email) next.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      next.email = "Enter a valid email address";
+    if (!password) next.password = "Password is required";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setServerError('');
+    setServerError("");
     setShowVerificationLink(false);
     if (!validate()) return;
     setLoading(true);
     try {
       const res = await login({ email, password });
       setUser(res.data.data);
-      navigate('/');
+      navigate("/");
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
-        const unverified = err.response?.status === 403 && msg === 'Please verify your email before signing in';
+        const unverified =
+          err.response?.status === 403 &&
+          msg === "Please verify your email before signing in";
         setShowVerificationLink(unverified);
-        setServerError(err.response?.status === 401 ? (msg ?? 'Invalid email or password') : (msg ?? 'Something went wrong.'));
+        setServerError(
+          err.response?.status === 401
+            ? (msg ?? "Invalid email or password")
+            : (msg ?? "Something went wrong."),
+        );
       }
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleVerifyEmail = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+  ) => {
     event.preventDefault();
     if (sendingVerification) return;
 
     setSendingVerification(true);
     try {
       const response = await resendVerificationEmail(email);
-      navigate('/verify-email', {
+      navigate("/verify-email", {
         state: { email, verificationNotice: response.data.message },
       });
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 429) {
-        navigate('/verify-email', {
+        navigate("/verify-email", {
           state: {
             email,
             verificationNotice: err.response.data.message,
@@ -69,9 +83,12 @@ export default function Login() {
           },
         });
       } else if (axios.isAxiosError(err)) {
-        setServerError(err.response?.data?.message ?? 'The verification code could not be sent.');
+        setServerError(
+          err.response?.data?.message ??
+            "The verification code could not be sent.",
+        );
       } else {
-        setServerError('The verification code could not be sent.');
+        setServerError("The verification code could not be sent.");
       }
     } finally {
       setSendingVerification(false);
@@ -86,25 +103,52 @@ export default function Login() {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
           <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <svg
+              className="w-4 h-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
             </svg>
           </span>
-          <span className="font-extrabold text-white text-lg tracking-tight">EventMS</span>
+          <span className="font-extrabold text-white text-lg tracking-tight">
+            EventMS
+          </span>
         </Link>
         <div className="relative">
           <h2 className="text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">
             Manage events that move people.
           </h2>
           <p className="text-neutral-300 mt-4 leading-relaxed text-sm">
-            One platform for creating events, managing registrations, onboarding vendors and tracking attendance.
+            One platform for creating events, managing registrations, onboarding
+            vendors and tracking attendance.
           </p>
           <div className="mt-8 flex flex-col gap-3">
-            {['Secure role-based access', 'Digital tickets & check-in', 'Real-time reporting'].map(t => (
+            {[
+              "Secure role-based access",
+              "Digital tickets & check-in",
+              "Real-time reporting",
+            ].map((t) => (
               <div key={t} className="flex items-center gap-3">
                 <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="w-3 h-3 text-brand-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </span>
                 <span className="text-sm text-neutral-300">{t}</span>
@@ -112,7 +156,9 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <p className="relative text-xs text-neutral-600">© {new Date().getFullYear()} EventMS</p>
+        <p className="relative text-xs text-neutral-600">
+          © {new Date().getFullYear()} EventMS
+        </p>
       </div>
 
       {/* Right panel */}
@@ -121,15 +167,31 @@ export default function Login() {
           {/* Mobile logo */}
           <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
             <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg
+                className="w-3.5 h-3.5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
+            <span className="font-extrabold text-neutral-900 tracking-tight">
+              EventMS
+            </span>
           </Link>
 
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Welcome back</h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">Sign in to your account to continue.</p>
+          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
+            Welcome back
+          </h1>
+          <p className="text-sm text-neutral-500 mt-1 mb-7">
+            Sign in to your account to continue.
+          </p>
 
           {location.state?.registrationSuccess && (
             <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
@@ -138,8 +200,12 @@ export default function Login() {
           )}
 
           {location.state?.passwordResetSuccess && (
-            <div role="status" className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-              Your password has been reset. Please sign in with your new password.
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+            >
+              Your password has been reset. Please sign in with your new
+              password.
             </div>
           )}
 
@@ -153,17 +219,32 @@ export default function Login() {
                   onClick={handleVerifyEmail}
                   className="block mt-2 font-semibold text-brand-600 hover:text-brand-700"
                 >
-                  {sendingVerification ? 'Sending verification code...' : 'Verify your email'}
+                  {sendingVerification
+                    ? "Sending verification code..."
+                    : "Verify your email"}
                 </Link>
               )}
             </div>
           )}
 
           <form onSubmit={handleSubmit} noValidate className="form-stack">
-            <Input label="Email address" type="email" autoComplete="email"
-              value={email} onChange={e => setEmail(e.target.value)} error={errors.email} />
-            <Input label="Password" type="password" autoComplete="current-password"
-              value={password} onChange={e => setPassword(e.target.value)} error={errors.password} />
+            <Input
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={errors.email}
+            />
+            <Input
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+              showPasswordToggle
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={errors.password}
+            />
             <div className="-mt-2 flex justify-end">
               <Link
                 to="/forgot-password"
@@ -172,14 +253,24 @@ export default function Login() {
                 Forgot password?
               </Link>
             </div>
-            <Button type="submit" loading={loading} className="w-full" size="lg">
+            <Button
+              type="submit"
+              loading={loading}
+              className="w-full"
+              size="lg"
+            >
               Sign in
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">Create one</Link>
+            Don't have an account?{" "}
+            <Link
+              to="/register"
+              className="font-semibold text-brand-600 hover:text-brand-700"
+            >
+              Create one
+            </Link>
           </p>
         </div>
       </div>
