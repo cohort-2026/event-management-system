@@ -282,7 +282,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     ) {
       res.json({
         success: true,
-        message: 'A password reset code was recently sent. Please check your email.',
+        message: 'Password reset OTP have been successfully send to your email',
       });
       return;
     }
@@ -307,7 +307,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 
     res.json({
       success: true,
-      message: 'A password reset code has been sent to your email.',
+      message: 'Password reset OTP have been successfully send to your email',
     });
   } catch (err) {
     next(err);
