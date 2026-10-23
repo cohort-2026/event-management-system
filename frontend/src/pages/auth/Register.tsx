@@ -144,14 +144,14 @@ export default function Register() {
           <form onSubmit={handleSubmit} noValidate className="form-stack">
             <div className="grid grid-cols-2 gap-3">
               <Input label="First name" autoComplete="given-name"
-                value={form.firstname} onChange={set('firstname')} error={errors.firstname} />
+                value={form.firstname} onChange={set('firstname')} error={errors.firstname} placeholder='e.g Solomon'/>
               <Input label="Last name" autoComplete="family-name"
-                value={form.lastname} onChange={set('lastname')} error={errors.lastname} />
+                value={form.lastname} onChange={set('lastname')} error={errors.lastname} placeholder='e.g Khoza'/>
             </div>
             <Input label="Email address" type="email" autoComplete="email"
-              value={form.email} onChange={set('email')} error={errors.email} />
+              value={form.email} onChange={set('email')} error={errors.email} placeholder='example@gmail.com' />
             <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle
-              value={form.password} onChange={handlePasswordChange} error={errors.password} />
+              value={form.password} onChange={handlePasswordChange} error={errors.password} placeholder="••••••••" />
             <div className="-mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" aria-live="polite">
               {PASSWORD_RULES.map(rule => {
                 const passed = rule.test(form.password);
@@ -162,7 +162,7 @@ export default function Register() {
                 );
               })}
             </div>
-            <Input label="Confirm password" type="password" autoComplete="new-password"
+            <Input label="Confirm password" type="password" autoComplete="new-password" placeholder="••••••••"
               showPasswordToggle value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword}
               helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 

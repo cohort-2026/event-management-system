@@ -267,41 +267,47 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (user?.isActive) {
-      const existingReset = await prisma.passwordResetToken.findUnique({ where: { userId: user.id } });
-      if (
-        existingReset &&
-        Date.now() - existingReset.createdAt.getTime() < RESEND_COOLDOWN_SECONDS * 1000
-      ) {
-        res.json({
-          success: true,
-          message: 'If an active account exists for that email, a reset code has been sent.',
-        });
-        return;
-      }
-
-      const code = createOtp();
-      const codeHash = await bcrypt.hash(code, 12);
-      await prisma.passwordResetToken.upsert({
-        where: { userId: user.id },
-        update: {
-          tokenHash: codeHash,
-          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-          attempts: 0,
-          createdAt: new Date(),
-        },
-        create: {
-          userId: user.id,
-          tokenHash: codeHash,
-          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-        },
+    if (!user?.isActive) {
+      res.status(404).json({
+        success: false,
+        message: 'No account found with this email address. Please check your email and try again',
       });
-      await sendPasswordResetCode(email, code);
+      return;
     }
+
+    const existingReset = await prisma.passwordResetToken.findUnique({ where: { userId: user.id } });
+    if (
+      existingReset &&
+      Date.now() - existingReset.createdAt.getTime() < RESEND_COOLDOWN_SECONDS * 1000
+    ) {
+      res.json({
+        success: true,
+        message: 'Password reset OTP have been successfully send to your email',
+      });
+      return;
+    }
+
+    const code = createOtp();
+    const codeHash = await bcrypt.hash(code, 12);
+    await prisma.passwordResetToken.upsert({
+      where: { userId: user.id },
+      update: {
+        tokenHash: codeHash,
+        expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+        attempts: 0,
+        createdAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        tokenHash: codeHash,
+        expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+      },
+    });
+    await sendPasswordResetCode(email, code);
 
     res.json({
       success: true,
-      message: 'If an active account exists for that email, a reset code has been sent.',
+      message: 'Password reset OTP have been successfully send to your email',
     });
   } catch (err) {
     next(err);
