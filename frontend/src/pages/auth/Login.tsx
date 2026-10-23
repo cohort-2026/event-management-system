@@ -235,6 +235,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               error={errors.email}
+              placeholder="example@gmail.com"
             />
             <Input
               label="Password"
@@ -244,6 +245,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               error={errors.password}
+              placeholder="••••••••"
             />
             <div className="-mt-2 flex justify-end">
               <Link
