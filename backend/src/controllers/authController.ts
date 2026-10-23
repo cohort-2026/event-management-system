@@ -270,7 +270,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     if (!user?.isActive) {
       res.status(404).json({
         success: false,
-        message: 'Only registered emails in the database are allowed for password reset.',
+        message: 'No account found with this email address. Please check your email and try again',
       });
       return;
     }

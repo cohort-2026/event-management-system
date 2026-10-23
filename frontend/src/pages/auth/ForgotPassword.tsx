@@ -104,7 +104,7 @@ export default function ForgotPassword() {
               onChange={event => setEmail(event.target.value)}
             />
             <Button type="submit" loading={loading} className="w-full" size="lg">
-              Send reset code
+              Send OTP code
             </Button>
           </form>
 

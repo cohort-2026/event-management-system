@@ -1,7 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Link,
-  useLocation,
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
@@ -10,47 +9,116 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { resetPassword, requestPasswordReset } from "@/services/authService";
 
+interface FieldErrors {
+  code?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
+  { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
+  { label: "One lowercase letter", test: (value: string) => /[a-z]/.test(value) },
+  { label: "One number", test: (value: string) => /\d/.test(value) },
+  { label: "One special character", test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+];
+
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const location = useLocation();
   const navigate = useNavigate();
   const email = searchParams.get("email") ?? "";
-  const resetNotice =
-    typeof location.state?.resetNotice === "string"
-      ? location.state.resetNotice
-      : "";
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [resendMessage, setResendMessage] = useState("");
+  const [notice, setNotice] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextPassword = event.target.value;
+    const passwordIsValid = PASSWORD_RULES.every((rule) => rule.test(nextPassword));
+    setPassword(nextPassword);
+    setFieldErrors((current) => ({
+      ...current,
+      password: nextPassword && !passwordIsValid
+        ? "Password does not meet all requirements"
+        : undefined,
+      confirmPassword: confirmPassword && nextPassword !== confirmPassword
+        ? "Passwords do not match"
+        : undefined,
+    }));
+  };
+
+  const handleConfirmPasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextConfirmPassword = event.target.value;
+    setConfirmPassword(nextConfirmPassword);
+    setFieldErrors((current) => ({
+      ...current,
+      confirmPassword: nextConfirmPassword && nextConfirmPassword !== password
+        ? "Passwords do not match"
+        : undefined,
+    }));
+  };
+
+  const validate = (): boolean => {
+    const next: FieldErrors = {};
+    if (!/^\d{6}$/.test(code)) {
+      next.code = "Enter the six-digit code sent to your email.";
+    }
+    if (!password) {
+      next.password = "Password is required";
+    } else if (!PASSWORD_RULES.every((rule) => rule.test(password))) {
+      next.password = "Password does not meet all requirements";
+    }
+    if (!confirmPassword) {
+      next.confirmPassword = "Please confirm your password";
+    } else if (password !== confirmPassword) {
+      next.confirmPassword = "Passwords do not match";
+    }
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const handleResendCode = async () => {
-    setError("");
-    setResendMessage("");
+    if (resendCooldown > 0 || resending) return;
+
+    setServerError("");
+    setNotice("");
 
     if (!email) {
-      setError("Your email address is missing. Please try again.");
+      setServerError("Your email address is missing. Please try again.");
       return;
     }
 
     setResending(true);
 
     try {
-      await requestPasswordReset(email);
-
-      setResendMessage("New OTP sent successfully!");
+      const response = await requestPasswordReset(email);
+      setResendCooldown(response.data.retryAfter ?? 60);
+      setNotice(response.data.message || "A new password reset code has been sent.");
       setCode("");
+      setFieldErrors((current) => ({ ...current, code: undefined }));
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(
+        const retryAfter = err.response?.data?.retryAfter;
+        if (typeof retryAfter === "number") setResendCooldown(retryAfter);
+        setServerError(
           err.response?.data?.message ??
             "Failed to resend OTP. Please try again.",
         );
       } else {
-        setError("Failed to resend OTP. Please try again.");
+        setServerError("Failed to resend OTP. Please try again.");
       }
     } finally {
       setResending(false);
@@ -59,24 +127,14 @@ export default function ResetPassword() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
+    setServerError("");
+    setNotice("");
 
     if (!email) {
-      setError("The email address is missing. Request a new reset code.");
+      setServerError("The email address is missing. Request a new reset code.");
       return;
     }
-    if (!/^\d{6}$/.test(code)) {
-      setError("Enter the six-digit code sent to your email.");
-      return;
-    }
-    if (password.length < 8) {
-      setError("Your password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("The passwords do not match.");
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
     try {
@@ -87,12 +145,12 @@ export default function ResetPassword() {
       });
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(
+        setServerError(
           err.response?.data?.message ??
             "Your password could not be reset. Please try again.",
         );
       } else {
-        setError("Your password could not be reset. Please try again.");
+        setServerError("Your password could not be reset. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -189,22 +247,6 @@ export default function ResetPassword() {
               EventMS
             </span>
           </Link>
-          {resetNotice && (
-            <div
-              role="status"
-              className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-            >
-              {resetNotice}
-            </div>
-          )}
-          {error && (
-            <div
-              role="alert"
-              className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-            >
-              {error}
-            </div>
-          )}
 
           <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
             Reset your password
@@ -217,43 +259,42 @@ export default function ResetPassword() {
             , then choose a new password.
           </p>
 
-          {resetNotice && (
+          {notice && (
             <div
               role="status"
-              className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+              className="mb-5 rounded-lg bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700"
             >
-              {resetNotice}
+              {notice}
             </div>
           )}
-          {error && (
+          {serverError && (
             <div
               role="alert"
               className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700"
             >
-              {error}
-            </div>
-          )}
-
-          {resendMessage && (
-            <div
-              role="status"
-              className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-            >
-              {resendMessage}
+              {serverError}
             </div>
           )}
 
           <form onSubmit={handleSubmit} noValidate className="form-stack">
             <Input
-              label="Password reset code"
+              label="Enter OTP code"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
               value={code}
-              onChange={(event) =>
-                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-              }
+              onChange={(event) => {
+                const nextCode = event.target.value.replace(/\D/g, "").slice(0, 6);
+                setCode(nextCode);
+                setFieldErrors((current) => ({
+                  ...current,
+                  code: nextCode && !/^\d{6}$/.test(nextCode)
+                    ? "Enter the six-digit code sent to your email."
+                    : undefined,
+                }));
+              }}
+              error={fieldErrors.code}
             />
             <Input
               label="New password"
@@ -261,15 +302,28 @@ export default function ResetPassword() {
               autoComplete="new-password"
               showPasswordToggle
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={handlePasswordChange}
+              error={fieldErrors.password}
             />
+            <div className="-mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" aria-live="polite">
+              {PASSWORD_RULES.map((rule) => {
+                const passed = rule.test(password);
+                return (
+                  <span key={rule.label} className={passed ? "text-emerald-600" : "text-neutral-400"}>
+                    <span className="mr-1 font-semibold">{passed ? "✓" : "○"}</span>{rule.label}
+                  </span>
+                );
+              })}
+            </div>
             <Input
               label="Confirm new password"
               type="password"
               autoComplete="new-password"
               showPasswordToggle
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={handleConfirmPasswordChange}
+              error={fieldErrors.confirmPassword}
+              helperText={confirmPassword && password === confirmPassword ? "Passwords match" : undefined}
             />
             <Button
               type="submit"
@@ -281,23 +335,30 @@ export default function ResetPassword() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-500">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-2 text-center text-sm">
+            <span className="text-neutral-600">Didn't receive the code?</span>
             <button
               type="button"
               onClick={handleResendCode}
-              disabled={resending || loading || !email}
-              className="font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50"
+              disabled={resendCooldown > 0 || resending || loading || !email}
+              className="font-semibold text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-neutral-400"
             >
-              {resending ? "Sending OTP..." : "Resend OTP code"}
-            </button>{" "}
-            {" · "}
-            <Link
-              to="/login"
-              className="font-semibold text-brand-600 hover:text-brand-700"
-            >
-              Sign in
-            </Link>
-          </p>
+              {resending
+                ? "Sending..."
+                : resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : "Resend code"}
+            </button>
+            <div className="flex basis-full items-center justify-center gap-1.5 pt-2">
+              <span className="text-neutral-600">Already have your password?</span>
+              <Link
+                to="/login"
+                className="font-semibold text-brand-600 hover:text-brand-700"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
