@@ -18,13 +18,6 @@ const steps = [
   { n: '04', title: 'Attend & check in',       desc: 'On event day, organisers scan tickets and check attendees in digitally.' },
 ];
 
-const stats = [
-  { value: '500+',    label: 'Events hosted' },
-  { value: '12 000+', label: 'Attendees registered' },
-  { value: '200+',    label: 'Vendors onboarded' },
-  { value: '98%',     label: 'Check-in accuracy' },
-];
-
 export default function LandingPage() {
   const { user } = useAuth();
 
@@ -43,96 +36,56 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-
+      <a href="#main-content" className="sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:m-0 focus:h-auto focus:w-auto focus:overflow-visible focus:whitespace-normal focus:[clip:auto] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-neutral-900 focus:shadow-lg">
+        Skip to main content
+      </a>
       <Navbar />
 
+      <main id="main-content">
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden bg-neutral-300">
-        {/* Subtle grid overlay */}
-        {/* <div className="absolute inset-0 opacity-[0.03]"
-          // style={{ backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)', backgroundSize: '30px 30px' }} /> */}
-        {/* Glow blobs */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent-500 rounded-full opacity-8 blur-3xl" />
-
-        <div className="page-container relative py-24 md:py-36">
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)] items-center gap-10">
+      <section className="relative overflow-hidden bg-neutral-950">
+        <div className="page-container relative py-16 sm:py-20 lg:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-10 lg:gap-14">
             <div className="text-left flex flex-col items-start">
-              <div className="inline-flex items-center gap-2 bg-white/8 border border-white/12 text-white/80 text-lg font-semibold px-4 py-2 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent-400 inline-block" />
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-neutral-100 text-sm font-semibold px-4 py-2 rounded-full">
+                <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-accent-400 inline-block" />
                 Event Management Platform
               </div>
 
-              <h1 className="mt-7 text-5xl md:text-6xl font-black text-white leading-tight max-w-3xl tracking-tight">
-                Organise events that <span className="text-brand-400">people remember.</span>
+              <h1 className="mt-7 text-4xl sm:text-5xl lg:text-6xl font-black !text-white leading-tight max-w-3xl tracking-tight">
+                Organise events that <span className="text-accent-400">people remember.</span>
               </h1>
 
-              <p className="mt-5 text-lg text-neutral-800 max-w-xl leading-relaxed">
+              <p className="mt-5 text-base sm:text-lg !text-neutral-200 max-w-xl leading-relaxed">
                 One platform for creating events, managing registrations, onboarding vendors and tracking attendance — from first invite to final check-in.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center justify-start gap-3">
-                <Link to="/register" className="inline-flex items-center gap-2 bg-brand-400 text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-500 transition-colors shadow-lg">
+              <div className="mt-8 flex w-full flex-col sm:w-auto sm:flex-row items-stretch sm:items-center justify-start gap-3">
+                <Link to="/register" className="inline-flex items-center justify-center gap-2 bg-accent-500 text-neutral-950 font-bold px-6 py-3 rounded-lg hover:bg-accent-400 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                   Get started free
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                 </Link>
-                <Link to="/events" className="inline-flex items-center gap-2 bg-white/8 border border-white/15 text-white font-semibold px-6 py-3 rounded-lg hover:bg-white/12 transition-colors">
+                <Link to="/events" className="inline-flex items-center justify-center gap-2 bg-white/10 border border-white/25 text-white font-semibold px-6 py-3 rounded-lg hover:bg-white/15 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                   Browse events
                 </Link>
-              </div>
-
-              <div className="mt-8 grid grid-cols-3 gap-4 w-full max-w-xl border-t border-white/12 pt-5">
-                {stats.slice(0, 3).map(stat => (
-                  <div key={stat.label} className="min-w-0">
-                    <div className="text-2xl font-black text-white leading-none">{stat.value}</div>
-                    <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400 mt-2">{stat.label}</div>
-                  </div>
-                ))}
               </div>
             </div>
 
             <div className="relative">
-              <div className="absolute -left-6 -top-6 w-28 h-28 rounded-full bg-brand-600/30 blur-2xl" />
-              <div className="relative rounded-[2rem] border border-white/15 bg-white/8 overflow-hidden shadow-2xl">
-                {/* <div className="absolute top-4 left-4 z-10 px-3 py-2 rounded-full bg-white/90 text-xs font-black uppercase tracking-wide text-brand-700 shadow-sm">
-                  Today’s programme
-                </div> */}
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/20 bg-neutral-800 shadow-2xl">
                 <img
                   src="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1400&q=80"
-                  alt="Event experience"
-                  className="h-[460px] w-full object-cover"
+                  alt="Conference attendees gathered in a bright event venue"
+                  className="h-full w-full object-cover"
+                  fetchPriority="high"
                 />
-                {/* <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-neutral-950/70 border border-white/12 backdrop-blur-md p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-[0.24em] text-brand-300">Live event</span>
-                      <p className="text-white font-black text-lg mt-1">Strategy Summit 2026</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400">28 Aug</span>
-                      <span className="block text-white text-sm font-bold mt-1">09:00 — 17:00</span>
-                    </div>
-                  </div>
-                </div> */}
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* ── Stats ──
-      <section className="bg-brand-600">
-        <div className="page-container py-10 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {stats.map(s => (
-            <div key={s.label} className="text-center">
-              <p className="text-3xl font-black text-white">{s.value}</p>
-              <p className="text-sm font-medium text-brand-200 mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section> */}
 
       {/* ── Features ── */}
       <section className="bg-white border-b border-neutral-100">
@@ -146,20 +99,20 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map(f => (
-              <div key={f.title} className="p-6 rounded-2xl border border-neutral-200 hover:border-brand-200 hover:shadow-md transition-all duration-200 group bg-white">
-                <div className="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center mb-4 text-xl group-hover:bg-brand-50 transition-colors">
+              <article key={f.title} className="p-6 rounded-xl border border-neutral-200 hover:border-brand-200 hover:shadow-md transition-all duration-200 group bg-white">
+                <div aria-hidden="true" className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center mb-4 text-xl group-hover:bg-brand-50 transition-colors">
                   {f.icon}
                 </div>
                 <h3 className="font-bold text-neutral-900 mb-1.5 tracking-tight">{f.title}</h3>
                 <p className="text-sm text-neutral-500 leading-relaxed">{f.desc}</p>
-              </div>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
       {/* ── About ── */}
-      <section id="about" className="bg-neutral-50 border-b border-neutral-100">
+      <section id="about" className="scroll-mt-20 bg-neutral-50 border-b border-neutral-100">
         <div className="page-container py-20 md:py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -170,11 +123,14 @@ export default function LandingPage() {
               <p className="text-neutral-500 mt-4 leading-relaxed">
                 EventMS brings together organisers, attendees, vendors, and operational teams on one platform designed to make events easier to plan, promote, register, and track.
               </p>
-              <div className="grid grid-cols-2 gap-4 mt-8">
-                {[['360°', 'Event visibility'], ['24/7', 'Operational clarity']].map(([v, l]) => (
-                  <div key={l} className="rounded-xl bg-white border border-neutral-200 p-5 shadow-xs">
-                    <span className="text-2xl font-black text-brand-600">{v}</span>
-                    <p className="text-sm font-medium text-neutral-500 mt-1">{l}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+                {[
+                  ['Connected workflows', 'Events, registration, vendors and check-in in one place.'],
+                  ['Role-aware tools', 'Relevant views for attendees and event teams.'],
+                ].map(([title, description]) => (
+                  <div key={title} className="rounded-xl bg-white border border-neutral-200 p-5 shadow-xs">
+                    <span className="text-base font-bold text-brand-700">{title}</span>
+                    <p className="text-sm text-neutral-600 mt-2">{description}</p>
                   </div>
                 ))}
               </div>
@@ -219,9 +175,9 @@ export default function LandingPage() {
             <h2 className="text-3xl font-black text-neutral-900 tracking-tight">How it works</h2>
             <p className="text-neutral-500 mt-3">From registration to check-in in four simple steps.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {steps.map((s, i) => (
-              <div key={s.n} className="relative flex flex-col gap-3">
+              <li key={s.n} className="relative flex flex-col gap-3">
                 {i < steps.length - 1 && (
                   <div className="hidden lg:block absolute top-5 left-[calc(100%-0.5rem)] w-full h-px bg-neutral-200" />
                 )}
@@ -230,41 +186,30 @@ export default function LandingPage() {
                 </div>
                 <h3 className="font-bold text-neutral-900 tracking-tight">{s.title}</h3>
                 <p className="text-sm text-neutral-500 leading-relaxed">{s.desc}</p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
       {/* ── Contact ── */}
-      <section id="contact" className="bg-neutral-50 border-b border-neutral-100">
+      <section id="get-started" className="scroll-mt-20 bg-neutral-50 border-b border-neutral-100">
         <div className="page-container py-20 md:py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <span className="inline-flex items-center rounded-full bg-white border border-neutral-200 px-3 py-1 text-xs font-semibold text-neutral-600 uppercase tracking-wide">
-                Contact us
+                Get started
               </span>
-              <h2 className="text-3xl font-black text-neutral-900 mt-4 tracking-tight">Let's build your next event.</h2>
+              <h2 className="text-3xl font-black text-neutral-900 mt-4 tracking-tight">Start planning your next event.</h2>
               <p className="text-neutral-500 mt-4 leading-relaxed">
-                Speak with our team about your event goals, vendor requirements, public registrations, staff coordination, and operational planning.
+                Explore published events or create an account to bring your event planning and attendee management into one place.
               </p>
-              <div className="mt-8 flex flex-col gap-3">
-                {[
-                  { icon: '✉️', text: 'hello@eventms.com' },
-                  { icon: '📞', text: '+27 000 000 000' },
-                ].map(c => (
-                  <div key={c.text} className="flex items-center gap-3">
-                    <span className="w-9 h-9 rounded-lg bg-white border border-neutral-200 flex items-center justify-center text-base shadow-xs">{c.icon}</span>
-                    <span className="text-sm font-semibold text-neutral-700">{c.text}</span>
-                  </div>
-                ))}
-              </div>
             </div>
             <div className="rounded-2xl bg-neutral-950 text-white p-8 shadow-xl">
-              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-6">Request a consultation</p>
-              <h3 className="text-2xl font-black tracking-tight">Tell us about your event.</h3>
-              <p className="text-sm text-neutral-400 mt-3 leading-relaxed">
-                Our team will help you plan the right registration flow, vendor setup, and attendee experience.
+              <p className="text-xs font-semibold text-neutral-300 uppercase tracking-widest mb-6">Your next step</p>
+              <h3 className="text-2xl font-black tracking-tight !text-white">Ready when you are.</h3>
+              <p className="text-sm !text-neutral-200 mt-3 leading-relaxed">
+                Set up your account to start exploring the tools available to your role.
               </p>
               <Link to="/register" className="inline-flex items-center gap-2 mt-8 bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-brand-500 transition-colors">
                 Create an account
@@ -280,23 +225,26 @@ export default function LandingPage() {
       {/* ── CTA ── */}
       <section className="bg-brand-600">
         <div className="page-container py-16 flex flex-col items-center text-center gap-5">
-          <h2 className="text-3xl font-black text-white tracking-tight">Ready to get started?</h2>
-          <p className="text-brand-200 max-w-md">Join teams already powering their events with EventMS.</p>
+          <h2 className="text-3xl font-black !text-white tracking-tight">Ready to get started?</h2>
+          <p className="!text-white max-w-md">Explore tools built for organisers, attendees, and vendors.</p>
           <Link to="/register" className="inline-flex items-center gap-2 bg-white text-brand-700 font-bold px-7 py-3 rounded-lg hover:bg-brand-50 transition-colors shadow-sm">
             Create your free account
           </Link>
         </div>
       </section>
+      </main>
 
       {/* ── Footer ── */}
       <footer className="bg-white border-t border-neutral-200">
-        <div className="page-container py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-400">
+        <div className="page-container py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
           <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
           <span>© {new Date().getFullYear()} EventMS. All rights reserved.</span>
-          <div className="flex gap-5">
-            <Link to="/events" className="hover:text-neutral-600 transition-colors">Events</Link>
-            <Link to="/login"  className="hover:text-neutral-600 transition-colors">Sign in</Link>
-          </div>
+          <nav aria-label="Footer" className="flex flex-wrap justify-center gap-5">
+            <Link to="/landing#about" className="hover:text-neutral-900 transition-colors">About</Link>
+            <Link to="/landing#get-started" className="hover:text-neutral-900 transition-colors">Get started</Link>
+            <Link to="/events" className="hover:text-neutral-900 transition-colors">Events</Link>
+            <Link to="/login" className="hover:text-neutral-900 transition-colors">Sign in</Link>
+          </nav>
         </div>
       </footer>
     </div>

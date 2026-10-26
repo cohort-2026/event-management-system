@@ -14,8 +14,8 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
 
 const publicLinks = [
   { label: 'Events', to: '/events' },
-  { label: 'About', to: '/#about' },
-  { label: 'Contact', to: '/#contact' },
+  { label: 'About', to: '/landing#about' },
+  { label: 'Get started', to: '/landing#get-started' },
 ];
 
 export default function Navbar() {
@@ -41,7 +41,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav aria-label="Main" className="hidden md:flex items-center gap-1">
           {links.map(l => (
             <NavLink
               key={l.to}
@@ -78,7 +78,7 @@ export default function Navbar() {
               <Link to="/login" className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors px-3 py-2">
                 Sign in
               </Link>
-              <Link to="/register" className="text-sm font-semibold bg-brand-200 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors shadow-xs">
+              <Link to="/register" className="text-sm font-semibold bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors shadow-xs">
                 Get started
               </Link>
             </>
@@ -90,6 +90,8 @@ export default function Navbar() {
           className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
           onClick={() => setOpen(o => !o)}
           aria-label="Toggle menu"
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
         >
           {open
             ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -100,7 +102,7 @@ export default function Navbar() {
 
       {/* Mobile drawer */}
       {open && (
-        <div className="md:hidden border-t border-neutral-100 bg-white px-4 py-3 flex flex-col gap-1 shadow-md">
+        <nav id="mobile-navigation" aria-label="Mobile" className="md:hidden border-t border-neutral-100 bg-white px-4 py-3 flex flex-col gap-1 shadow-md">
           {links.map(l => (
             <Link key={l.to} to={l.to} onClick={() => setOpen(false)}
               className="px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition-colors">
@@ -123,13 +125,13 @@ export default function Navbar() {
                   Sign in
                 </Link>
                 <Link to="/register" onClick={() => setOpen(false)}
-                  className="px-3 py-2.5 rounded-lg text-sm font-semibold bg-brand-200 text-white text-center hover:bg-brand-700 transition-colors">
+                  className="px-3 py-2.5 rounded-lg text-sm font-semibold bg-brand-600 text-white text-center hover:bg-brand-700 transition-colors">
                   Get started
                 </Link>
               </>
             )}
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );
