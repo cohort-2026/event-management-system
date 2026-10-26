@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import type { UserRole } from '@/types/user';
 import Spinner from '@/components/ui/Spinner';
@@ -20,6 +20,7 @@ const dashboardPath: Record<UserRole, string> = {
 
 export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Props) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -31,6 +32,9 @@ export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Prop
 
   // Not logged in → send to login (or custom redirectGuest)
   if (!user) return <Navigate to={redirectGuest} replace />;
+  if (user.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
 
   // Root redirect: send to role-specific dashboard
   if (redirectGuest === '/landing') {

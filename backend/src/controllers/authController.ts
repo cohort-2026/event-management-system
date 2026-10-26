@@ -27,6 +27,7 @@ const USER_SELECT = {
   lastname: true,
   email: true,
   role: true,
+  mustChangePassword: true,
   createdAt: true,
 } as const;
 
@@ -267,12 +268,24 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
+    const genericResponse = {
+      success: true,
+      message: 'If an active account matches that email, a password reset code has been sent.',
+    };
     if (!user?.isActive) {
-      res.status(404).json({
-        success: false,
-        message: 'No account found with this email address. Please check your email and try again',
-      });
+      res.json(genericResponse);
       return;
+    }
+
+    if (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN') {
+      await prisma.auditLog.create({
+        data: {
+          actorId: user.id,
+          affectedUserId: user.id,
+          action: 'ADMIN_RECOVERY_REQUESTED',
+          outcome: 'requested',
+        },
+      });
     }
 
     const existingReset = await prisma.passwordResetToken.findUnique({ where: { userId: user.id } });
@@ -280,10 +293,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
       existingReset &&
       Date.now() - existingReset.createdAt.getTime() < RESEND_COOLDOWN_SECONDS * 1000
     ) {
-      res.json({
-        success: true,
-        message: 'Password reset OTP have been successfully send to your email',
-      });
+      res.json(genericResponse);
       return;
     }
 
@@ -305,10 +315,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     });
     await sendPasswordResetCode(email, code);
 
-    res.json({
-      success: true,
-      message: 'Password reset OTP have been successfully send to your email',
-    });
+    res.json(genericResponse);
   } catch (err) {
     next(err);
   }
@@ -332,7 +339,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } });
     const resetCode = user
       ? await prisma.passwordResetToken.findUnique({ where: { userId: user.id } })
       : null;
@@ -375,8 +382,18 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
       await transaction.user.update({
         where: { id: resetCode.userId },
-        data: { passwordHash },
+        data: { passwordHash, mustChangePassword: false },
       });
+      if (user && (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN')) {
+        await transaction.auditLog.create({
+          data: {
+            actorId: user.id,
+            affectedUserId: user.id,
+            action: 'ADMIN_RECOVERY_COMPLETED',
+            outcome: 'completed',
+          },
+        });
+      }
       return true;
     });
 
@@ -386,6 +403,57 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
 
     res.json({ success: true, message: 'Your password has been reset. You can now sign in.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'Current password and a new password of at least 8 characters are required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      res.status(400).json({ success: false, message: 'Current password is incorrect' });
+      return;
+    }
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      res.status(400).json({ success: false, message: 'Choose a new password that differs from your current password' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const updatedUser = await prisma.$transaction(async transaction => {
+      await transaction.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      const updated = await transaction.user.update({
+        where: { id: user.id },
+        data: { passwordHash, mustChangePassword: false },
+        select: USER_SELECT,
+      });
+      if (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN') {
+        await transaction.auditLog.create({
+          data: {
+            actorId: user.id,
+            affectedUserId: user.id,
+            action: 'ADMIN_PASSWORD_CHANGED',
+            outcome: 'completed',
+          },
+        });
+      }
+      return updated;
+    });
+
+    const token = jwt.sign(
+      { sub: updatedUser.id, role: updatedUser.role },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
+    );
+    res.cookie(COOKIE_NAME, token, cookieOptions);
+    res.json({ success: true, data: updatedUser, message: 'Password changed successfully' });
   } catch (err) {
     next(err);
   }

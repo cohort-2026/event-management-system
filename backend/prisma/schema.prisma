@@ -79,6 +79,7 @@ model User {
   role         Role     @default(ATTENDEE)
   isActive     Boolean  @default(true) @map("is_active")
   emailVerified Boolean  @default(false) @map("email_verified")
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -88,8 +89,23 @@ model User {
   bookings            Booking[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
+  auditEvents         AuditLog[] @relation("AuditActor")
 
   @@map("users")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  actorId        String   @map("actor_id")
+  action         String
+  affectedUserId String?  @map("affected_user_id")
+  outcome        String
+  createdAt      DateTime @default(now()) @map("created_at")
+  actor          User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
 }
 
 model EmailVerification {
