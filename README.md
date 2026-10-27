@@ -73,6 +73,10 @@ The client brief is available here:
 
 `docs/client-brief.md`
 
+For the current feature inventory, implementation status, and proposed
+assignable work items, see
+[Feature Inventory and Team Issue Backlog](docs/features-and-team-issues.md).
+
 ---
 
 ## Development
