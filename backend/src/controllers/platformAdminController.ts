@@ -18,7 +18,7 @@ export const listAdmins = async (_req: Request, res: Response, next: NextFunctio
         email: true,
         isActive: true,
         createdAt: true,
-        mustChangePassword: true,
+        mustChangePassword: false,
       },
       orderBy: { createdAt: 'desc' },
     });
