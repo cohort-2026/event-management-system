@@ -53,4 +53,8 @@ export const config = {
     (() => {
       throw new Error("MAIL_FROM is not defined in environment variables");
     })(),
+  platformAdminEmail: process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase() || undefined,
+  platformAdminFirstname: process.env.PLATFORM_ADMIN_FIRSTNAME?.trim() || undefined,
+  platformAdminLastname: process.env.PLATFORM_ADMIN_LASTNAME?.trim() || undefined,
+  platformAdminInitialPassword: process.env.PLATFORM_ADMIN_INITIAL_PASSWORD || undefined,
 };

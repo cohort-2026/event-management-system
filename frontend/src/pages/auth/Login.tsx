@@ -42,7 +42,7 @@ export default function Login() {
     try {
       const res = await login({ email, password });
       setUser(res.data.data);
-      navigate("/");
+      navigate(res.data.data.mustChangePassword ? '/change-password' : '/');
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;

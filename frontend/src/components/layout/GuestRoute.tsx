@@ -23,7 +23,7 @@ export default function GuestRoute() {
   }
 
   // Already logged in → send to their dashboard
-  if (user) return <Navigate to={dashboardPath[user.role] ?? '/events'} replace />;
+  if (user) return <Navigate to={user.mustChangePassword ? '/change-password' : (dashboardPath[user.role] ?? '/events')} replace />;
 
   return <Outlet />;
 }

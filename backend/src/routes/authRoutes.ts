@@ -8,6 +8,7 @@ import {
   resendVerificationEmail,
   requestPasswordReset,
   resetPassword,
+  changePassword,
 } from '@/controllers/authController';
 import { requireAuth } from '@/middleware/auth';
 
@@ -18,6 +19,7 @@ router.post('/verify-email', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
 router.post('/forgot-password', requestPasswordReset);
 router.post('/reset-password', resetPassword);
+router.post('/change-password', requireAuth, changePassword);
 router.post('/login', login);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
