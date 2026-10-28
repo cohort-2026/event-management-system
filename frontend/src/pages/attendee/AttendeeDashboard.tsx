@@ -5,19 +5,13 @@ import Badge from '@/components/ui/Badge';
 import StatCard from '@/components/ui/StatCard';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
 const bookings = [
   { id: 'BK-2301', event: 'Annual Tech Summit 2025', date: '2025-09-15', status: 'CONFIRMED', price: 'R350' },
   { id: 'BK-2302', event: 'Digital Marketing Masterclass', date: '2025-09-03', status: 'PENDING', price: 'R499' },
   { id: 'BK-2303', event: 'Women in Business Breakfast', date: '2025-08-14', status: 'CONFIRMED', price: 'R250' },
-];
-
-const events = [
-  { id: '1', title: 'Annual Tech Summit 2025', date: '15 Sep 2025', location: 'Sandton Convention Centre', category: 'Technology', status: 'PUBLISHED' },
-  { id: '2', title: 'Leadership & Management Workshop', date: '22 Aug 2025', location: 'The Pivot, Fourways', category: 'Training', status: 'PUBLISHED' },
-  { id: '3', title: 'Startup Networking Evening', date: '08 Aug 2025', location: 'Workshop17, Rosebank', category: 'Networking', status: 'PUBLISHED' },
-  { id: '4', title: 'Digital Marketing Masterclass', date: '03 Sep 2025', location: 'Online (Zoom)', category: 'Training', status: 'PUBLISHED' },
 ];
 
 const bookingVariant: Record<string, BadgeVariant> = {
@@ -27,6 +21,7 @@ const bookingVariant: Record<string, BadgeVariant> = {
 
 export default function AttendeeDashboard() {
   const { user } = useAuth();
+  const { events, total: eventCount, loading: eventsLoading, error: eventsError } = useEvents();
 
   return (
     <PageWrapper>
@@ -51,7 +46,7 @@ export default function AttendeeDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard label="Bookings" value={bookings.length} icon={<BookingIcon />} color="brand" />
-            <StatCard label="Upcoming events" value={events.length} icon={<EventIcon />} color="emerald" />
+            <StatCard label="Published events" value={eventCount} icon={<EventIcon />} color="emerald" />
             <StatCard label="Total spent" value="R1,099" icon={<TicketIcon />} color="purple" />
             <StatCard label="Saved tickets" value={3} icon={<CheckIcon />} color="amber" />
           </div>
@@ -100,12 +95,17 @@ export default function AttendeeDashboard() {
               </div>
 
               <div className="space-y-3">
+                {eventsError && <p role="alert" className="text-sm text-rose-600">{eventsError}</p>}
+                {eventsLoading && <p className="text-sm text-neutral-500">Loading published events…</p>}
+                {!eventsLoading && !eventsError && events.length === 0 && (
+                  <p className="text-sm text-neutral-500">There are no published events to browse right now.</p>
+                )}
                 {events.slice(0, 4).map(event => (
                   <div key={event.id} className="flex items-center justify-between gap-4 border border-neutral-100 rounded-2xl px-4 py-4 hover:bg-neutral-50 transition-colors">
                     <div className="min-w-0">
                       <p className="text-sm font-black text-neutral-900 truncate">{event.title}</p>
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500 mt-1">{event.category} • {event.location}</p>
-                      <p className="text-[11px] text-neutral-400 mt-1">{event.date}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500 mt-1">{event.category} • {event.venue}</p>
+                      <p className="text-[11px] text-neutral-400 mt-1">{new Date(event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                     <Link to={`/events/${event.id}`}> 
                       <Button size="sm" variant="secondary">Details</Button>

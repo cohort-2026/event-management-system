@@ -1,34 +1,40 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
-import type { Event } from '@/types/event';
+import { publishedMockEvents } from '@/data/mockEvents';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
 const statusVariant: Record<string, BadgeVariant> = {
   PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
 };
 
-const MOCK: Event = {
-  id: '1', title: 'Annual Tech Summit 2025',
-  description: `Join us for a full-day conference bringing together technology leaders, innovators and developers to explore the future of software.\n\nThis year's summit features keynote addresses from industry pioneers, hands-on workshops, panel discussions on AI, cloud computing and cybersecurity, and an exhibition floor with the latest tools and platforms.\n\nWhether you are a seasoned engineer or just starting your career in tech, the Annual Tech Summit offers something for everyone.`,
-  category: 'Technology', venue: 'Sandton Convention Centre, Johannesburg',
-  date: '2025-09-15T09:00:00Z', capacity: 500, availableCapacity: 142,
-  isFree: false, price: 350, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '',
-};
-
 export default function EventDetail() {
   const { user } = useAuth();
-  const event = MOCK;
+  const { id } = useParams();
+  const event = publishedMockEvents.find(item => item.id === id);
+  if (!event) {
+    return (
+      <PageWrapper>
+        <div role="alert" className="rounded-2xl border border-neutral-200 bg-white p-8 text-center">
+          <p className="font-semibold text-neutral-800">This sample event could not be found.</p>
+          <Link to="/events" className="mt-4 inline-block text-sm font-bold text-brand-700 hover:text-brand-900">Browse published events</Link>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   const date = new Date(event.date);
-  const filled = event.capacity - event.availableCapacity;
-  const fillPct = Math.round((filled / event.capacity) * 100);
+  const filled = Math.max(0, event.capacity - event.availableCapacity);
+  const fillPct = event.capacity > 0 ? Math.min(100, Math.round((filled / event.capacity) * 100)) : 0;
+  const bookingOpen = event.bookingOpen ?? event.availableCapacity > 0;
+  const bookingClosedMessage = event.availableCapacity === 0
+    ? event.isFree ? 'Fully booked' : 'Sold out'
+    : 'Bookings are closed for this event';
 
   return (
     <PageWrapper>
-      {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-neutral-400 mb-6">
         <Link to="/events" className="hover:text-brand-600 transition-colors">Events</Link>
         <span>/</span>
@@ -36,30 +42,39 @@ export default function EventDetail() {
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* ── Left: details ── */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Header card */}
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-            <div className="h-3 bg-brand-600" />
+            <div className="relative h-48 overflow-hidden bg-gradient-to-r from-brand-800 via-brand-600 to-cyan-500">
+              {event.imageUrl && (
+                <img
+                  src={event.imageUrl}
+                  alt={`${event.title} event`}
+                  onError={image => {
+                    image.currentTarget.style.display = 'none';
+                  }}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" aria-hidden="true" />
+            </div>
             <div className="p-6 flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <span className="text-xs font-medium text-brand-600 uppercase tracking-wide">{event.category}</span>
                   <h1 className="text-2xl font-bold text-neutral-900 mt-1">{event.title}</h1>
                 </div>
-                <Badge variant={statusVariant[event.status] ?? 'default'}>
-                  {event.status.replace('_', ' ')}
+                <Badge variant={!bookingOpen ? 'danger' : statusVariant[event.status] ?? 'default'}>
+                  {!bookingOpen ? bookingClosedMessage : event.status.replace('_', ' ')}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InfoRow icon="📅" label="Date & Time" value={date.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' at ' + date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })} />
                 <InfoRow icon="📍" label="Venue" value={event.venue} />
-                <InfoRow icon="🎟" label="Ticket price" value={event.isFree ? 'Free' : `R${event.price}`} />
+                <InfoRow icon="🎟" label="Ticket price" value={event.isFree ? 'Free' : `From R${event.price?.toLocaleString('en-ZA') ?? '—'}`} />
                 <InfoRow icon="👥" label="Capacity" value={`${event.availableCapacity} spots remaining of ${event.capacity}`} />
               </div>
 
-              {/* Capacity bar */}
               <div>
                 <div className="flex justify-between text-xs text-neutral-500 mb-1">
                   <span>{filled} registered</span>
@@ -75,24 +90,22 @@ export default function EventDetail() {
             </div>
           </div>
 
-          {/* Description */}
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
             <h2 className="text-lg font-semibold text-neutral-900 mb-3">About this event</h2>
             <div className="text-sm text-neutral-600 leading-relaxed whitespace-pre-line">{event.description}</div>
           </div>
         </div>
 
-        {/* ── Right: booking card ── */}
         <div className="flex flex-col gap-4">
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6 flex flex-col gap-4 sticky top-20">
             <div>
-              <p className="text-2xl font-bold text-neutral-900">{event.isFree ? 'Free' : `R${event.price}`}</p>
+              <p className="text-2xl font-bold text-neutral-900">{event.isFree ? 'Free' : `From R${event.price?.toLocaleString('en-ZA') ?? '—'}`}</p>
               <p className="text-sm text-neutral-400">per person</p>
             </div>
 
-            {event.availableCapacity === 0 ? (
+            {!bookingOpen ? (
               <div className="rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700 text-center font-medium">
-                Sold out
+                {bookingClosedMessage}
               </div>
             ) : user ? (
               <Button className="w-full">
@@ -104,7 +117,7 @@ export default function EventDetail() {
                   <Button className="w-full">Sign in to register</Button>
                 </Link>
                 <Link to="/register" className="text-center text-sm text-brand-600 hover:text-brand-700">
-                  Don't have an account? Register
+                  Don&apos;t have an account? Register
                 </Link>
               </div>
             )}

@@ -1,7 +1,7 @@
 import api from '@/services/api';
-import type { Event, CreateEventDto, UpdateEventDto } from '@/types/event';
+import type { Event, EventListParams, EventListResponse, CreateEventDto, UpdateEventDto } from '@/types/event';
 
-export const getEvents       = ()                                    => api.get<Event[]>('/events');
+export const getEvents       = (params?: EventListParams)            => api.get<EventListResponse>('/events', { params });
 export const getEventById    = (id: string)                          => api.get<Event>(`/events/${id}`);
 export const createEvent     = (data: CreateEventDto)                => api.post<Event>('/events', data);
 export const updateEvent     = (id: string, data: UpdateEventDto)    => api.put<Event>(`/events/${id}`, data);

@@ -1,36 +1,50 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import EventCard from '@/components/ui/EventCard';
 import Input from '@/components/ui/Input';
-import type { Event } from '@/types/event';
+import { publishedMockEvents } from '@/data/mockEvents';
+import type { EventListParams } from '@/types/event';
 
-const MOCK_EVENTS: Event[] = [
-  { id: '1', title: 'Annual Tech Summit 2025', description: 'A full-day conference bringing together technology leaders, innovators and developers to explore the future of software.', category: 'Technology', venue: 'Sandton Convention Centre, Johannesburg', date: '2025-09-15T09:00:00Z', capacity: 500, availableCapacity: 142, isFree: false, price: 350, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '2', title: 'Leadership & Management Workshop', description: 'An intensive one-day workshop designed to sharpen leadership skills and management techniques for mid-level professionals.', category: 'Training', venue: 'The Pivot, Montecasino, Fourways', date: '2025-08-22T08:30:00Z', capacity: 80, availableCapacity: 23, isFree: false, price: 1200, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '3', title: 'Startup Networking Evening', description: 'Connect with founders, investors and ecosystem builders over drinks and light snacks in a relaxed setting.', category: 'Networking', venue: 'Workshop17, Rosebank', date: '2025-08-08T18:00:00Z', capacity: 150, availableCapacity: 67, isFree: true, status: 'PUBLISHED', organizerId: 'org2', createdAt: '', updatedAt: '' },
-  { id: '4', title: 'Company Year-End Celebration', description: 'Join us for an evening of celebration, awards and entertainment as we close out an incredible year together.', category: 'Company Activity', venue: 'Emperors Palace, Kempton Park', date: '2025-11-28T18:30:00Z', capacity: 300, availableCapacity: 300, isFree: true, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '5', title: 'Digital Marketing Masterclass', description: 'Learn the latest strategies in SEO, paid media, content marketing and analytics from industry practitioners.', category: 'Training', venue: 'Online (Zoom)', date: '2025-09-03T10:00:00Z', capacity: 200, availableCapacity: 88, isFree: false, price: 499, status: 'PUBLISHED', organizerId: 'org3', createdAt: '', updatedAt: '' },
-  { id: '6', title: 'Women in Business Breakfast', description: 'An inspiring morning of panel discussions, networking and mentorship opportunities for women in the corporate sector.', category: 'Networking', venue: 'The Saxon Hotel, Sandhurst', date: '2025-08-14T07:30:00Z', capacity: 100, availableCapacity: 12, isFree: false, price: 250, status: 'PUBLISHED', organizerId: 'org2', createdAt: '', updatedAt: '' },
-];
-
-const CATEGORIES = ['All', 'Technology', 'Training', 'Networking', 'Company Activity'];
+const PAGE_SIZE = 12;
 
 export default function EventList() {
   const navigate = useNavigate();
-  const [search, setSearch]     = useState('');
-  const [category, setCategory] = useState('All');
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [location, setLocation] = useState('');
+  const [free, setFree] = useState('');
+  const [sort, setSort] = useState<NonNullable<EventListParams['sort']>>('date');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const filtered = MOCK_EVENTS.filter(e => {
-    const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
-                        e.venue.toLowerCase().includes(search.toLowerCase());
-    const matchCat    = category === 'All' || e.category === category;
-    return matchSearch && matchCat;
-  });
+  const categories = [...new Set(publishedMockEvents.map(event => event.category))].sort();
+  const locations = [...new Set(publishedMockEvents.map(event => event.venue))].sort();
+  const filteredEvents = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    const filtered = publishedMockEvents.filter(event => {
+      const eventDate = event.date.slice(0, 10);
+      return (
+        (!keyword || `${event.title} ${event.description}`.toLowerCase().includes(keyword)) &&
+        (!category || event.category === category) &&
+        (!location || event.venue === location) &&
+        (!free || event.isFree === (free === 'true')) &&
+        (!dateFrom || eventDate >= dateFrom) &&
+        (!dateTo || eventDate <= dateTo)
+      );
+    });
+
+    return filtered.sort((a, b) => {
+      if (sort === 'popularity') return (b.popularity ?? 0) - (a.popularity ?? 0);
+      if (sort === 'recent') return b.createdAt.localeCompare(a.createdAt);
+      return a.date.localeCompare(b.date);
+    });
+  }, [search, category, location, free, dateFrom, dateTo, sort]);
+  const visibleEvents = filteredEvents.slice(0, visibleCount);
 
   return (
     <PageWrapper>
-      {/* Page header */}
       <div className="mb-8">
         <button
           type="button"
@@ -43,57 +57,147 @@ export default function EventList() {
           </svg>
           <span>Previous</span>
         </button>
-
-        <h1 className="text-3xl font-bold text-neutral-900 mt-4">Upcoming Events</h1>
-        <p className="text-neutral-500 mt-1">Browse and register for events happening near you.</p>
+        <h1 className="text-3xl font-bold text-neutral-900 mt-4">Explore events</h1>
+        <p className="text-neutral-500 mt-1">Discover published events and find your next experience.</p>
+        <p className="mt-3 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+          Sample events while live event data is being connected
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="flex-1 max-w-sm">
+      <section aria-label="Search and filter events" className="mb-7 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xs">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Input
-            placeholder="Search events or venues…"
+            label="Search"
+            placeholder="Event name or keyword"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={event => {
+              setSearch(event.target.value);
+              setVisibleCount(PAGE_SIZE);
+            }}
           />
+          <Select label="Category" value={category} onChange={value => {
+            setCategory(value);
+            setVisibleCount(PAGE_SIZE);
+          }}>
+            <option value="">All categories</option>
+            {categories.map(value => <option key={value} value={value}>{value}</option>)}
+          </Select>
+          <Select label="Location" value={location} onChange={value => {
+            setLocation(value);
+            setVisibleCount(PAGE_SIZE);
+          }}>
+            <option value="">All locations</option>
+            {locations.map(value => <option key={value} value={value}>{value}</option>)}
+          </Select>
+          <Select label="Price" value={free} onChange={value => {
+            setFree(value);
+            setVisibleCount(PAGE_SIZE);
+          }}>
+            <option value="">Free and paid</option>
+            <option value="true">Free events</option>
+            <option value="false">Paid events</option>
+          </Select>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            Date from
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={event => {
+                setDateFrom(event.target.value);
+                setVisibleCount(PAGE_SIZE);
+              }}
+              className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            Date to
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={event => {
+                setDateTo(event.target.value);
+                setVisibleCount(PAGE_SIZE);
+              }}
+              className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </label>
+          <Select label="Sort by" value={sort} onChange={value => {
+            setSort(value as NonNullable<EventListParams['sort']>);
+            setVisibleCount(PAGE_SIZE);
+          }}>
+            <option value="date">Date</option>
+            <option value="popularity">Popularity</option>
+            <option value="recent">Recently published</option>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map(c => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors
-                ${category === c
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'bg-white text-neutral-600 border-neutral-300 hover:border-brand-400 hover:text-brand-600'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+      </section>
+
+      <div className="mb-4">
+        <p className="text-sm text-neutral-500" aria-live="polite">
+          {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found
+        </p>
       </div>
 
-      {/* Results count */}
-      <p className="text-sm text-neutral-400 mb-4">
-        {filtered.length} event{filtered.length !== 1 ? 's' : ''} found
-      </p>
-
-      {/* Grid */}
-      {filtered.length > 0 ? (
-        <div className="card-grid">
-          {filtered.map(e => <EventCard key={e.id} event={e} />)}
-        </div>
+      {visibleEvents.length > 0 ? (
+        <>
+          <div className="card-grid">
+            {visibleEvents.map(event => <EventCard key={event.id} event={event} />)}
+          </div>
+          {visibleCount < filteredEvents.length && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setVisibleCount(count => count + PAGE_SIZE)}
+                className="rounded-xl border border-brand-200 bg-white px-6 py-3 text-sm font-bold text-brand-700 transition-colors hover:bg-brand-50"
+              >
+                Load more events
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+            <svg className="h-8 w-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 0v4m-9 4h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
           <p className="font-medium text-neutral-700">No events found</p>
-          <p className="text-sm text-neutral-400 mt-1">Try adjusting your search or filter.</p>
+          <p className="mt-1 text-sm text-neutral-400">Try adjusting your search or filters.</p>
         </div>
       )}
+
     </PageWrapper>
+  );
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  const id = `event-filter-${label.toLowerCase().replaceAll(' ', '-')}`;
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+      {label}
+      <select
+        id={id}
+        value={value}
+        onChange={event => {
+          onChange(event.target.value);
+        }}
+        className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+      >
+        {children}
+      </select>
+    </label>
   );
 }
