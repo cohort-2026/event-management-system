@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { createOrganizer } from '@/services/organizerService';
 
 const pendingEvents = [
   { id: '3', title: 'Q4 Strategy Session',       organizer: 'Thabo Nkosi',    submitted: '2 hours ago',  category: 'Training'    },
@@ -24,7 +26,33 @@ const roleVariant: Record<string, 'info' | 'success' | 'purple'> = {
 };
 
 export default function AdminDashboard() {
-  const [organizer, setOrganizer] = useState({ firstname: '', lastname: '', email: '', organization: '' });
+  const [organizer, setOrganizer] = useState({ firstname: '', lastname: '', email: '' });
+  const [savingOrganizer, setSavingOrganizer] = useState(false);
+  const [organizerError, setOrganizerError] = useState('');
+  const [organizerNotice, setOrganizerNotice] = useState('');
+
+  const handleCreateOrganizer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setOrganizerError('');
+    setOrganizerNotice('');
+    setSavingOrganizer(true);
+
+    try {
+      const response = await createOrganizer({
+        firstname: organizer.firstname.trim(),
+        lastname: organizer.lastname.trim(),
+        email: organizer.email.trim(),
+      });
+      setOrganizerNotice(response.data.message ?? 'Organizer created. A temporary password has been emailed.');
+      setOrganizer({ firstname: '', lastname: '', email: '' });
+    } catch (err) {
+      setOrganizerError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Organizer account could not be created.')
+        : 'Organizer account could not be created.');
+    } finally {
+      setSavingOrganizer(false);
+    }
+  };
 
   return (
     <PageWrapper>
@@ -74,17 +102,55 @@ export default function AdminDashboard() {
                 <span className="rounded-full bg-brand-50 text-brand-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Admin action</span>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="First name" value={organizer.firstname} onChange={e => setOrganizer({ ...organizer, firstname: e.target.value })} />
-                <Input label="Last name" value={organizer.lastname} onChange={e => setOrganizer({ ...organizer, lastname: e.target.value })} />
-                <Input label="Email address" type="email" value={organizer.email} onChange={e => setOrganizer({ ...organizer, email: e.target.value })} />
-                <Input label="Organization" value={organizer.organization} onChange={e => setOrganizer({ ...organizer, organization: e.target.value })} />
-              </div>
+              {organizerError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{organizerError}</p>}
+              {organizerNotice && <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{organizerNotice}</p>}
 
-              <div className="mt-5 flex items-center justify-end gap-3">
-                <Button variant="secondary">Cancel</Button>
-                <Button>Register organizer</Button>
-              </div>
+              <form onSubmit={handleCreateOrganizer}>
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="First name"
+                    autoComplete="given-name"
+                    maxLength={100}
+                    value={organizer.firstname}
+                    onChange={e => setOrganizer({ ...organizer, firstname: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Last name"
+                    autoComplete="family-name"
+                    maxLength={100}
+                    value={organizer.lastname}
+                    onChange={e => setOrganizer({ ...organizer, lastname: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Email address"
+                    type="email"
+                    autoComplete="email"
+                    maxLength={254}
+                    value={organizer.email}
+                    onChange={e => setOrganizer({ ...organizer, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  A secure temporary password will be emailed. The organizer must replace it with a permanent password before accessing the account.
+                </p>
+                <div className="mt-5 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setOrganizer({ firstname: '', lastname: '', email: '' });
+                      setOrganizerError('');
+                      setOrganizerNotice('');
+                    }}
+                  >
+                    Clear
+                  </Button>
+                  <Button type="submit" loading={savingOrganizer}>Register organizer</Button>
+                </div>
+              </form>
             </section>
 
             <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">

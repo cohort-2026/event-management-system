@@ -55,7 +55,7 @@ Required role: `ADMIN`
 |---|---|---|
 | `/admin` | `pages/admin/AdminDashboard.tsx` | Overview of pending events and system activity |
 | `/admin/approvals` | `pages/admin/ApprovalQueue.tsx` | Review and approve/reject `PENDING_APPROVAL` events |
-| `/admin/users` | `pages/admin/UserManagement.tsx` | Manage organizer accounts and roles |
+| `/admin/users` | `pages/admin/UserManagement.tsx` | Create and list organizer accounts |
 
 ---
 
