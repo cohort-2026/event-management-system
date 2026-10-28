@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
+import { createOrganizer, listOrganizers } from '@/controllers/organizerController';
 
 const router = Router();
+
+router.get('/organizers', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listOrganizers);
+router.post('/organizers', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), createOrganizer);
 
 // All user management endpoints are Admin-only
 // GET   /api/users                  List all users

@@ -11,6 +11,7 @@ import VerifyEmail from '@/pages/auth/VerifyEmail';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
 import ChangePassword from '@/pages/auth/ChangePassword';
+import SetupPassword from '@/pages/auth/SetupPassword';
 
 // Public
 import LandingPage from '@/pages/LandingPage';
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password"  element={<ResetPassword />} />
           </Route>
+          <Route path="/setup-password" element={<SetupPassword />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/change-password" element={<ChangePassword />} />
             </Route>
