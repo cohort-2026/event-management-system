@@ -6,6 +6,7 @@ import vendorRoutes       from '@/routes/vendorRoutes';
 import ticketRoutes       from '@/routes/ticketRoutes';
 import userRoutes         from '@/routes/userRoutes';
 import reportRoutes       from '@/routes/reportRoutes';
+import platformAdminRoutes from '@/routes/platformAdminRoutes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/vendors',   vendorRoutes);
 router.use('/tickets',   ticketRoutes);
 router.use('/users',     userRoutes);
 router.use('/reports',   reportRoutes);
+router.use('/platform-admin', platformAdminRoutes);
 
 export default router;

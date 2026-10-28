@@ -10,6 +10,7 @@ import Register from '@/pages/auth/Register';
 import VerifyEmail from '@/pages/auth/VerifyEmail';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
+import ChangePassword from '@/pages/auth/ChangePassword';
 
 // Public
 import LandingPage from '@/pages/LandingPage';
@@ -41,6 +42,7 @@ import UserManagement from '@/pages/admin/UserManagement';
 
 // Platform Admin
 import PlatformSettings from '@/pages/platform-admin/PlatformSettings';
+import PlatformAuditHistory from '@/pages/platform-admin/PlatformAuditHistory';
 
 // Management
 import ReportsDashboard from '@/pages/management/ReportsDashboard';
@@ -63,6 +65,9 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password"  element={<ResetPassword />} />
           </Route>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/change-password" element={<ChangePassword />} />
+            </Route>
 
           {/* ── Public (accessible to everyone) ── */}
           <Route path="/landing" element={<LandingPage />} />
@@ -105,6 +110,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['PLATFORM_ADMIN']} />}>
             <Route path="/platform-admin"                    element={<PlatformSettings />} />
             <Route path="/platform-admin/admins"             element={<PlatformSettings />} />
+            <Route path="/platform-admin/audit"              element={<PlatformAuditHistory />} />
           </Route>
 
           {/* ── Management ── */}
@@ -131,6 +137,8 @@ function RootRedirect() {
       </div>
     );
   }
+
+  if (user?.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   if (user) {
     const dashboardPath: Record<string, string> = {

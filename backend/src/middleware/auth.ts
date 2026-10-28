@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 import { config } from '@/config/index';
 import type { UserRole } from '@/types/user';
+
+const prisma = new PrismaClient();
 
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; role: UserRole };
+      user?: { id: string; role: UserRole; mustChangePassword: boolean };
     }
   }
 }
@@ -20,7 +23,7 @@ interface JwtPayload {
 // Verifies the signed JWT from the httpOnly cookie and attaches req.user.
 // Returns 401 when no cookie is present or the token is invalid/expired.
 
-export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const requireAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const token = req.cookies?.auth_token;
 
   if (!token) {
@@ -28,13 +31,35 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
+  let payload: JwtPayload;
   try {
-    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
-    req.user = { id: payload.sub, role: payload.role };
-    next();
+    payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
   } catch {
     res.status(401).json({ success: false, message: 'Invalid or expired session' });
+    return;
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { id: true, role: true, isActive: true, mustChangePassword: true },
+  });
+
+  if (!user || !user.isActive) {
+    res.status(401).json({ success: false, message: 'Invalid or expired session' });
+    return;
+  }
+
+  req.user = {
+    id: user.id,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+  };
+
+  if (user.mustChangePassword && !(req.path === '/me' || req.path === '/change-password')) {
+    res.status(403).json({ success: false, message: 'Change your temporary password before continuing' });
+    return;
+  }
+  next();
 };
 
 // ─── requireRole ─────────────────────────────────────────────────────────────

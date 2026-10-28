@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { config } from '@/config/index';
 import routes from '@/routes/index';
 import { errorHandler } from '@/middleware/errorHandler';
+import { provisionInitialPlatformAdmin } from '@/services/platformAdminProvisioning';
 
 const app = express();
 
@@ -18,6 +19,14 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api', routes);
 app.use(errorHandler);
 
-app.listen(config.port, () => {
-  console.log(`Server running on http://localhost:${config.port}`);
+async function startServer(): Promise<void> {
+  await provisionInitialPlatformAdmin();
+  app.listen(config.port, () => {
+    console.log(`Server running on http://localhost:${config.port}`);
+  });
+}
+
+startServer().catch(error => {
+  console.error('Server startup failed:', error);
+  process.exitCode = 1;
 });

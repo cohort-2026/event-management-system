@@ -1,17 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
-
-const platformAdmins = [
-  { id: 'A-1001', name: 'Olivia Mokoena', email: 'olivia@eventms.co.za', status: 'ACTIVE', role: 'Platform Admin' },
-  { id: 'A-1002', name: 'Samuel Ndlovu', email: 'samuel@eventms.co.za', status: 'ACTIVE', role: 'Platform Admin' },
-];
+import Spinner from '@/components/ui/Spinner';
+import { createManagedAdmin, getManagedAdmins, updateManagedAdminStatus, type ManagedAdmin } from '@/services/platformAdminService';
 
 export default function PlatformSettings() {
-  const [admin, setAdmin] = useState({ firstname: '', lastname: '', email: '', title: '' });
+  const [admin, setAdmin] = useState({ firstname: '', lastname: '', email: '' });
+  const [admins, setAdmins] = useState<ManagedAdmin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const loadAdmins = () => getManagedAdmins()
+    .then(response => setAdmins(response.data.data))
+    .catch(err => setError(axios.isAxiosError(err)
+      ? (err.response?.data?.message ?? 'Administrator accounts could not be loaded.')
+      : 'Administrator accounts could not be loaded.'))
+    .finally(() => setLoading(false));
+
+  useEffect(() => { void loadAdmins(); }, []);
+
+  const handleCreateAdmin = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    setSaving(true);
+    try {
+      const response = await createManagedAdmin(admin);
+      setNotice(response.data.message ?? 'Administrator created and invitation sent.');
+      setAdmin({ firstname: '', lastname: '', email: '' });
+      await loadAdmins();
+    } catch (err) {
+      setError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Administrator account could not be created.')
+        : 'Administrator account could not be created.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatus = async (person: ManagedAdmin) => {
+    setError('');
+    setNotice('');
+    try {
+      await updateManagedAdminStatus(person.id, !person.isActive);
+      setAdmins(current => current.map(admin => admin.id === person.id ? { ...admin, isActive: !person.isActive } : admin));
+    } catch (err) {
+      setError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Administrator status could not be updated.')
+        : 'Administrator status could not be updated.');
+    }
+  };
 
   return (
     <PageWrapper>
@@ -22,8 +66,8 @@ export default function PlatformSettings() {
           items={[
             { label: 'Dashboard', to: '/platform-admin', icon: <DashboardIcon /> },
             { label: 'Register admins', to: '/platform-admin/admins', icon: <UsersIcon /> },
+            { label: 'Audit history', to: '/platform-admin/audit', icon: <KeyIcon /> },
             { label: 'Settings', to: '/platform-admin/settings', icon: <SettingsIcon /> },
-            { label: 'Account recovery', to: '/platform-admin/account-recovery', icon: <KeyIcon /> },
           ]}
         />
 
@@ -39,22 +83,24 @@ export default function PlatformSettings() {
               <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-4">
                 <div>
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-brand-700">Admin access</span>
-                  <h2 className="text-xl font-black text-neutral-900 mt-1">Register platform admin</h2>
+                  <h2 className="text-xl font-black text-neutral-900 mt-1">Register administrator</h2>
                 </div>
                 <span className="rounded-full bg-brand-50 text-brand-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide">System</span>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="First name" value={admin.firstname} onChange={e => setAdmin({ ...admin, firstname: e.target.value })} />
-                <Input label="Last name" value={admin.lastname} onChange={e => setAdmin({ ...admin, lastname: e.target.value })} />
-                <Input label="Email address" type="email" value={admin.email} onChange={e => setAdmin({ ...admin, email: e.target.value })} />
-                <Input label="Role title" value={admin.title} onChange={e => setAdmin({ ...admin, title: e.target.value })} />
-              </div>
-
-              <div className="mt-5 flex items-center justify-end gap-3">
-                <Button variant="secondary">Cancel</Button>
-                <Button>Create admin</Button>
-              </div>
+              {error && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+              {notice && <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+              <form onSubmit={handleCreateAdmin}>
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input label="First name" autoComplete="given-name" value={admin.firstname} onChange={e => setAdmin({ ...admin, firstname: e.target.value })} required />
+                  <Input label="Last name" autoComplete="family-name" value={admin.lastname} onChange={e => setAdmin({ ...admin, lastname: e.target.value })} required />
+                  <Input label="Email address" type="email" autoComplete="email" value={admin.email} onChange={e => setAdmin({ ...admin, email: e.target.value })} required />
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">A temporary password will be emailed. The new administrator must replace it at first sign-in.</p>
+                <div className="mt-5 flex justify-end">
+                  <Button type="submit" loading={saving}>Create admin</Button>
+                </div>
+              </form>
             </section>
 
             <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
@@ -63,22 +109,28 @@ export default function PlatformSettings() {
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-500">Platform users</span>
                   <h2 className="text-xl font-black text-neutral-900 mt-1">Admin directory</h2>
                 </div>
-                <Badge variant="success">{platformAdmins.length} active</Badge>
+                <Badge variant="success">{admins.filter(person => person.isActive).length} active</Badge>
               </div>
 
-              <div className="divide-y divide-neutral-100 mt-4">
-                {platformAdmins.map(person => (
+              {loading ? <div className="py-8 flex justify-center"><Spinner /></div> : admins.length === 0 ? (
+                <p className="py-8 text-sm text-neutral-500">No administrator accounts yet.</p>
+              ) : <div className="divide-y divide-neutral-100 mt-4">
+                {admins.map(person => (
                   <div key={person.id} className="flex items-center justify-between gap-4 py-4">
                     <div className="min-w-0">
-                      <p className="font-black text-neutral-900 truncate">{person.name}</p>
+                      <p className="font-black text-neutral-900 truncate">{person.firstname} {person.lastname}</p>
                       <p className="text-xs text-neutral-500 truncate">{person.email}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant="info">{person.status}</Badge>
+                      <Badge variant={person.isActive ? 'success' : 'danger'}>{person.isActive ? 'ACTIVE' : 'INACTIVE'}</Badge>
+                      {person.mustChangePassword && <Badge variant="warning">SETUP PENDING</Badge>}
+                      <button type="button" className="text-xs font-semibold text-brand-700" onClick={() => void handleStatus(person)}>
+                        {person.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
                     </div>
                   </div>
                 ))}
-              </div>
+              </div>}
             </section>
           </div>
 

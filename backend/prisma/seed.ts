@@ -6,7 +6,6 @@ const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 
 const seedUsers = [
-  { firstname: 'Platform', lastname: 'Admin',  email: 'platform.admin@example.com',  role: Role.PLATFORM_ADMIN, password: 'PlatformAdmin@123' },
   { firstname: 'Admin', lastname: 'User', email: 'admin@example.com',           role: Role.ADMIN,          password: 'Admin@123'         },
   { firstname: 'Management', lastname: 'User', email: 'management@example.com',      role: Role.MANAGEMENT,     password: 'Management@123'    },
   { firstname: 'Organizer', lastname: 'User', email: 'organizer@example.com',       role: Role.ORGANIZER,      password: 'Organizer@123'     },
