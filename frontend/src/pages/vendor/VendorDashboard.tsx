@@ -25,9 +25,10 @@ export default function VendorDashboard() {
           subtitle="Operations"
           items={[
             { label: 'Overview', to: '/vendor', icon: <DocIcon /> },
+            { label: 'Business profile', to: '/vendor/profile', icon: <UsersIcon /> },
             { label: 'Apply for a stand', to: '/events', icon: <PlusIcon /> },
             { label: 'My applications', to: '/vendor/applications', icon: <DocIcon /> },
-            { label: 'Staff management', to: '/vendor/applications/a1/staff', icon: <UsersIcon /> },
+            { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
           ]}
         />
 

@@ -90,7 +90,11 @@ export default function EventDetail() {
               <p className="text-sm text-neutral-400">per person</p>
             </div>
 
-            {event.availableCapacity === 0 ? (
+            {user?.role === 'VENDOR' ? (
+              <Link to={`/vendor/events/${event.id}/apply`}>
+                <Button className="w-full">Apply for a stand</Button>
+              </Link>
+            ) : event.availableCapacity === 0 ? (
               <div className="rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700 text-center font-medium">
                 Sold out
               </div>

@@ -17,7 +17,7 @@ const roleNav: Record<UserRole, { label: string; to: string; icon: React.ReactNo
     { label: 'Overview',         to: '/vendor',                        icon: <HomeIcon /> },
     { label: 'Apply for Stand',  to: '/events',                        icon: <PlusIcon /> },
     { label: 'My Applications',  to: '/vendor/applications',           icon: <DocIcon /> },
-    { label: 'Staff Management', to: '/vendor/applications/a1/staff',  icon: <UsersIcon /> },
+    { label: 'Staff Management', to: '/vendor/staff',  icon: <UsersIcon /> },
   ],
   ADMIN: [
     { label: 'Overview',         to: '/admin',            icon: <HomeIcon /> },

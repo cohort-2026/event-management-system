@@ -5,4 +5,5 @@ node_modules/
 dist/
 build/
 coverage/
+backend/private_uploads/
 .DS_Store

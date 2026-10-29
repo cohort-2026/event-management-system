@@ -31,6 +31,7 @@ import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
+import VendorProfilePage from '@/pages/vendor/VendorProfile';
 import ApplyForStand from '@/pages/vendor/ApplyForStand';
 import MyApplications from '@/pages/vendor/MyApplications';
 import StaffManagement from '@/pages/vendor/StaffManagement';
@@ -94,6 +95,8 @@ export default function App() {
           {/* ── Vendor ── */}
           <Route element={<ProtectedRoute roles={['VENDOR']} />}>
             <Route path="/vendor"                          element={<VendorDashboard />} />
+            <Route path="/vendor/profile"                  element={<VendorProfilePage />} />
+            <Route path="/vendor/staff"                    element={<StaffManagement />} />
             <Route path="/vendor/events/:id/apply"         element={<ApplyForStand />} />
             <Route path="/vendor/applications"             element={<MyApplications />} />
             <Route path="/vendor/applications/:id/staff"   element={<StaffManagement />} />
