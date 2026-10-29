@@ -310,6 +310,18 @@ creation, a cryptographically generated temporary password is emailed to the
 new administrator, stored only as a bcrypt hash, and required to be changed
 before other authenticated API routes are available.
 
+Admins and Platform Admins can use `GET /api/users/organizers` and
+`POST /api/users/organizers` to list and create Organizer accounts. Creation
+validates names and email addresses, normalizes email casing, and rejects
+duplicate accounts. The Organizer is created with a random password stored
+only as a bcrypt hash. A cryptographically generated temporary password is
+emailed over TLS; it is never returned by the API or logged. Organizers must
+sign in with this temporary password and establish a permanent password before
+accessing authenticated account functionality. When a password change is
+required, the new password must be 8-72 UTF-8 bytes and include uppercase,
+lowercase, numeric, and special characters. Delivery failures are reported and
+the unclaimed account is removed so an administrator can retry.
+
 `POST /api/auth/change-password` accepts `currentPassword` and
 `newPassword`. The current password must be valid and the new password must be
 at least eight characters and different from it.
@@ -333,6 +345,11 @@ passwords, and reset codes.
 - As a Platform Admin, create an Admin with a new email; confirm the invitation
   arrives, the temporary credential is accepted only until the required
   password change, and duplicate emails return `409`.
+- As an Admin or Platform Admin, create an Organizer; confirm a one-time setup
+  link arrives, expires after 24 hours, cannot be reused, and enables the
+  account only after the organizer sets a permanent password. Confirm invalid
+  fields and duplicate emails are rejected and no password or setup token is
+  stored or logged in plaintext.
 - Repeat the create request without authentication and with an `ADMIN` session;
   confirm both are denied. Confirm `ADMIN` cannot access audit history.
 - Request recovery for both a registered and unregistered email; confirm both
