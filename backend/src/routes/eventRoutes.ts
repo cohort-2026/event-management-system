@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import {
   approveEvent,
+  cancelEvent,
   createEvent,
   getAdminEventAnalytics,
   getPublicEvent,
@@ -37,7 +38,7 @@ router.get('/:id', getPublicEvent);
 router.post('/',                requireAuth, requireRole('ORGANIZER'), createEvent);
 router.put('/:id',              requireAuth, requireRole('ORGANIZER'), updateEvent);
 router.patch('/:id/submit',     requireAuth, requireRole('ORGANIZER'), submitEventForApproval);
-router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
+router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), cancelEvent);
 router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
 router.get('/:id/bookings',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
 router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));

@@ -78,3 +78,21 @@ export const sendEventStatusNotification = async (
       : `Hello ${firstname},\n\nYour event "${eventTitle}" was not approved.\n\nAdmin feedback:\n${rejectionReason ?? 'Please review and update your event.'}\n\nYou can edit the event and resubmit it for review from your organizer dashboard.`,
   });
 };
+
+export const sendEventChangeNotification = async (email: string, eventTitle: string): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: email,
+    subject: `An event you registered for has changed: ${eventTitle}`,
+    text: `The details for "${eventTitle}" have changed. Please review the event page for the latest information.`,
+  });
+};
+
+export const sendEventCancellationNotification = async (email: string, eventTitle: string): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: email,
+    subject: `Event cancelled: ${eventTitle}`,
+    text: `The event "${eventTitle}" has been cancelled by its organizer.`,
+  });
+};

@@ -217,10 +217,10 @@ export default function CreateEvent() {
   if (isEditing && error && !existingEvent) {
     return <PageWrapper><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></PageWrapper>;
   }
-  if (isEditing && existingEvent && existingEvent.status !== 'DRAFT' && existingEvent.status !== 'REJECTED') {
+  if (isEditing && existingEvent && !['DRAFT', 'REJECTED', 'PENDING_APPROVAL', 'PUBLISHED'].includes(existingEvent.status)) {
     return (
       <PageWrapper>
-        <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-800">Only draft or rejected events can be edited.</p>
+        <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-800">This event can no longer be edited.</p>
         <Link to="/organizer" className="mt-4 inline-block text-brand-700">Back to dashboard</Link>
       </PageWrapper>
     );
@@ -249,7 +249,7 @@ export default function CreateEvent() {
           />
 
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-          {existingEvent?.status === 'REJECTED' && existingEvent.rejectionReason && (
+          {(existingEvent?.status === 'DRAFT' || existingEvent?.status === 'REJECTED') && existingEvent.rejectionReason && (
             <section className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
               <h2 className="font-bold text-rose-900">Admin feedback</h2>
               <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{existingEvent.rejectionReason}</p>
@@ -270,7 +270,9 @@ export default function CreateEvent() {
             <form onSubmit={handleSubmit} className="max-w-4xl rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
               <div>
                 <h2 className="text-lg font-bold text-neutral-900">Event details</h2>
-                <p className="mt-1 text-sm text-neutral-500">Required fields must be complete before saving.</p>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Required fields must be complete before saving. Changes to a published event’s date, time, venue, capacity, or ticket prices require admin approval.
+                </p>
               </div>
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="md:col-span-2">
@@ -356,9 +358,11 @@ export default function CreateEvent() {
                 <Button type="submit" name="action" value="draft" data-submit-action="draft" variant="outline" loading={saving}>
                   {isEditing ? 'Save changes' : 'Save draft'}
                 </Button>
-                <Button type="submit" name="action" value="submit" data-submit-action="submit" loading={saving}>
-                  Save and submit for approval
-                </Button>
+                {(!existingEvent || existingEvent.status === 'DRAFT' || existingEvent.status === 'REJECTED') && (
+                  <Button type="submit" name="action" value="submit" data-submit-action="submit" loading={saving}>
+                    Save and submit for approval
+                  </Button>
+                )}
               </div>
             </form>
           )}
