@@ -45,6 +45,10 @@ import UserManagement from '@/pages/admin/UserManagement';
 // Platform Admin
 import PlatformSettings from '@/pages/platform-admin/PlatformSettings';
 import PlatformAuditHistory from '@/pages/platform-admin/PlatformAuditHistory';
+import PlatformAdminLayout from '@/pages/platform-admin/PlatformAdminLayout';
+import PlatformOverview from '@/pages/platform-admin/PlatformOverview';
+import PlatformAdminManagement from '@/pages/platform-admin/PlatformAdminManagement';
+import PlatformReports from '@/pages/platform-admin/PlatformReports';
 
 // Management
 import ReportsDashboard from '@/pages/management/ReportsDashboard';
@@ -113,9 +117,13 @@ export default function App() {
 
           {/* ── Platform Admin ── */}
           <Route element={<ProtectedRoute roles={['PLATFORM_ADMIN']} />}>
-            <Route path="/platform-admin"                    element={<PlatformSettings />} />
-            <Route path="/platform-admin/admins"             element={<PlatformSettings />} />
-            <Route path="/platform-admin/audit"              element={<PlatformAuditHistory />} />
+            <Route path="/platform-admin" element={<PlatformAdminLayout />}>
+              <Route index element={<PlatformOverview />} />
+              <Route path="admins" element={<PlatformAdminManagement />} />
+              <Route path="settings" element={<PlatformSettings />} />
+              <Route path="audit" element={<PlatformAuditHistory />} />
+              <Route path="reports" element={<PlatformReports />} />
+            </Route>
           </Route>
 
           {/* ── Management ── */}
