@@ -1,5 +1,18 @@
 export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
 
+export interface EventOrganizer {
+  name: string;
+  description?: string;
+  email?: string;
+}
+
+export interface EventTicketType {
+  name: string;
+  price: number;
+  availableQuantity: number;
+  bookingDeadline?: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -8,6 +21,15 @@ export interface Event {
   venue: string;
   imageUrl?: string;
   date: string;
+  endDate?: string;
+  location?: string;
+  organizer?: EventOrganizer;
+  ticketTypes?: EventTicketType[];
+  bookingDeadline?: string;
+  rules?: string[];
+  accessibilityInformation?: string[];
+  attendeeRequirements?: string[];
+  cancellationPolicy?: string;
   capacity: number;
   availableCapacity: number;
   isFree: boolean;

@@ -18,15 +18,14 @@ export default function EventCard({ event }: { event: Event }) {
   const date = eventDate.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const time = eventDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
+  const seatsLeft = Math.max(0, Math.min(event.capacity, event.availableCapacity));
   const fillPct = event.capacity > 0
-    ? Math.min(100, Math.round(((event.capacity - event.availableCapacity) / event.capacity) * 100))
+    ? Math.min(100, Math.round(((event.capacity - seatsLeft) / event.capacity) * 100))
     : 0;
   const bookingOpen = event.bookingOpen ?? event.availableCapacity > 0;
   const bookingLabel = !bookingOpen
     ? event.availableCapacity === 0 ? event.isFree ? 'Fully booked' : 'Sold out' : 'Bookings closed'
-    : event.availableCapacity <= Math.max(5, Math.ceil(event.capacity * 0.1))
-      ? `${event.availableCapacity} left`
-      : `${event.availableCapacity} available`;
+    : `${seatsLeft} seats left`;
 
   return (
     <Link to={`/events/${event.id}`} className="block group">
@@ -96,7 +95,7 @@ export default function EventCard({ event }: { event: Event }) {
                 </div>
               )}
               <span className={`text-xs ${bookingOpen ? 'text-neutral-400' : 'font-semibold text-rose-600'}`}>
-                {bookingLabel}
+                {!bookingOpen ? bookingLabel : `${seatsLeft} seats left · ${fillPct}% full`}
               </span>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import type { Event } from '@/types/event';
+import type { Event, EventTicketType } from '@/types/event';
 
 export const MOCK_EVENTS: Event[] = [
   {
@@ -251,4 +251,182 @@ export const MOCK_EVENTS: Event[] = [
   },
 ];
 
-export const publishedMockEvents = MOCK_EVENTS.filter(event => event.status === 'PUBLISHED');
+const eventDetails: Record<string, {
+  endTime: string;
+  organizerName: string;
+  bookingDeadline?: string;
+  ticketTypes?: EventTicketType[];
+  rules: string[];
+  accessibilityInformation: string[];
+  attendeeRequirements?: string[];
+  cancellationPolicy: string;
+}> = {
+  'mock-1': {
+    endTime: '17:00',
+    organizerName: 'Cape Tech Events',
+    bookingDeadline: '2026-11-11T23:59:00+02:00',
+    ticketTypes: [
+      { name: 'General admission', price: 850, availableQuantity: 100, bookingDeadline: '2026-11-11T23:59:00+02:00' },
+      { name: 'VIP access', price: 1500, availableQuantity: 18, bookingDeadline: '2026-11-10T23:59:00+02:00' },
+    ],
+    rules: ['Bring a valid ticket for entry.', 'Please arrive early for check-in.'],
+    accessibilityInformation: ['Step-free access is available at the main entrance.', 'Contact the organizer for specific accommodation requests.'],
+    attendeeRequirements: ['Suitable for attendees aged 16 and older.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-2': {
+    endTime: '21:00',
+    organizerName: 'Joburg Founder Network',
+    bookingDeadline: '2026-11-17T17:00:00+02:00',
+    rules: ['Free registration is required before arrival.', 'Please respect the venue and other attendees.'],
+    accessibilityInformation: ['Contact the organizer to confirm venue accessibility arrangements.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-3': {
+    endTime: '16:00',
+    organizerName: 'Skills Lab South Africa',
+    bookingDeadline: '2026-11-23T17:00:00+02:00',
+    rules: ['A personal device with internet access is recommended.'],
+    accessibilityInformation: ['The session is online; captions and other accommodations can be requested from the organizer.'],
+    attendeeRequirements: ['Suitable for attendees aged 16 and older.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-4': {
+    endTime: '22:00',
+    organizerName: 'Durban Live Collective',
+    bookingDeadline: '2026-12-04T20:00:00+02:00',
+    ticketTypes: [
+      { name: 'General admission', price: 220, availableQuantity: 300, bookingDeadline: '2026-12-04T20:00:00+02:00' },
+      { name: 'VIP viewing area', price: 500, availableQuantity: 46, bookingDeadline: '2026-12-03T20:00:00+02:00' },
+    ],
+    rules: ['Children must be accompanied by an adult.', 'Outside food and beverages are not permitted.'],
+    accessibilityInformation: ['Accessible viewing areas are available; contact the organizer before the event.'],
+    attendeeRequirements: ['Children under 16 must attend with an adult.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-5': {
+    endTime: '10:30',
+    organizerName: 'Women in Business SA',
+    bookingDeadline: '2026-12-09T12:00:00+02:00',
+    rules: ['Please advise the organizer of dietary requirements in advance.'],
+    accessibilityInformation: ['Contact the organizer to discuss access requirements.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-6': {
+    endTime: '18:00',
+    organizerName: 'Cape Winelands Events',
+    bookingDeadline: '2026-12-12T18:00:00+02:00',
+    rules: ['Valid identification is required for alcohol tastings.', 'No outside alcohol is permitted.'],
+    accessibilityInformation: ['Outdoor paths may be uneven; contact the organizer about access needs.'],
+    attendeeRequirements: ['Alcohol tastings are for attendees aged 18 and older.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-7': {
+    endTime: '16:30',
+    organizerName: 'Design Practice Studio',
+    bookingDeadline: '2027-01-15T17:00:00+02:00',
+    rules: ['Bring a laptop with your preferred design tool installed.'],
+    accessibilityInformation: ['Contact the organizer to discuss accommodation requirements.'],
+    attendeeRequirements: ['Suitable for design and engineering practitioners.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-8': {
+    endTime: '11:00',
+    organizerName: 'Community Wellness Group',
+    bookingDeadline: '2027-01-22T17:00:00+02:00',
+    rules: ['Wear comfortable walking shoes and bring water.'],
+    accessibilityInformation: ['The route includes outdoor paths; contact the organizer to discuss mobility access.'],
+    attendeeRequirements: ['Children must be accompanied by an adult.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-9': {
+    endTime: '17:30',
+    organizerName: 'Africa Fintech Forum',
+    bookingDeadline: '2027-02-03T17:00:00+02:00',
+    rules: ['Bring a valid ticket and photo identification for check-in.'],
+    accessibilityInformation: ['Step-free access is available; contact the organizer for other access requirements.'],
+    attendeeRequirements: ['Suitable for attendees aged 16 and older.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-10': {
+    endTime: '14:00',
+    organizerName: 'Johannesburg Arts Collective',
+    bookingDeadline: '2027-02-12T17:00:00+02:00',
+    rules: ['Children must be accompanied by a participating adult.'],
+    accessibilityInformation: ['Contact the organizer to confirm step-free access and activity accommodations.'],
+    attendeeRequirements: ['Family event; children should attend with an adult.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-11': {
+    endTime: '16:30',
+    organizerName: 'PeopleFirst Learning',
+    bookingDeadline: '2027-02-19T17:00:00+02:00',
+    rules: ['Please arrive 15 minutes before the workshop starts.'],
+    accessibilityInformation: ['Contact the organizer to discuss accessibility arrangements.'],
+    attendeeRequirements: ['For current and aspiring people managers.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-12': {
+    endTime: '13:00',
+    organizerName: 'Garden Route Outdoor Club',
+    bookingDeadline: '2027-03-05T17:00:00+02:00',
+    rules: ['Wear suitable outdoor footwear and bring water.', 'Follow instructions from event marshals.'],
+    accessibilityInformation: ['Trail terrain varies; contact the organizer to discuss route accessibility.'],
+    attendeeRequirements: ['Participants under 18 must attend with a guardian.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-13': {
+    endTime: '13:00',
+    organizerName: 'Small Business Support Network',
+    bookingDeadline: '2027-03-10T17:00:00+02:00',
+    rules: ['Bring questions relevant to your business for the clinic session.'],
+    accessibilityInformation: ['Contact the organizer to discuss access requirements.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+  'mock-14': {
+    endTime: '19:00',
+    organizerName: 'Stellenbosch Music Society',
+    rules: ['Bring a picnic blanket; please take rubbish with you.'],
+    accessibilityInformation: ['The event is outdoors on grass; contact the organizer to discuss access arrangements.'],
+    attendeeRequirements: ['Children must be accompanied by an adult.'],
+    cancellationPolicy: 'Demo policy: contact the organizer about cancellation or refund options before booking.',
+  },
+};
+
+function withBookingDetails(event: Event): Event {
+  const details = eventDetails[event.id];
+  if (!details) return event;
+
+  const [, eventDay, startTime, offset = 'Z'] = event.date.match(
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/,
+  ) ?? [];
+  if (!eventDay || !startTime) return event;
+  const endDate = new Date(`${eventDay}T00:00:00Z`);
+  if (details.endTime <= startTime) endDate.setUTCDate(endDate.getUTCDate() + 1);
+
+  const ticketTypes = details.ticketTypes ?? [{
+    name: event.isFree ? 'Free admission' : 'General admission',
+    price: event.isFree ? 0 : event.price ?? 0,
+    availableQuantity: event.availableCapacity,
+    ...(details.bookingDeadline && { bookingDeadline: details.bookingDeadline }),
+  }];
+
+  return {
+    ...event,
+    endDate: `${endDate.toISOString().slice(0, 10)}T${details.endTime}:00${offset}`,
+    location: event.venue.split(',').slice(-1)[0].trim(),
+    organizer: {
+      name: details.organizerName,
+      description: 'Event organizer',
+    },
+    ticketTypes,
+    bookingDeadline: details.bookingDeadline,
+    rules: details.rules,
+    accessibilityInformation: details.accessibilityInformation,
+    attendeeRequirements: details.attendeeRequirements,
+    cancellationPolicy: details.cancellationPolicy,
+  };
+}
+
+export const mockEventsWithDetails = MOCK_EVENTS.map(withBookingDetails);
+export const publishedMockEvents = mockEventsWithDetails.filter(event => event.status === 'PUBLISHED');
