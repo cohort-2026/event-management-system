@@ -26,11 +26,29 @@ Required role: `ORGANIZER`
 | Path | Page file | Notes |
 |---|---|---|
 | `/organizer` | `pages/organizer/OrganizerDashboard.tsx` | Overview of own events |
-| `/organizer/events/new` | `pages/organizer/CreateEvent.tsx` | Create a new draft event |
-| `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Edit an existing event |
+| `/organizer/events/new` | `pages/organizer/CreateEvent.tsx` | Create event details and ticket tiers; save a draft or submit for approval |
+| `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Correct a draft or rejected event and resubmit it |
 | `/organizer/events/:id/registrations` | `pages/organizer/EventRegistrations.tsx` | View attendee registrations |
 | `/organizer/events/:id/vendors` | `pages/organizer/VendorApplications.tsx` | Review & approve/reject vendor applications |
 | `/organizer/events/:id/check-in` | `pages/organizer/CheckIn.tsx` | Check attendees/vendor staff in on event day |
+
+Organizer event creation uses `POST /api/events` and requires title,
+description, category, event format, start/end date and time, capacity, venue
+or meeting information, and ticket types whose quantities sum to the event
+capacity. An optional HTTPS/HTTP banner image URL is supported. Drafts are
+editable, and organizers can also edit pending events. Admin rejection returns
+the event to `DRAFT`, records required feedback, and emails that feedback to the
+organizer; the organizer can correct the draft and resubmit it through
+`PATCH /api/events/:id/submit`. `PUBLISHED` is the project status for an
+approved event; only `PUBLISHED` events are returned by public event routes.
+Minor edits to published events take effect immediately, while changes to the
+date, time, venue, capacity, or ticket prices return the event to
+`PENDING_APPROVAL`. Published-event changes notify registered attendees and
+approved vendors. Organizers can cancel their own published events through
+`PATCH /api/events/:id/cancel`, which also notifies registered attendees and
+approved vendors. Admins review events through
+`GET /api/events/admin/approval-queue`, then use the approve/reject endpoints.
+Approval and rejection decisions trigger organizer email notifications.
 
 ---
 
