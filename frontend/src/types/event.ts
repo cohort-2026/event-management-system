@@ -1,4 +1,14 @@
-export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
+export type EventType = 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+
+export interface EventTicketType {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  quantity: number;
+  availableQuantity: number;
+}
 
 export interface EventOrganizer {
   name: string;
@@ -21,29 +31,30 @@ export interface Event {
   venue: string;
   imageUrl?: string;
   date: string;
-  endDate?: string;
-  location?: string;
-  organizer?: EventOrganizer;
-  ticketTypes?: EventTicketType[];
-  bookingDeadline?: string;
-  rules?: string[];
-  accessibilityInformation?: string[];
-  attendeeRequirements?: string[];
-  cancellationPolicy?: string;
+  startTime: string;
+  endTime: string;
+  eventType: EventType;
+  meetingDetails?: string | null;
+  bannerImageUrl?: string | null;
   capacity: number;
   availableCapacity: number;
   isFree: boolean;
-  price?: number;
-  popularity?: number;
-  bookingOpen?: boolean;
+  price?: number | null;
   status: EventStatus;
   organizerId: string;
   rejectionReason?: string;
+  organizer?: { firstname: string; lastname: string; email: string };
+  ticketTypes: EventTicketType[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type CreateEventDto = Omit<Event, 'id' | 'status' | 'availableCapacity' | 'organizerId' | 'createdAt' | 'updatedAt' | 'rejectionReason'>;
+export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & { description?: string };
+export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
+  meetingDetails?: string;
+  bannerImageUrl?: string;
+  ticketTypes: EventTicketTypeInput[];
+};
 export type UpdateEventDto = Partial<CreateEventDto>;
 
 export interface EventListResponse {

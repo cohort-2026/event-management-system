@@ -13,6 +13,8 @@ const COOKIE_NAME = 'auth_token';
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
+const SETUP_TOKEN_MAX_AGE_HOURS = 24;
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const cookieOptions = {
   httpOnly: true,
@@ -411,14 +413,21 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 export const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) {
-      res.status(400).json({ success: false, message: 'Current password and a new password of at least 8 characters are required' });
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
+      res.status(400).json({ success: false, message: 'Current password and a new password of 8-72 UTF-8 bytes are required' });
       return;
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
     if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
       res.status(400).json({ success: false, message: 'Current password is incorrect' });
+      return;
+    }
+    if (user.mustChangePassword && !STRONG_PASSWORD_REGEX.test(newPassword)) {
+      res.status(400).json({
+        success: false,
+        message: 'Your permanent password must include uppercase, lowercase, a number, and a special character',
+      });
       return;
     }
     if (await bcrypt.compare(newPassword, user.passwordHash)) {
@@ -454,6 +463,98 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
     );
     res.cookie(COOKIE_NAME, token, cookieOptions);
     res.json({ success: true, data: updatedUser, message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const completeOrganizerPasswordSetup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rawEmail = req.body?.email;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    const { token, password } = req.body ?? {};
+
+    if (
+      !EMAIL_REGEX.test(email) ||
+      typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
+      typeof password !== 'string' || !STRONG_PASSWORD_REGEX.test(password) ||
+      Buffer.byteLength(password, 'utf8') > 72
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'A valid setup link and a password of 8-72 bytes with uppercase, lowercase, number and special characters are required',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, mustChangePassword: true },
+    });
+    if (!user || user.role !== 'ORGANIZER' || !user.mustChangePassword) {
+      res.status(400).json({ success: false, message: 'This password setup link is invalid or has expired' });
+      return;
+    }
+
+    const setupToken = await prisma.passwordResetToken.findUnique({ where: { userId: user.id } });
+
+    if (
+      !setupToken ||
+      setupToken.expiresAt <= new Date() ||
+      setupToken.attempts >= MAX_OTP_ATTEMPTS ||
+      Date.now() - setupToken.createdAt.getTime() > SETUP_TOKEN_MAX_AGE_HOURS * 60 * 60 * 1000
+    ) {
+      res.status(400).json({ success: false, message: 'This password setup link is invalid or has expired' });
+      return;
+    }
+
+    if (!(await bcrypt.compare(token, setupToken.tokenHash))) {
+      await prisma.passwordResetToken.updateMany({
+        where: {
+          id: setupToken.id,
+          attempts: { lt: MAX_OTP_ATTEMPTS },
+          expiresAt: { gt: new Date() },
+        },
+        data: { attempts: { increment: 1 } },
+      });
+      res.status(400).json({ success: false, message: 'This password setup link is invalid or has expired' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const completed = await prisma.$transaction(async transaction => {
+      const consumedToken = await transaction.passwordResetToken.deleteMany({
+        where: {
+          id: setupToken.id,
+          userId: user.id,
+          tokenHash: setupToken.tokenHash,
+          expiresAt: { gt: new Date() },
+          attempts: { lt: MAX_OTP_ATTEMPTS },
+        },
+      });
+      if (consumedToken.count !== 1) return false;
+
+      await transaction.user.update({
+        where: { id: user.id },
+        data: { passwordHash, mustChangePassword: false },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: user.id,
+          affectedUserId: user.id,
+          action: 'ORGANIZER_PASSWORD_SETUP_COMPLETED',
+          outcome: 'completed',
+        },
+      });
+      return true;
+    });
+
+    if (!completed) {
+      res.status(400).json({ success: false, message: 'This password setup link is invalid or has expired' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Your password has been set. You can now sign in.' });
   } catch (err) {
     next(err);
   }

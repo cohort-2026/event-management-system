@@ -1,17 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-
-const pendingEvents = [
-  { id: '3', title: 'Q4 Strategy Session',       organizer: 'Thabo Nkosi',    submitted: '2 hours ago',  category: 'Training'    },
-  { id: '5', title: 'Digital Marketing Summit',  organizer: 'Priya Govender', submitted: '5 hours ago',  category: 'Technology'  },
-  { id: '7', title: 'HR Compliance Workshop',    organizer: 'Lerato Dlamini',  submitted: '1 day ago',    category: 'Training'    },
-];
+import Spinner from '@/components/ui/Spinner';
+import { getAdminEventAnalytics, getPendingEvents, type AdminEventAnalytics } from '@/services/eventService';
+import { createOrganizer } from '@/services/organizerService';
+import type { Event, EventStatus } from '@/types/event';
 
 const recentUsers = [
   { id: 'u1', name: 'Sipho Mahlangu',  email: 'sipho@example.com',  role: 'ORGANIZER', joined: '1 hour ago'  },
@@ -23,8 +22,96 @@ const roleVariant: Record<string, 'info' | 'success' | 'purple'> = {
   ORGANIZER: 'info', ATTENDEE: 'success', VENDOR: 'purple',
 };
 
+const eventStatusLabels: Record<EventStatus, string> = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending approval',
+  PUBLISHED: 'Approved',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+  COMPLETED: 'Completed',
+};
+
+const eventStatusColors: Record<EventStatus, string> = {
+  DRAFT: '#6366f1',
+  PENDING_APPROVAL: '#f59e0b',
+  PUBLISHED: '#10b981',
+  REJECTED: '#f43f5e',
+  CANCELLED: '#94a3b8',
+  COMPLETED: '#8b5cf6',
+};
+
 export default function AdminDashboard() {
-  const [organizer, setOrganizer] = useState({ firstname: '', lastname: '', email: '', organization: '' });
+  const [pendingEvents, setPendingEvents] = useState<Event[]>([]);
+  const [loadingPendingEvents, setLoadingPendingEvents] = useState(true);
+  const [pendingEventsError, setPendingEventsError] = useState('');
+  const [eventAnalytics, setEventAnalytics] = useState<AdminEventAnalytics | null>(null);
+  const [loadingEventAnalytics, setLoadingEventAnalytics] = useState(true);
+  const [eventAnalyticsError, setEventAnalyticsError] = useState('');
+  const [organizer, setOrganizer] = useState({ firstname: '', lastname: '', email: '' });
+  const [savingOrganizer, setSavingOrganizer] = useState(false);
+  const [organizerError, setOrganizerError] = useState('');
+  const [organizerNotice, setOrganizerNotice] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    getPendingEvents()
+      .then(response => {
+        if (active) setPendingEvents(response.data.data);
+      })
+      .catch(err => {
+        if (active) {
+          setPendingEventsError(axios.isAxiosError(err)
+            ? (err.response?.data?.message ?? 'Pending events could not be loaded.')
+            : 'Pending events could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingPendingEvents(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getAdminEventAnalytics()
+      .then(response => {
+        if (active) setEventAnalytics(response.data.data);
+      })
+      .catch(err => {
+        if (active) {
+          setEventAnalyticsError(axios.isAxiosError(err)
+            ? (err.response?.data?.message ?? 'Event analytics could not be loaded.')
+            : 'Event analytics could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingEventAnalytics(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const handleCreateOrganizer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setOrganizerError('');
+    setOrganizerNotice('');
+    setSavingOrganizer(true);
+
+    try {
+      const response = await createOrganizer({
+        firstname: organizer.firstname.trim(),
+        lastname: organizer.lastname.trim(),
+        email: organizer.email.trim(),
+      });
+      setOrganizerNotice(response.data.message ?? 'Organizer created. A temporary password has been emailed.');
+      setOrganizer({ firstname: '', lastname: '', email: '' });
+    } catch (err) {
+      setOrganizerError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Organizer account could not be created.')
+        : 'Organizer account could not be created.');
+    } finally {
+      setSavingOrganizer(false);
+    }
+  };
 
   return (
     <PageWrapper>
@@ -59,9 +146,37 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard label="Total users"          value="1 284" icon={<UsersIcon />}  color="brand"   />
-            <StatCard label="Published events"     value={24}    icon={<CalIcon />}    color="emerald" />
-            <StatCard label="Pending approval"     value={3}     sub="requires action" icon={<ClockIcon />} color="amber" />
+            <StatCard label="Published events"     value={eventAnalytics?.statusCounts.find(({ status }) => status === 'PUBLISHED')?.count ?? 0} icon={<CalIcon />} color="emerald" />
+            <StatCard label="Pending approval"     value={pendingEvents.length} sub="requires action" icon={<ClockIcon />} color="amber" />
             <StatCard label="Total registrations"  value="8 741" icon={<TicketIcon />} color="purple"  />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
+              <div className="border-b border-neutral-100 pb-4">
+                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-brand-700">Event overview</span>
+                <h2 className="text-xl font-black text-neutral-900 mt-1">Total events</h2>
+              </div>
+              {eventAnalyticsError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{eventAnalyticsError}</p>}
+              {loadingEventAnalytics ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : eventAnalytics && (
+                <EventStatusPieChart statusCounts={eventAnalytics.statusCounts} />
+              )}
+            </section>
+
+            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
+              <div className="border-b border-neutral-100 pb-4">
+                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">Approval overview</span>
+                <h2 className="text-xl font-black text-neutral-900 mt-1">Approved events</h2>
+              </div>
+              {eventAnalyticsError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{eventAnalyticsError}</p>}
+              {loadingEventAnalytics ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : eventAnalytics && (
+                <ApprovedEventsBarChart approvedByCategory={eventAnalytics.approvedByCategory} />
+              )}
+            </section>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(420px,1.4fr)_minmax(360px,1fr)] gap-6 mb-8">
@@ -74,17 +189,55 @@ export default function AdminDashboard() {
                 <span className="rounded-full bg-brand-50 text-brand-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Admin action</span>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="First name" value={organizer.firstname} onChange={e => setOrganizer({ ...organizer, firstname: e.target.value })} />
-                <Input label="Last name" value={organizer.lastname} onChange={e => setOrganizer({ ...organizer, lastname: e.target.value })} />
-                <Input label="Email address" type="email" value={organizer.email} onChange={e => setOrganizer({ ...organizer, email: e.target.value })} />
-                <Input label="Organization" value={organizer.organization} onChange={e => setOrganizer({ ...organizer, organization: e.target.value })} />
-              </div>
+              {organizerError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{organizerError}</p>}
+              {organizerNotice && <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{organizerNotice}</p>}
 
-              <div className="mt-5 flex items-center justify-end gap-3">
-                <Button variant="secondary">Cancel</Button>
-                <Button>Register organizer</Button>
-              </div>
+              <form onSubmit={handleCreateOrganizer}>
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="First name"
+                    autoComplete="given-name"
+                    maxLength={100}
+                    value={organizer.firstname}
+                    onChange={e => setOrganizer({ ...organizer, firstname: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Last name"
+                    autoComplete="family-name"
+                    maxLength={100}
+                    value={organizer.lastname}
+                    onChange={e => setOrganizer({ ...organizer, lastname: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Email address"
+                    type="email"
+                    autoComplete="email"
+                    maxLength={254}
+                    value={organizer.email}
+                    onChange={e => setOrganizer({ ...organizer, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  A secure temporary password will be emailed. The organizer must replace it with a permanent password before accessing the account.
+                </p>
+                <div className="mt-5 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setOrganizer({ firstname: '', lastname: '', email: '' });
+                      setOrganizerError('');
+                      setOrganizerNotice('');
+                    }}
+                  >
+                    Clear
+                  </Button>
+                  <Button type="submit" loading={savingOrganizer}>Register organizer</Button>
+                </div>
+              </form>
             </section>
 
             <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
@@ -99,7 +252,7 @@ export default function AdminDashboard() {
               <div className="space-y-4 mt-5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-neutral-600">Pending event approvals</span>
-                  <span className="text-sm font-black text-neutral-900">{pendingEvents.length}</span>
+                  <span className="text-sm font-black text-neutral-900">{loadingPendingEvents ? '…' : pendingEvents.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-neutral-600">New user requests</span>
@@ -131,16 +284,25 @@ export default function AdminDashboard() {
                 </div>
                 <Link to="/admin/approvals" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>
               </div>
+              {pendingEventsError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{pendingEventsError}</p>}
               <div className="divide-y divide-neutral-50">
-                {pendingEvents.map(e => (
-                  <div key={e.id} className="px-5 py-4 flex items-center justify-between gap-3">
+                {loadingPendingEvents ? (
+                  <div className="flex justify-center py-8"><Spinner /></div>
+                ) : pendingEvents.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-neutral-500">No events are waiting for approval.</p>
+                ) : pendingEvents.map(event => (
+                  <div key={event.id} className="px-5 py-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium text-neutral-900 truncate">{e.title}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">{e.organizer} · {e.submitted}</p>
+                      <p className="font-medium text-neutral-900 truncate">{event.title}</p>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {event.organizer ? `${event.organizer.firstname} ${event.organizer.lastname}` : 'Organizer'}
+                        {' · Submitted '}
+                        {new Date(event.updatedAt).toLocaleDateString('en-ZA')}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant="default">{e.category}</Badge>
-                      <Link to={`/admin/approvals`}>
+                      <Badge variant="default">{event.category}</Badge>
+                      <Link to="/admin/approvals">
                         <Button size="sm" variant="secondary">Review</Button>
                       </Link>
                     </div>
@@ -178,6 +340,81 @@ export default function AdminDashboard() {
         </section>
       </div>
     </PageWrapper>
+  );
+}
+
+function EventStatusPieChart({ statusCounts }: { statusCounts: AdminEventAnalytics['statusCounts'] }) {
+  const total = statusCounts.reduce((sum, item) => sum + item.count, 0);
+  const segments = statusCounts
+    .filter(({ count }) => count > 0)
+    .reduce<{ parts: string[]; accumulated: number }>((result, { status, count }) => {
+      const start = total === 0 ? 0 : (result.accumulated / total) * 100;
+      const accumulated = result.accumulated + count;
+      const end = total === 0 ? 0 : (accumulated / total) * 100;
+      return {
+        parts: [...result.parts, `${eventStatusColors[status]} ${start}% ${end}%`],
+        accumulated,
+      };
+    }, { parts: [], accumulated: 0 }).parts;
+  const background = segments.length > 0
+    ? `conic-gradient(${segments.join(', ')})`
+    : '#e5e7eb';
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-8 pt-6">
+      <div
+        className="w-48 h-48 rounded-full flex items-center justify-center shrink-0"
+        style={{ background }}
+        role="img"
+        aria-label={`Total of ${total} events, shown by status`}
+      >
+        <div className="w-28 h-28 rounded-full bg-white flex flex-col items-center justify-center">
+          <span className="text-3xl font-black text-neutral-900">{total}</span>
+          <span className="text-xs font-semibold text-neutral-500">Total events</span>
+        </div>
+      </div>
+      <ul className="w-full space-y-3">
+        {statusCounts.map(({ status, count }) => (
+          <li key={status} className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex items-center gap-2 text-neutral-600">
+              <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: eventStatusColors[status] }} />
+              {eventStatusLabels[status]}
+            </span>
+            <span className="font-bold text-neutral-900">{count}</span>
+          </li>
+        ))}
+        {statusCounts.length === 0 && <li className="text-sm text-neutral-500">No events have been created yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
+function ApprovedEventsBarChart({ approvedByCategory }: { approvedByCategory: AdminEventAnalytics['approvedByCategory'] }) {
+  const sortedCategories = [...approvedByCategory].sort((a, b) => b.count - a.count);
+  const visibleCategories = sortedCategories.slice(0, 6);
+  const remainingCount = sortedCategories.slice(6).reduce((sum, item) => sum + item.count, 0);
+  if (remainingCount > 0) visibleCategories.push({ category: 'Other', count: remainingCount });
+  const maxCount = Math.max(1, ...visibleCategories.map(({ count }) => count));
+
+  return (
+    <div className="space-y-5 pt-6" role="img" aria-label="Approved events by category">
+      {visibleCategories.length > 0 ? visibleCategories.map(({ category, count }) => (
+        <div key={category}>
+          <div className="flex items-center justify-between gap-3 mb-2 text-sm">
+            <span className="font-semibold text-neutral-600 truncate">{category}</span>
+            <span className="font-bold text-neutral-900">{count}</span>
+          </div>
+          <div className="h-3 rounded-full bg-neutral-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${(count / maxCount) * 100}%` }}
+            />
+          </div>
+        </div>
+      )) : (
+        <p className="py-8 text-center text-sm text-neutral-500">No events have been approved yet.</p>
+      )}
+    </div>
   );
 }
 

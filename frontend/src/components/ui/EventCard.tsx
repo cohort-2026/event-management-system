@@ -3,7 +3,7 @@ import type { Event } from '@/types/event';
 import Badge, { type BadgeVariant } from './Badge';
 
 const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
+  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', REJECTED: 'danger', CANCELLED: 'danger', COMPLETED: 'info',
 };
 
 const categoryColors: Record<string, string> = {
@@ -14,9 +14,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function EventCard({ event }: { event: Event }) {
-  const eventDate = new Date(event.date);
-  const date = eventDate.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-  const time = eventDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+  const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
   const seatsLeft = Math.max(0, Math.min(event.capacity, event.availableCapacity));
   const fillPct = event.capacity > 0
@@ -30,33 +28,17 @@ export default function EventCard({ event }: { event: Event }) {
   return (
     <Link to={`/events/${event.id}`} className="block group">
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col h-full">
-        <div className="relative flex h-40 items-end overflow-hidden bg-gradient-to-br from-brand-800 via-brand-600 to-cyan-500 px-5 py-4">
-          {event.imageUrl && (
-            <img
-              src={event.imageUrl}
-              alt={`${event.title} event`}
-              loading="lazy"
-              onError={event => {
-                event.currentTarget.style.display = 'none';
-              }}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" aria-hidden="true" />
-          <div className="absolute -right-4 -top-8 h-32 w-32 rounded-full border-[18px] border-white/10" aria-hidden="true" />
-          <div className="absolute right-8 top-5 h-16 w-16 rounded-full bg-white/10" aria-hidden="true" />
-          <span className="relative rounded-full bg-white/15 px-3 py-1 text-xs font-bold tracking-wide text-white backdrop-blur-sm">
-            {event.category}
-          </span>
-        </div>
+        {event.bannerImageUrl
+          ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
+          : <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />}
 
         <div className="p-5 flex flex-col gap-3 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${catColor}`}>
               {event.category}
             </span>
-            <Badge variant={!bookingOpen ? 'danger' : statusVariant[event.status] ?? 'default'}>
-              {!bookingOpen ? bookingLabel : event.status.replace(/_/g, ' ')}
+            <Badge variant={statusVariant[event.status] ?? 'default'}>
+              {event.status === 'PUBLISHED' ? 'APPROVED' : event.status.replace(/_/g, ' ')}
             </Badge>
           </div>
 
@@ -83,7 +65,7 @@ export default function EventCard({ event }: { event: Event }) {
 
           <div className="flex items-center justify-between gap-2">
             <span className={`text-sm font-bold ${event.isFree ? 'text-emerald-600' : 'text-neutral-900'}`}>
-              {event.isFree ? 'Free' : `From R${event.price?.toLocaleString('en-ZA') ?? '—'}`}
+              {event.isFree ? 'Free' : `From R${event.price ?? '—'}`}
             </span>
             <div className="flex items-center gap-2">
               {bookingOpen && (

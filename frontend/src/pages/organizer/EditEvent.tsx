@@ -1,3 +1,5 @@
+import CreateEvent from '@/pages/organizer/CreateEvent';
+
 export default function EditEvent() {
-  return <main><h1>Edit Event</h1></main>;
+  return <CreateEvent />;
 }

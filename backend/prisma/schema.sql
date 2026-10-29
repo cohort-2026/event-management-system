@@ -26,8 +26,15 @@ CREATE TYPE "EventStatus" AS ENUM (
   'DRAFT',
   'PENDING_APPROVAL',
   'PUBLISHED',
+  'REJECTED',
   'CANCELLED',
   'COMPLETED'
+);
+
+CREATE TYPE "EventType" AS ENUM (
+  'IN_PERSON',
+  'ONLINE',
+  'HYBRID'
 );
 
 CREATE TYPE "BookingStatus" AS ENUM (
@@ -89,6 +96,11 @@ CREATE TABLE "events" (
   "category"            TEXT          NOT NULL,
   "venue"               TEXT          NOT NULL,
   "date"                TIMESTAMPTZ   NOT NULL,
+  "start_time"          TIMESTAMP(3)  NOT NULL,
+  "end_time"            TIMESTAMP(3)  NOT NULL,
+  "event_type"          "EventType"   NOT NULL DEFAULT 'IN_PERSON',
+  "meeting_details"     TEXT,
+  "banner_image_url"    TEXT,
   "capacity"            INTEGER       NOT NULL,
   "available_capacity"  INTEGER       NOT NULL,
   "is_free"             BOOLEAN       NOT NULL DEFAULT TRUE,
@@ -102,6 +114,22 @@ CREATE TABLE "events" (
   CONSTRAINT "events_pkey"              PRIMARY KEY ("id"),
   CONSTRAINT "events_organizer_id_fkey" FOREIGN KEY ("organizer_id") REFERENCES "users"("id")
 );
+
+CREATE TABLE "event_ticket_types" (
+  "id"                  TEXT           NOT NULL,
+  "name"                TEXT           NOT NULL,
+  "description"         TEXT,
+  "price"               DECIMAL(10,2)  NOT NULL,
+  "quantity"            INTEGER        NOT NULL,
+  "available_quantity"  INTEGER        NOT NULL,
+  "created_at"          TIMESTAMP(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "event_id"            TEXT           NOT NULL,
+
+  CONSTRAINT "event_ticket_types_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "event_ticket_types_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX "event_ticket_types_event_id_idx" ON "event_ticket_types"("event_id");
 
 CREATE TABLE "bookings" (
   "id"             UUID            NOT NULL DEFAULT gen_random_uuid(),
