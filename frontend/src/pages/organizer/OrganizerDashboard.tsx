@@ -1,22 +1,79 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import { getMyEvents, submitForApproval } from '@/services/eventService';
+import type { Event, EventStatus } from '@/types/event';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
-const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
+const statusVariant: Record<EventStatus, BadgeVariant> = {
+  PUBLISHED: 'success',
+  DRAFT: 'default',
+  PENDING_APPROVAL: 'warning',
+  REJECTED: 'danger',
+  CANCELLED: 'danger',
+  COMPLETED: 'info',
 };
 
-const myEvents = [
-  { id: '1', title: 'Annual Tech Summit 2025',      date: '15 Sep 2025', status: 'PUBLISHED',        registrations: 358, capacity: 500 },
-  { id: '2', title: 'Leadership Workshop',           date: '22 Aug 2025', status: 'PUBLISHED',        registrations: 57,  capacity: 80  },
-  { id: '3', title: 'Q4 Strategy Session',           date: '10 Oct 2025', status: 'PENDING_APPROVAL', registrations: 0,   capacity: 40  },
-  { id: '4', title: 'Onboarding Day — October',      date: '01 Oct 2025', status: 'DRAFT',            registrations: 0,   capacity: 30  },
-];
+const statusLabel = (status: EventStatus): string => status === 'PUBLISHED' ? 'APPROVED' : status.replace('_', ' ');
+const formatDate = (date: string): string => new Date(date).toLocaleString('en-ZA', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export default function OrganizerDashboard() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getMyEvents()
+      .then(response => {
+        if (active) setEvents(response.data.data);
+      })
+      .catch(loadError => {
+        if (active) {
+          setError(axios.isAxiosError(loadError)
+            ? (loadError.response?.data?.message ?? 'Your events could not be loaded.')
+            : 'Your events could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const resubmit = async (eventId: string) => {
+    setError('');
+    setNotice('');
+    setSubmittingId(eventId);
+    try {
+      const response = await submitForApproval(eventId);
+      setNotice(response.data.message ?? 'Event submitted for approval.');
+      const refreshed = await getMyEvents();
+      setEvents(refreshed.data.data);
+    } catch (submitError) {
+      setError(axios.isAxiosError(submitError)
+        ? (submitError.response?.data?.message ?? 'Event could not be submitted.')
+        : 'Event could not be submitted.');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row gap-8">
@@ -24,99 +81,75 @@ export default function OrganizerDashboard() {
           title="Organizer"
           subtitle="Operations"
           items={[
-            { label: 'Overview', to: '/organizer', icon: <CalIcon /> },
-            { label: 'Create event', to: '/organizer/events/new', icon: <PlusIcon /> },
-            { label: 'My events', to: '/events', icon: <EventIcon /> },
-            { label: 'Registrations', to: '/organizer/events/1/registrations', icon: <UsersIcon /> },
-            { label: 'Vendor applications', to: '/organizer/events/1/vendors', icon: <VendorIcon /> },
-            { label: 'Check-in', to: '/organizer/events/1/check-in', icon: <CheckIcon /> },
+            { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
+            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
           ]}
         />
-
-        <section className="flex-1">
+        <section className="flex-1 min-w-0">
           <DashboardHeader
             title="Organizer Dashboard"
-            subtitle="Welcome back to your event operations dashboard"
+            subtitle="Manage your events and track approval decisions."
             breadcrumbs={[{ label: 'Dashboard', to: '/organizer' }]}
           />
 
-          {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900">
-                Welcome back, {user?.firstname} 👋
-              </h1>
-              <p className="text-neutral-500 mt-1">Here's an overview of your events.</p>
-            </div>
-            <Link to="/organizer/events/new">
-              <Button>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create event
-              </Button>
-            </Link>
-          </div> */}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total events" value={4} icon={<CalIcon />} color="brand" />
-            <StatCard label="Published" value={2} icon={<CheckIcon />} color="emerald" />
-            <StatCard label="Pending approval" value={1} icon={<ClockIcon />} color="amber" />
-            <StatCard label="Total registrations" value={415} sub="across all events" icon={<UsersIcon />} color="purple" />
+            <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" />
+            <StatCard label="Approved" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
+            <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" />
+            <StatCard label="Rejected" value={events.filter(event => event.status === 'REJECTED').length} icon={<span aria-hidden="true">!</span>} color="purple" />
           </div>
 
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-              <h2 className="font-semibold text-neutral-900">My Events</h2>
-              <Link to="/events" className="text-sm text-brand-600 hover:text-brand-700">View all events →</Link>
+          {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+          {notice && <p role="status" className="mb-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+
+          <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
+              <h2 className="font-semibold text-neutral-900">My events</h2>
+              <Link to="/organizer/events/new"><Button size="sm">Create event</Button></Link>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-neutral-100 text-sm">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    {['Event', 'Date', 'Status', 'Registrations', 'Actions'].map(h => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-50">
-                  {myEvents.map(e => (
-                    <tr key={e.id} className="hover:bg-neutral-50 transition-colors">
-                      <td className="px-5 py-3 font-medium text-neutral-900">{e.title}</td>
-                      <td className="px-5 py-3 text-neutral-500 whitespace-nowrap">{e.date}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={statusVariant[e.status] ?? 'default'}>{e.status.replace('_', ' ')}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-neutral-700">
-                        <div className="flex items-center gap-2">
-                          <span>{e.registrations} / {e.capacity}</span>
-                          <div className="w-16 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.round((e.registrations / e.capacity) * 100)}%` }} />
-                          </div>
+            {loading ? <div className="flex justify-center py-12"><Spinner /></div> : events.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <p className="font-semibold text-neutral-800">No events yet</p>
+                <p className="mt-1 text-sm text-neutral-500">Create your first event to get started.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-neutral-100">
+                {events.map(event => (
+                  <article key={event.id} className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-bold text-neutral-900">{event.title}</h3>
+                          <Badge variant={statusVariant[event.status]}>{statusLabel(event.status)}</Badge>
+                          <Badge variant="default">{event.category}</Badge>
                         </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <Link to={`/organizer/events/${e.id}/registrations`} className="text-xs text-brand-600 hover:text-brand-700 font-medium">Registrations</Link>
-                          <span className="text-neutral-300">·</span>
-                          <Link to={`/organizer/events/${e.id}/edit`} className="text-xs text-neutral-500 hover:text-neutral-700 font-medium">Edit</Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        <p className="mt-2 text-sm text-neutral-500">{formatDate(event.startTime)} – {formatDate(event.endTime)}</p>
+                        <p className="mt-1 text-sm text-neutral-500">{event.eventType.replace('_', ' ')} · {event.venue}</p>
+                        <p className="mt-1 text-xs text-neutral-400">{event.capacity - event.availableCapacity} / {event.capacity} places booked</p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
+                          <Link to={`/organizer/events/${event.id}/edit`}><Button variant="secondary" size="sm">{event.status === 'REJECTED' ? 'Correct event' : 'Edit draft'}</Button></Link>
+                        )}
+                        {event.status === 'DRAFT' && (
+                          <Button size="sm" loading={submittingId === event.id} onClick={() => void resubmit(event.id)}>Submit for approval</Button>
+                        )}
+                      </div>
+                    </div>
+                    {event.status === 'REJECTED' && event.rejectionReason && (
+                      <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
+                        <h4 className="text-sm font-bold text-rose-900">Admin feedback</h4>
+                        <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{event.rejectionReason}</p>
+                        <p className="mt-2 text-xs text-rose-700">Correct the event and resubmit it for review.</p>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </section>
       </div>
     </PageWrapper>
   );
 }
-
-const CalIcon   = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-const CheckIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const ClockIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const UsersIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const PlusIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>;
-const EventIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 3v4M16 3v4M4 11h16" /></svg>;
-const VendorIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 21h18M6 21V7l6-4 6 4v14" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6" /></svg>;
