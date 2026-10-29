@@ -1,26 +1,46 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
 import type { Event } from '@/types/event';
 import type { BadgeVariant } from '@/components/ui/Badge';
+import { getEventById } from '@/services/eventService';
 
 const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
-};
-
-const MOCK: Event = {
-  id: '1', title: 'Annual Tech Summit 2025',
-  description: `Join us for a full-day conference bringing together technology leaders, innovators and developers to explore the future of software.\n\nThis year's summit features keynote addresses from industry pioneers, hands-on workshops, panel discussions on AI, cloud computing and cybersecurity, and an exhibition floor with the latest tools and platforms.\n\nWhether you are a seasoned engineer or just starting your career in tech, the Annual Tech Summit offers something for everyone.`,
-  category: 'Technology', venue: 'Sandton Convention Centre, Johannesburg',
-  date: '2025-09-15T09:00:00Z', capacity: 500, availableCapacity: 142,
-  isFree: false, price: 350, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '',
+  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', REJECTED: 'danger', CANCELLED: 'danger', COMPLETED: 'info',
 };
 
 export default function EventDetail() {
   const { user } = useAuth();
-  const event = MOCK;
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loadedId, setLoadedId] = useState('');
+  const [error, setError] = useState('');
+  const { id = '' } = useParams();
+
+  useEffect(() => {
+    let active = true;
+    getEventById(id)
+      .then(response => {
+        if (active) {
+          setEvent(response.data.data);
+          setError('');
+          setLoadedId(id);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setEvent(null);
+          setError('Event not found or no longer available.');
+          setLoadedId(id);
+        }
+      });
+    return () => { active = false; };
+  }, [id]);
+
+  if (loadedId !== id) return <PageWrapper><p className="py-12 text-center text-neutral-500">Loading event...</p></PageWrapper>;
+  if (!event) return <PageWrapper><div role="alert" className="py-12 text-center text-neutral-600">{error || 'Event not found.'}<p><Link to="/events" className="text-brand-600">Browse events</Link></p></div></PageWrapper>;
 
   const date = new Date(event.date);
   const filled = event.capacity - event.availableCapacity;

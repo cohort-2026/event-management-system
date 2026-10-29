@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
@@ -6,12 +6,8 @@ import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-
-const pendingEvents = [
-  { id: '3', title: 'Q4 Strategy Session',       organizer: 'Thabo Nkosi',    submitted: '2 hours ago',  category: 'Training'    },
-  { id: '5', title: 'Digital Marketing Summit',  organizer: 'Priya Govender', submitted: '5 hours ago',  category: 'Technology'  },
-  { id: '7', title: 'HR Compliance Workshop',    organizer: 'Lerato Dlamini',  submitted: '1 day ago',    category: 'Training'    },
-];
+import { getPendingEvents } from '@/services/eventService';
+import type { Event } from '@/types/event';
 
 const recentUsers = [
   { id: 'u1', name: 'Sipho Mahlangu',  email: 'sipho@example.com',  role: 'ORGANIZER', joined: '1 hour ago'  },
@@ -25,6 +21,14 @@ const roleVariant: Record<string, 'info' | 'success' | 'purple'> = {
 
 export default function AdminDashboard() {
   const [organizer, setOrganizer] = useState({ firstname: '', lastname: '', email: '', organization: '' });
+  const [pendingEvents, setPendingEvents] = useState<Event[]>([]);
+  const [approvalError, setApprovalError] = useState('');
+
+  useEffect(() => {
+    getPendingEvents()
+      .then(response => setPendingEvents(response.data.data))
+      .catch(() => setApprovalError('Could not load pending event approvals.'));
+  }, []);
 
   return (
     <PageWrapper>
@@ -60,7 +64,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard label="Total users"          value="1 284" icon={<UsersIcon />}  color="brand"   />
             <StatCard label="Published events"     value={24}    icon={<CalIcon />}    color="emerald" />
-            <StatCard label="Pending approval"     value={3}     sub="requires action" icon={<ClockIcon />} color="amber" />
+            <StatCard label="Pending approval"     value={pendingEvents.length} sub="requires action" icon={<ClockIcon />} color="amber" />
             <StatCard label="Total registrations"  value="8 741" icon={<TicketIcon />} color="purple"  />
           </div>
 
@@ -132,11 +136,12 @@ export default function AdminDashboard() {
                 <Link to="/admin/approvals" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>
               </div>
               <div className="divide-y divide-neutral-50">
+                {approvalError && <p role="alert" className="p-5 text-sm text-rose-600">{approvalError}</p>}
                 {pendingEvents.map(e => (
                   <div key={e.id} className="px-5 py-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-neutral-900 truncate">{e.title}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">{e.organizer} · {e.submitted}</p>
+                      <p className="text-xs text-neutral-400 mt-0.5">{e.organizer?.firstname} {e.organizer?.lastname} · {new Date(e.updatedAt).toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="default">{e.category}</Badge>
@@ -146,6 +151,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
+                {!approvalError && pendingEvents.length === 0 && <p className="p-5 text-sm text-neutral-500">No events are pending review.</p>}
               </div>
             </div>
 

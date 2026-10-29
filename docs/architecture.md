@@ -105,7 +105,7 @@ event-management-system/
 
 | Entity              | Key Statuses                                                    |
 | ------------------- | --------------------------------------------------------------- |
-| Event               | `DRAFT` → `PENDING_APPROVAL` → `PUBLISHED` / `CANCELLED`       |
+| Event               | `DRAFT` → `PENDING_APPROVAL` → `PUBLISHED` / `REJECTED`; organizers may edit and resubmit rejected events; events may be `CANCELLED` or `COMPLETED` |
 | Booking             | `CONFIRMED` / `PENDING` / `CANCELLED`                          |
 | Payment             | `NOT_REQUIRED` / `PENDING` / `PAID` / `FAILED`                 |
 | Ticket              | `ACTIVE` / `USED` / `CANCELLED`                                |

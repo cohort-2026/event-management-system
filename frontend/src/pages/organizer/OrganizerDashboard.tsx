@@ -1,22 +1,48 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import type { BadgeVariant } from '@/components/ui/Badge';
+import type { Event } from '@/types/event';
+import { getMyEvents, submitForApproval } from '@/services/eventService';
 
 const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
+  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', REJECTED: 'danger', CANCELLED: 'danger', COMPLETED: 'info',
 };
 
-const myEvents = [
-  { id: '1', title: 'Annual Tech Summit 2025',      date: '15 Sep 2025', status: 'PUBLISHED',        registrations: 358, capacity: 500 },
-  { id: '2', title: 'Leadership Workshop',           date: '22 Aug 2025', status: 'PUBLISHED',        registrations: 57,  capacity: 80  },
-  { id: '3', title: 'Q4 Strategy Session',           date: '10 Oct 2025', status: 'PENDING_APPROVAL', registrations: 0,   capacity: 40  },
-  { id: '4', title: 'Onboarding Day — October',      date: '01 Oct 2025', status: 'DRAFT',            registrations: 0,   capacity: 30  },
-];
-
 export default function OrganizerDashboard() {
+  const [myEvents, setMyEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getMyEvents()
+      .then(response => { if (active) setMyEvents(response.data.data); })
+      .catch(() => { if (active) setError('Failed to load your events.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const handleSubmit = async (id: string) => {
+    setSubmittingId(id);
+    setError('');
+    try {
+      const response = await submitForApproval(id);
+      setMyEvents(current => current.map(event => event.id === id ? response.data.data : event));
+    } catch {
+      setError('Could not submit the event for approval.');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+  const publishedCount = myEvents.filter(event => event.status === 'PUBLISHED').length;
+  const pendingCount = myEvents.filter(event => event.status === 'PENDING_APPROVAL').length;
+  const registrations = myEvents.reduce((total, event) => total + event.capacity - event.availableCapacity, 0);
+
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row gap-8">
@@ -58,10 +84,10 @@ export default function OrganizerDashboard() {
           </div> */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total events" value={4} icon={<CalIcon />} color="brand" />
-            <StatCard label="Published" value={2} icon={<CheckIcon />} color="emerald" />
-            <StatCard label="Pending approval" value={1} icon={<ClockIcon />} color="amber" />
-            <StatCard label="Total registrations" value={415} sub="across all events" icon={<UsersIcon />} color="purple" />
+            <StatCard label="Total events" value={myEvents.length} icon={<CalIcon />} color="brand" />
+            <StatCard label="Published" value={publishedCount} icon={<CheckIcon />} color="emerald" />
+            <StatCard label="Pending approval" value={pendingCount} icon={<ClockIcon />} color="amber" />
+            <StatCard label="Total registrations" value={registrations} sub="across all events" icon={<UsersIcon />} color="purple" />
           </div>
 
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -82,23 +108,36 @@ export default function OrganizerDashboard() {
                   {myEvents.map(e => (
                     <tr key={e.id} className="hover:bg-neutral-50 transition-colors">
                       <td className="px-5 py-3 font-medium text-neutral-900">{e.title}</td>
-                      <td className="px-5 py-3 text-neutral-500 whitespace-nowrap">{e.date}</td>
+                      <td className="px-5 py-3 text-neutral-500 whitespace-nowrap">{new Date(e.date).toLocaleDateString()}</td>
                       <td className="px-5 py-3">
                         <Badge variant={statusVariant[e.status] ?? 'default'}>{e.status.replace('_', ' ')}</Badge>
                       </td>
                       <td className="px-5 py-3 text-neutral-700">
                         <div className="flex items-center gap-2">
-                          <span>{e.registrations} / {e.capacity}</span>
+                          <span>{e.capacity - e.availableCapacity} / {e.capacity}</span>
                           <div className="w-16 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.round((e.registrations / e.capacity) * 100)}%` }} />
+                            <div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.round(((e.capacity - e.availableCapacity) / e.capacity) * 100)}%` }} />
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <Link to={`/organizer/events/${e.id}/registrations`} className="text-xs text-brand-600 hover:text-brand-700 font-medium">Registrations</Link>
-                          <span className="text-neutral-300">·</span>
-                          <Link to={`/organizer/events/${e.id}/edit`} className="text-xs text-neutral-500 hover:text-neutral-700 font-medium">Edit</Link>
+                          {(e.status === 'DRAFT' || e.status === 'REJECTED') && (
+                            <>
+                              <Link to={`/organizer/events/${e.id}/edit`} className="text-xs text-neutral-500 hover:text-neutral-700 font-medium">Edit</Link>
+                              {e.status === 'DRAFT' && (
+                                <button
+                                  type="button"
+                                  className="text-xs text-brand-600 hover:text-brand-700 font-medium disabled:opacity-50"
+                                  disabled={submittingId === e.id}
+                                  onClick={() => void handleSubmit(e.id)}
+                                >
+                                  {submittingId === e.id ? 'Submitting...' : 'Submit'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                          {e.status === 'PUBLISHED' && <Link to={`/organizer/events/${e.id}/registrations`} className="text-xs text-brand-600 hover:text-brand-700 font-medium">Registrations</Link>}
                         </div>
                       </td>
                     </tr>
@@ -107,6 +146,16 @@ export default function OrganizerDashboard() {
               </table>
             </div>
           </div>
+          {myEvents.filter(event => event.status === 'REJECTED').map(event => (
+            <div key={event.id} className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm">
+              <p className="font-semibold text-rose-800">{event.title} was rejected</p>
+              <p className="mt-1 text-rose-700">Feedback: {event.rejectionReason}</p>
+              {event.reviewedAt && <p className="mt-1 text-xs text-rose-600">Reviewed {new Date(event.reviewedAt).toLocaleString()} by {event.reviewedBy?.firstname} {event.reviewedBy?.lastname}</p>}
+            </div>
+          ))}
+          {error && <p role="alert" className="mt-4 text-sm text-rose-600">{error}</p>}
+          {loading && <p className="py-8 text-center text-neutral-500">Loading your events...</p>}
+          {!loading && myEvents.length === 0 && <p className="py-8 text-center text-neutral-500">You have not created any events yet.</p>}
         </section>
       </div>
     </PageWrapper>

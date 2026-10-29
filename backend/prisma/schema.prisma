@@ -22,6 +22,7 @@ enum EventStatus {
   DRAFT
   PENDING_APPROVAL
   PUBLISHED
+  REJECTED
   CANCELLED
   COMPLETED
 }
@@ -36,7 +37,7 @@ enum TicketTypes {
   GENERAL
   VIP
   STAFF
-} 
+}
 
 enum PaymentProvider {
   PAYFAST
@@ -71,37 +72,40 @@ enum VendorApplicationStatus {
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  firstname    String
-  lastname     String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         Role     @default(ATTENDEE)
-  isActive     Boolean  @default(true) @map("is_active")
-  emailVerified Boolean  @default(false) @map("email_verified")
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(uuid())
+  firstname          String
+  lastname           String
+  email              String   @unique
+  passwordHash       String   @map("password_hash")
+  role               Role     @default(ATTENDEE)
+  isActive           Boolean  @default(true) @map("is_active")
+  emailVerified      Boolean  @default(false) @map("email_verified")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   // Relations
   emailVerification  EmailVerification?
   passwordResetToken PasswordResetToken?
-  organizedEvents     Event[]
-  bookings            Booking[]
-  tickets             Ticket[]
-  vendorApplications  VendorApplication[]
-  auditEvents         AuditLog[] @relation("AuditActor")
+  organizedEvents    Event[]
+  reviewedEvents     Event[]             @relation("EventReviewer")
+  bookings           Booking[]
+  tickets            Ticket[]
+  vendorApplications VendorApplication[]
+  auditEvents        AuditLog[]          @relation("AuditActor")
 
   @@map("users")
 }
 
 model AuditLog {
-  id             String   @id @default(uuid())
-  actorId        String   @map("actor_id")
-  action         String
-  affectedUserId String?  @map("affected_user_id")
-  outcome        String
-  createdAt      DateTime @default(now()) @map("created_at")
-  actor          User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+  id              String   @id @default(uuid())
+  actorId         String   @map("actor_id")
+  action          String
+  affectedUserId  String?  @map("affected_user_id")
+  affectedEventId String?  @map("affected_event_id")
+  outcome         String
+  createdAt       DateTime @default(now()) @map("created_at")
+  actor           User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+  event           Event?   @relation(fields: [affectedEventId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([action])
@@ -147,12 +151,16 @@ model Event {
   price             Decimal?    @db.Decimal(10, 2)
   status            EventStatus @default(DRAFT)
   rejectionReason   String?     @map("rejection_reason")
+  reviewedById      String?     @map("reviewed_by_id")
+  reviewedAt        DateTime?   @map("reviewed_at")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
   // Relations
   organizerId        String              @map("organizer_id")
   organizer          User                @relation(fields: [organizerId], references: [id])
+  reviewedBy         User?               @relation("EventReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  auditEvents        AuditLog[]
   bookings           Booking[]
   tickets            Ticket[]
   vendorApplications VendorApplication[]
@@ -179,11 +187,11 @@ model Booking {
 }
 
 model Ticket {
-  id              String       @id @default(uuid())
-  referenceNumber String       @unique @map("reference_number")
+  id              String        @id @default(uuid())
+  referenceNumber String        @unique @map("reference_number")
   type            TypeOfTickets @default(FREE) @map("type_of_ticket")
-  status          TicketStatus @default(ACTIVE)
-  issuedAt        DateTime     @default(now()) @map("issued_at")
+  status          TicketStatus  @default(ACTIVE)
+  issuedAt        DateTime      @default(now()) @map("issued_at")
 
   // Relations
   bookingId String  @unique @map("booking_id")
@@ -222,20 +230,20 @@ model VendorApplication {
   createdAt          DateTime                @default(now()) @map("created_at")
 
   // Relations
-  eventId     String            @map("event_id")
-  event       Event             @relation(fields: [eventId], references: [id])
-  vendorId    String            @map("vendor_id")
-  vendor      User              @relation(fields: [vendorId], references: [id])
+  eventId      String              @map("event_id")
+  event        Event               @relation(fields: [eventId], references: [id])
+  vendorId     String              @map("vendor_id")
+  vendor       User                @relation(fields: [vendorId], references: [id])
   staffMembers VendorStaffMember[]
 
   @@map("vendor_applications")
 }
 
 model VendorStaffMember {
-  id           String @id @default(uuid())
-  name         String
-  email        String
-  entryPassId  String @map("entry_pass_id")
+  id          String @id @default(uuid())
+  name        String
+  email       String
+  entryPassId String @map("entry_pass_id")
 
   // Relations
   applicationId String            @map("application_id")

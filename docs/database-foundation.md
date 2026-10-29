@@ -75,7 +75,9 @@ Stores all event information created by organisers.
 | `is_free` | BOOLEAN | NOT NULL, DEFAULT `true` | — |
 | `price` | DECIMAL(10,2) | NULLABLE | Null when free |
 | `status` | EventStatus (enum) | NOT NULL, DEFAULT `DRAFT` | — |
-| `rejection_reason` | TEXT | NULLABLE | Set when status = CANCELLED |
+| `rejection_reason` | TEXT | NULLABLE | Required when status = `REJECTED`; shown to the organizer |
+| `reviewed_by_id` | UUID | NULLABLE, FK → users | Admin who made the latest approval/rejection decision |
+| `reviewed_at` | TIMESTAMPTZ | NULLABLE | Time of the latest approval/rejection decision |
 | `organizer_id` | UUID | NOT NULL, FK → users | — |
 | `created_at` | TIMESTAMPTZ | NOT NULL | — |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Auto-updated by Prisma |
@@ -183,7 +185,8 @@ Staff members submitted as part of a vendor application.
 |---|---|
 | `DRAFT` | Created but not yet submitted |
 | `PENDING_APPROVAL` | Submitted, awaiting admin review |
-| `PUBLISHED` | Live and open for bookings |
+| `PUBLISHED` | Approved, live and open for bookings (`APPROVED` is represented by this existing project status) |
+| `REJECTED` | Rejected with required feedback; organizer may edit and resubmit |
 | `CANCELLED` | Cancelled by organiser or admin |
 | `COMPLETED` | Event has taken place |
 

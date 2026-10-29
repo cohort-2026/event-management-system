@@ -65,10 +65,14 @@ Every protected API endpoint is guarded by two middleware functions defined in
 
 | Method | Path | Auth | Roles |
 |--------|------|------|-------|
-| GET | `/api/users` | Yes | `ADMIN`, `PLATFORM_ADMIN` |
-| GET | `/api/users/:id` | Yes | `ADMIN`, `PLATFORM_ADMIN` |
+| GET | `/api/users` | Yes | `ADMIN` |
+| GET | `/api/users/:id` | Yes | `ADMIN` |
+| PATCH | `/api/users/:id` | Yes | `ADMIN` — permitted name fields only |
 | PATCH | `/api/users/:id/role` | Yes | `ADMIN` |
-| PATCH | `/api/users/:id/deactivate` | Yes | `ADMIN`, `PLATFORM_ADMIN` |
+| PATCH | `/api/users/:id/status` | Yes | `ADMIN` — deactivate/reactivate ordinary accounts |
+| PATCH | `/api/users/:id/deactivate` | Yes | `ADMIN` — compatibility alias accepting `{ "isActive": boolean }` |
+
+User list filters: `search`, `role`, `status=active|inactive`, `registeredFrom`, and `registeredTo`; results are paginated using `page` and `pageSize`. Client admins cannot view or modify `ADMIN`/`PLATFORM_ADMIN` accounts or assign privileged roles. Platform-admin account management remains under `/api/platform-admin/admins`.
 
 ---
 
@@ -205,11 +209,11 @@ Apply the same pattern to:
 
 ---
 
-### 8. ADMIN can access user management → proceeds
+### 8. ADMIN can access user management → 200
 
 - Log in as an `ADMIN`
 - `GET http://localhost:5000/api/users`
-- Expected: `501` (not implemented yet) — not `401` or `403`
+- Expected: `200` with a paginated user list — not `401` or `403`
 
 ---
 

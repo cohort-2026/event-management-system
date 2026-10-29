@@ -154,6 +154,7 @@ export const listAuditHistory = async (_req: Request, res: Response, next: NextF
         id: true,
         action: true,
         affectedUserId: true,
+        affectedEventId: true,
         outcome: true,
         createdAt: true,
         actor: { select: { firstname: true, lastname: true, email: true } },

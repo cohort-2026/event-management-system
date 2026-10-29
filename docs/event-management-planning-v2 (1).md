@@ -85,7 +85,9 @@ We are **not** removing payments, check-in, notifications, calendar sync, or ana
 - The system shall allow an organizer to create an event with a title, description, venue, date/time, capacity, and ticket type(s).
 - The system shall save a newly created event with status `DRAFT` until the organizer submits it.
 - The system shall allow an organizer to submit a draft event for approval, changing its status to `PENDING_APPROVAL`.
-- The system shall allow an authorized Administrator to approve a `PENDING_APPROVAL` event (status becomes `PUBLISHED` and visible to attendees) or reject it (status returns to `DRAFT` with a reason recorded).
+- The system shall allow an authorized Administrator to approve a `PENDING_APPROVAL` event (status becomes `PUBLISHED` and visible to attendees) or reject it (status becomes `REJECTED` with a required reason, reviewer, and decision time recorded).
+- The system shall show organizers the decision and rejection feedback, allow them to edit rejected events, and require corrections before resubmission.
+- The system shall exclude all events except `PUBLISHED` events from public listings and public event details.
 - The system shall require an event to return to `PENDING_APPROVAL` if the organizer edits a key field (date, time, venue, capacity, or price) after it has been published. Minor edits (e.g., description wording) do not require re-approval.
 - The system shall allow an organizer to unpublish or cancel their own published event, and shall notify all registered attendees and approved vendors when this happens.
 - The system shall prevent an organizer from editing, submitting, or cancelling an event they do not own.
@@ -241,7 +243,8 @@ As an organizer, we want to create a new event with title, venue, date, and capa
 **Story 7 — Approve or Reject an Event (Administrator)**
 As an Administrator, we want to approve or reject submitted events, so that only verified events go live.
 - Given an event is `PENDING_APPROVAL`, when the Administrator approves it, then its status becomes `PUBLISHED` and it becomes visible to attendees.
-- Given an event is `PENDING_APPROVAL`, when the Administrator rejects it with a reason, then its status returns to `DRAFT` and the organizer is notified with that reason.
+- Given an event is `PENDING_APPROVAL`, when the Administrator rejects it with a reason, then its status becomes `REJECTED`, the administrator and decision time are recorded, and the reason is shown to the organizer.
+- Given an event is `REJECTED`, when its organizer edits it and resubmits it, then its status becomes `PENDING_APPROVAL` and the previous rejection feedback is cleared from the current decision.
 
 **Story 8 — Edit a Published Event**
 As an organizer, we want to edit event details after publishing, so that I can correct or update information.

@@ -14,8 +14,8 @@ Protected routes use `ProtectedRoute` (`components/layout/ProtectedRoute.tsx`), 
 | `/login` | `pages/auth/Login.tsx` | |
 | `/register` | `pages/auth/Register.tsx` | |
 | `/forgot-password` | `pages/auth/ForgotPassword.tsx` | |
-| `/events` | `pages/events/EventList.tsx` | Browse & search published events |
-| `/events/:id` | `pages/events/EventDetail.tsx` | View event details; book from here |
+| `/events` | `pages/events/EventList.tsx` | Browse & search published events only |
+| `/events/:id` | `pages/events/EventDetail.tsx` | View a published event; unapproved events are not available publicly |
 
 ---
 
@@ -25,9 +25,9 @@ Required role: `ORGANIZER`
 
 | Path | Page file | Notes |
 |---|---|---|
-| `/organizer` | `pages/organizer/OrganizerDashboard.tsx` | Overview of own events |
+| `/organizer` | `pages/organizer/OrganizerDashboard.tsx` | Own events, review feedback, and submit/resubmit actions |
 | `/organizer/events/new` | `pages/organizer/CreateEvent.tsx` | Create a new draft event |
-| `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Edit an existing event |
+| `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Edit a draft or rejected event and resubmit corrections |
 | `/organizer/events/:id/registrations` | `pages/organizer/EventRegistrations.tsx` | View attendee registrations |
 | `/organizer/events/:id/vendors` | `pages/organizer/VendorApplications.tsx` | Review & approve/reject vendor applications |
 | `/organizer/events/:id/check-in` | `pages/organizer/CheckIn.tsx` | Check attendees/vendor staff in on event day |
@@ -54,8 +54,8 @@ Required role: `ADMIN`
 | Path | Page file | Notes |
 |---|---|---|
 | `/admin` | `pages/admin/AdminDashboard.tsx` | Overview of pending events and system activity |
-| `/admin/approvals` | `pages/admin/ApprovalQueue.tsx` | Review and approve/reject `PENDING_APPROVAL` events |
-| `/admin/users` | `pages/admin/UserManagement.tsx` | Manage organizer accounts and roles |
+| `/admin/approvals` | `pages/admin/ApprovalQueue.tsx` | Review details and approve/reject `PENDING_APPROVAL` events; rejection requires a reason |
+| `/admin/users` | `pages/admin/UserManagement.tsx` | Search/filter users, view profiles, edit permitted details and roles, and suspend/reinstate accounts |
 
 ---
 
@@ -97,3 +97,6 @@ Required role: `MANAGEMENT`
 - Wrong role → redirect to `/` landing page
 
 It reads the authenticated user from `AuthContext` and accepts an optional `roles` array.
+
+Event approval uses the existing `PUBLISHED` status for approved events. Rejected events use `REJECTED`; the latest reviewer, decision time, and rejection feedback are stored on the event. Organizers can edit rejected events and resubmit them for review.
+Each approval/rejection is also recorded in the immutable audit log with its event, administrator, decision time, and outcome.

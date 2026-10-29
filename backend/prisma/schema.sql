@@ -26,6 +26,7 @@ CREATE TYPE "EventStatus" AS ENUM (
   'DRAFT',
   'PENDING_APPROVAL',
   'PUBLISHED',
+  'REJECTED',
   'CANCELLED',
   'COMPLETED'
 );
@@ -95,12 +96,15 @@ CREATE TABLE "events" (
   "price"               DECIMAL(10,2),
   "status"              "EventStatus" NOT NULL DEFAULT 'DRAFT',
   "rejection_reason"    TEXT,
+  "reviewed_by_id"      UUID,
+  "reviewed_at"         TIMESTAMPTZ,
   "organizer_id"        UUID          NOT NULL,
   "created_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"          TIMESTAMPTZ   NOT NULL,
 
   CONSTRAINT "events_pkey"              PRIMARY KEY ("id"),
-  CONSTRAINT "events_organizer_id_fkey" FOREIGN KEY ("organizer_id") REFERENCES "users"("id")
+  CONSTRAINT "events_organizer_id_fkey" FOREIGN KEY ("organizer_id") REFERENCES "users"("id"),
+  CONSTRAINT "events_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "users"("id") ON DELETE SET NULL
 );
 
 CREATE TABLE "bookings" (

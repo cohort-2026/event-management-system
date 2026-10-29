@@ -3,16 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import EventCard from '@/components/ui/EventCard';
 import Input from '@/components/ui/Input';
-import type { Event } from '@/types/event';
-
-const MOCK_EVENTS: Event[] = [
-  { id: '1', title: 'Annual Tech Summit 2025', description: 'A full-day conference bringing together technology leaders, innovators and developers to explore the future of software.', category: 'Technology', venue: 'Sandton Convention Centre, Johannesburg', date: '2025-09-15T09:00:00Z', capacity: 500, availableCapacity: 142, isFree: false, price: 350, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '2', title: 'Leadership & Management Workshop', description: 'An intensive one-day workshop designed to sharpen leadership skills and management techniques for mid-level professionals.', category: 'Training', venue: 'The Pivot, Montecasino, Fourways', date: '2025-08-22T08:30:00Z', capacity: 80, availableCapacity: 23, isFree: false, price: 1200, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '3', title: 'Startup Networking Evening', description: 'Connect with founders, investors and ecosystem builders over drinks and light snacks in a relaxed setting.', category: 'Networking', venue: 'Workshop17, Rosebank', date: '2025-08-08T18:00:00Z', capacity: 150, availableCapacity: 67, isFree: true, status: 'PUBLISHED', organizerId: 'org2', createdAt: '', updatedAt: '' },
-  { id: '4', title: 'Company Year-End Celebration', description: 'Join us for an evening of celebration, awards and entertainment as we close out an incredible year together.', category: 'Company Activity', venue: 'Emperors Palace, Kempton Park', date: '2025-11-28T18:30:00Z', capacity: 300, availableCapacity: 300, isFree: true, status: 'PUBLISHED', organizerId: 'org1', createdAt: '', updatedAt: '' },
-  { id: '5', title: 'Digital Marketing Masterclass', description: 'Learn the latest strategies in SEO, paid media, content marketing and analytics from industry practitioners.', category: 'Training', venue: 'Online (Zoom)', date: '2025-09-03T10:00:00Z', capacity: 200, availableCapacity: 88, isFree: false, price: 499, status: 'PUBLISHED', organizerId: 'org3', createdAt: '', updatedAt: '' },
-  { id: '6', title: 'Women in Business Breakfast', description: 'An inspiring morning of panel discussions, networking and mentorship opportunities for women in the corporate sector.', category: 'Networking', venue: 'The Saxon Hotel, Sandhurst', date: '2025-08-14T07:30:00Z', capacity: 100, availableCapacity: 12, isFree: false, price: 250, status: 'PUBLISHED', organizerId: 'org2', createdAt: '', updatedAt: '' },
-];
+import { useEvents } from '@/hooks/useEvents';
 
 const CATEGORIES = ['All', 'Technology', 'Training', 'Networking', 'Company Activity'];
 
@@ -20,8 +11,9 @@ export default function EventList() {
   const navigate = useNavigate();
   const [search, setSearch]     = useState('');
   const [category, setCategory] = useState('All');
+  const { events, loading, error } = useEvents();
 
-  const filtered = MOCK_EVENTS.filter(e => {
+  const filtered = events.filter(e => {
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.venue.toLowerCase().includes(search.toLowerCase());
     const matchCat    = category === 'All' || e.category === category;
@@ -79,7 +71,11 @@ export default function EventList() {
       </p>
 
       {/* Grid */}
-      {filtered.length > 0 ? (
+      {loading ? (
+        <p className="py-12 text-center text-neutral-500">Loading events...</p>
+      ) : error ? (
+        <p role="alert" className="py-12 text-center text-rose-600">{error}</p>
+      ) : filtered.length > 0 ? (
         <div className="card-grid">
           {filtered.map(e => <EventCard key={e.id} event={e} />)}
         </div>

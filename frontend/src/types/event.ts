@@ -1,4 +1,4 @@
-export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
 
 export interface Event {
   id: string;
@@ -10,13 +10,17 @@ export interface Event {
   capacity: number;
   availableCapacity: number;
   isFree: boolean;
-  price?: number;
+  price?: number | null;
   status: EventStatus;
   organizerId: string;
   rejectionReason?: string;
+  reviewedById?: string;
+  reviewedAt?: string;
+  reviewedBy?: { firstname: string; lastname: string };
+  organizer?: { firstname: string; lastname: string; email: string };
   createdAt: string;
   updatedAt: string;
 }
 
-export type CreateEventDto = Omit<Event, 'id' | 'status' | 'availableCapacity' | 'organizerId' | 'createdAt' | 'updatedAt' | 'rejectionReason'>;
+export type CreateEventDto = Omit<Event, 'id' | 'status' | 'availableCapacity' | 'organizerId' | 'createdAt' | 'updatedAt' | 'rejectionReason' | 'reviewedById' | 'reviewedAt' | 'reviewedBy' | 'organizer'>;
 export type UpdateEventDto = Partial<CreateEventDto>;
