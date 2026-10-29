@@ -97,6 +97,8 @@ model User {
   bookings            Booking[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
+  vendorProfile       VendorProfile?
+  vendorDocuments     VendorDocument[]
   auditEvents         AuditLog[] @relation("AuditActor")
   organizationName   String? @map("organization_name")
   organization       String?
@@ -274,6 +276,40 @@ model VendorApplication {
   staffMembers VendorStaffMember[]
 
   @@map("vendor_applications")
+}
+
+model VendorProfile {
+  id                       String   @id @default(uuid())
+  userId                   String   @unique @map("user_id")
+  businessName             String   @default("") @map("business_name")
+  businessDescription      String   @default("") @map("business_description")
+  businessRegistrationNumber String  @default("") @map("business_registration_number")
+  contactPerson            String   @default("") @map("contact_person")
+  contactEmail             String   @default("") @map("contact_email")
+  contactPhone             String   @default("") @map("contact_phone")
+  productsServices         String[] @default([]) @map("products_services")
+  logoUrl                  String?  @map("logo_url")
+  supportingDocumentUrls   String[] @default([]) @map("supporting_document_urls")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_profiles")
+}
+
+model VendorDocument {
+  id           String   @id @default(uuid())
+  vendorId     String   @map("vendor_id")
+  storageName  String   @unique @map("storage_name")
+  originalName String   @map("original_name")
+  sizeBytes    Int      @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_documents")
 }
 
 model VendorStaffMember {
