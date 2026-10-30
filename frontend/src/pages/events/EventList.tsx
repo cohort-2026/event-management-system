@@ -1,39 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import EventCard from '@/components/ui/EventCard';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
-import { getEvents } from '@/services/eventService';
-import type { Event } from '@/types/event';
+import { useEvents } from '@/hooks/useEvents';
 
 export default function EventList() {
   const navigate = useNavigate();
-  const [events, setEvents] = useState<Event[]>([]);
+  const { events, loading, error, usingSampleEvents } = useEvents();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    getEvents()
-      .then(response => {
-        if (active) setEvents(response.data.data);
-      })
-      .catch(loadError => {
-        if (active) {
-          setError(axios.isAxiosError(loadError)
-            ? (loadError.response?.data?.message ?? 'Events could not be loaded.')
-            : 'Events could not be loaded.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, []);
 
   const categories = useMemo(() => ['All', ...new Set(events.map(event => event.category))], [events]);
   const filtered = events.filter(event => {
@@ -49,9 +26,9 @@ export default function EventList() {
       <div className="mb-8">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/attendee')}
           className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          aria-label="Go back to the previous page"
+          aria-label="Go to the attendee dashboard"
         >
           <span aria-hidden="true">←</span> Previous
         </button>
@@ -82,6 +59,11 @@ export default function EventList() {
       </div>
 
       {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+      {usingSampleEvents && (
+        <p className="mb-5 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-700">
+          Showing sample events while published event data is unavailable.
+        </p>
+      )}
       {loading ? <div className="flex justify-center py-16"><Spinner /></div> : (
         <>
           <p className="mb-4 text-sm text-neutral-400">{filtered.length} event{filtered.length !== 1 ? 's' : ''} found</p>
@@ -97,34 +79,5 @@ export default function EventList() {
       )}
 
     </PageWrapper>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  const id = `event-filter-${label.toLowerCase().replaceAll(' ', '-')}`;
-  return (
-    <label htmlFor={id} className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-      {label}
-      <select
-        id={id}
-        value={value}
-        onChange={event => {
-          onChange(event.target.value);
-        }}
-        className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
-      >
-        {children}
-      </select>
-    </label>
   );
 }

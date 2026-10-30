@@ -1,5 +1,5 @@
 import api from '@/services/api';
-import type { Event, EventListParams, EventListResponse, CreateEventDto, UpdateEventDto } from '@/types/event';
+import type { Event, CreateEventDto, UpdateEventDto } from '@/types/event';
 
 interface ApiResponse<T> {
   success: boolean;

@@ -105,7 +105,7 @@ export default function AttendeeDashboard() {
                     <div className="min-w-0">
                       <p className="text-sm font-black text-neutral-900 truncate">{event.title}</p>
                       <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500 mt-1">{event.category} • {event.venue}</p>
-                      <p className="text-[11px] text-neutral-400 mt-1">{new Date(event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-[11px] text-neutral-400 mt-1">{new Date(event.startTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                     <Link to={`/events/${event.id}`}> 
                       <Button size="sm" variant="secondary">Details</Button>

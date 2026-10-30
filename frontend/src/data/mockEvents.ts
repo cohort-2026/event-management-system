@@ -1,6 +1,16 @@
 import type { Event, EventTicketType } from '@/types/event';
 
-export const MOCK_EVENTS: Event[] = [
+type MockEvent = Omit<Event, 'startTime' | 'endTime' | 'eventType' | 'ticketTypes' | 'organizer'> & {
+  date: string;
+};
+
+type MockTicketType = Pick<EventTicketType, 'name' | 'price' | 'availableQuantity'> & {
+  bookingDeadline?: string;
+  description?: string | null;
+  quantity?: number;
+};
+
+export const MOCK_EVENTS: MockEvent[] = [
   {
     id: 'mock-1',
     title: 'Cape Town Product & Technology Summit',
@@ -255,7 +265,7 @@ const eventDetails: Record<string, {
   endTime: string;
   organizerName: string;
   bookingDeadline?: string;
-  ticketTypes?: EventTicketType[];
+  ticketTypes?: MockTicketType[];
   rules: string[];
   accessibilityInformation: string[];
   attendeeRequirements?: string[];
@@ -393,38 +403,66 @@ const eventDetails: Record<string, {
   },
 };
 
-function withBookingDetails(event: Event): Event {
-  const details = eventDetails[event.id];
-  if (!details) return event;
+const mockLocations: Record<string, string> = {
+  'mock-1': 'Cape Town, South Africa',
+  'mock-2': 'Johannesburg, South Africa',
+  'mock-3': 'Online',
+  'mock-4': 'Durban, South Africa',
+  'mock-5': 'Johannesburg, South Africa',
+  'mock-6': 'Franschhoek, South Africa',
+  'mock-7': 'Cape Town, South Africa',
+  'mock-8': 'Roodepoort, South Africa',
+  'mock-9': 'Johannesburg, South Africa',
+  'mock-10': 'Johannesburg, South Africa',
+  'mock-11': 'Pretoria, South Africa',
+  'mock-12': 'Wilderness, South Africa',
+  'mock-13': 'Pretoria, South Africa',
+  'mock-14': 'Stellenbosch, South Africa',
+};
 
+function withBookingDetails(event: MockEvent): Event {
+  const details = eventDetails[event.id];
   const [, eventDay, startTime, offset = 'Z'] = event.date.match(
     /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/,
   ) ?? [];
-  if (!eventDay || !startTime) return event;
+  if (!eventDay || !startTime) throw new Error(`Invalid mock event start time for ${event.id}`);
+  const endTime = details?.endTime ?? startTime;
   const endDate = new Date(`${eventDay}T00:00:00Z`);
-  if (details.endTime <= startTime) endDate.setUTCDate(endDate.getUTCDate() + 1);
+  if (endTime <= startTime) endDate.setUTCDate(endDate.getUTCDate() + 1);
 
-  const ticketTypes = details.ticketTypes ?? [{
+  const ticketTypeData = details?.ticketTypes ?? [{
     name: event.isFree ? 'Free admission' : 'General admission',
     price: event.isFree ? 0 : event.price ?? 0,
     availableQuantity: event.availableCapacity,
-    ...(details.bookingDeadline && { bookingDeadline: details.bookingDeadline }),
+    quantity: event.capacity,
+    ...(details?.bookingDeadline && { bookingDeadline: details.bookingDeadline }),
   }];
 
   return {
     ...event,
-    endDate: `${endDate.toISOString().slice(0, 10)}T${details.endTime}:00${offset}`,
-    location: event.venue.split(',').slice(-1)[0].trim(),
-    organizer: {
-      name: details.organizerName,
-      description: 'Event organizer',
-    },
-    ticketTypes,
-    bookingDeadline: details.bookingDeadline,
-    rules: details.rules,
-    accessibilityInformation: details.accessibilityInformation,
-    attendeeRequirements: details.attendeeRequirements,
-    cancellationPolicy: details.cancellationPolicy,
+    startTime: event.date,
+    endTime: `${endDate.toISOString().slice(0, 10)}T${endTime}:00${offset}`,
+    endDate: `${endDate.toISOString().slice(0, 10)}T${endTime}:00${offset}`,
+    eventType: event.venue.toLowerCase() === 'online' ? 'ONLINE' : 'IN_PERSON',
+    location: mockLocations[event.id] ?? event.venue.split(',').slice(-1)[0].trim(),
+    ...(details && {
+      organizer: {
+        firstname: details.organizerName,
+        lastname: '',
+        email: '',
+        description: 'Event organizer',
+      },
+      bookingDeadline: details.bookingDeadline,
+      rules: details.rules,
+      accessibilityInformation: details.accessibilityInformation,
+      attendeeRequirements: details.attendeeRequirements,
+      cancellationPolicy: details.cancellationPolicy,
+    }),
+    ticketTypes: ticketTypeData.map((ticket, index) => ({
+      ...ticket,
+      id: `${event.id}-ticket-${index + 1}`,
+      quantity: ticket.quantity ?? ticket.availableQuantity,
+    })),
   };
 }
 

@@ -8,7 +8,22 @@ import { provisionInitialPlatformAdmin } from '@/services/platformAdminProvision
 
 const app = express();
 
-app.use(cors({ origin: config.clientUrl, credentials: true }));
+const allowedClientOrigins = [config.clientUrl];
+if (config.nodeEnv === 'development') {
+  const configuredOrigin = new URL(config.clientUrl);
+  const loopbackHosts = new Set(['localhost', '127.0.0.1']);
+  if (loopbackHosts.has(configuredOrigin.hostname)) {
+    for (const hostname of loopbackHosts) {
+      const localOrigin = new URL(configuredOrigin);
+      localOrigin.hostname = hostname;
+      if (!allowedClientOrigins.includes(localOrigin.origin)) {
+        allowedClientOrigins.push(localOrigin.origin);
+      }
+    }
+  }
+}
+
+app.use(cors({ origin: allowedClientOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 

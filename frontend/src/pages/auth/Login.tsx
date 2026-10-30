@@ -42,7 +42,11 @@ export default function Login() {
     try {
       const res = await login({ email, password });
       setUser(res.data.data);
-      navigate(res.data.data.mustChangePassword ? '/change-password' : '/');
+      const eventReturnPath = typeof location.state?.from === 'string' &&
+        location.state.from.startsWith('/events/')
+        ? location.state.from
+        : '/';
+      navigate(res.data.data.mustChangePassword ? '/change-password' : eventReturnPath, { replace: true });
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;

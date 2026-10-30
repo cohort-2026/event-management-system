@@ -14,13 +14,15 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function EventCard({ event }: { event: Event }) {
-  const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+  const start = new Date(event.startTime);
+  const date = start.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = start.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
   const seatsLeft = Math.max(0, Math.min(event.capacity, event.availableCapacity));
   const fillPct = event.capacity > 0
     ? Math.min(100, Math.round(((event.capacity - seatsLeft) / event.capacity) * 100))
     : 0;
-  const bookingOpen = event.bookingOpen ?? event.availableCapacity > 0;
+  const bookingOpen = event.bookingOpen ?? (event.status === 'PUBLISHED' && event.availableCapacity > 0);
   const bookingLabel = !bookingOpen
     ? event.availableCapacity === 0 ? event.isFree ? 'Fully booked' : 'Sold out' : 'Bookings closed'
     : `${seatsLeft} seats left`;
@@ -28,8 +30,8 @@ export default function EventCard({ event }: { event: Event }) {
   return (
     <Link to={`/events/${event.id}`} className="block group">
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col h-full">
-        {event.bannerImageUrl
-          ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
+        {event.bannerImageUrl || event.imageUrl
+          ? <img src={event.bannerImageUrl ?? event.imageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
           : <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />}
 
         <div className="p-5 flex flex-col gap-3 flex-1">

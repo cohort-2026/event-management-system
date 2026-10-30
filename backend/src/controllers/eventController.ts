@@ -17,6 +17,7 @@ interface TicketInput {
   description?: string;
   price: number;
   quantity: number;
+  bookingDeadline: Date | null;
 }
 
 interface EventInput {
@@ -116,6 +117,10 @@ const parseEventInput = (body: Record<string, unknown>):
     const ticket = rawTicket as Record<string, unknown>;
     const name = text(ticket.name);
     const ticketDescription = text(ticket.description);
+    const rawBookingDeadline = ticket.bookingDeadline;
+    const bookingDeadline = typeof rawBookingDeadline === 'string'
+      ? new Date(rawBookingDeadline)
+      : null;
     if (name.length < 2 || name.length > 80) return { error: 'Ticket type names must be between 2 and 80 characters' };
     if (ticketDescription.length > 500) return { error: 'Ticket descriptions cannot exceed 500 characters' };
     if (ticketNames.has(name.toLocaleLowerCase())) return { error: 'Ticket type names must be unique' };
@@ -132,11 +137,17 @@ const parseEventInput = (body: Record<string, unknown>):
     if (typeof ticket.quantity !== 'number' || !Number.isInteger(ticket.quantity) || ticket.quantity < 1 || ticket.quantity > MAX_CAPACITY) {
       return { error: 'Ticket quantities must be positive whole numbers' };
     }
+    if (rawBookingDeadline !== undefined && rawBookingDeadline !== null &&
+        (typeof rawBookingDeadline !== 'string' || !bookingDeadline ||
+          !Number.isFinite(bookingDeadline.getTime()) || bookingDeadline > startTime)) {
+      return { error: 'Ticket booking deadlines must be valid dates no later than the event start' };
+    }
     ticketTypes.push({
       name,
       ...(ticketDescription ? { description: ticketDescription } : {}),
       price: ticket.price,
       quantity: ticket.quantity,
+      bookingDeadline,
     });
   }
 
@@ -460,8 +471,14 @@ export const getPublicEvent = async (req: Request, res: Response, next: NextFunc
       return;
     }
     const event = await prisma.event.findFirst({
-      where: { id: eventId, status: EventStatus.PUBLISHED },
-      include: eventInclude,
+      where: {
+        id: eventId,
+        status: { in: [EventStatus.PUBLISHED, EventStatus.CANCELLED, EventStatus.COMPLETED] },
+      },
+      include: {
+        ...eventInclude,
+        organizer: { select: { firstname: true, lastname: true } },
+      },
     });
     if (!event) {
       res.status(404).json({ success: false, message: 'Event not found' });

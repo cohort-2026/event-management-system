@@ -15,6 +15,7 @@ interface TicketForm {
   description: string;
   price: string;
   quantity: string;
+  bookingDeadline: string;
 }
 
 interface EventForm {
@@ -31,7 +32,7 @@ interface EventForm {
   ticketTypes: TicketForm[];
 }
 
-const EMPTY_TICKET: TicketForm = { name: 'General admission', description: '', price: '0', quantity: '' };
+const EMPTY_TICKET: TicketForm = { name: 'General admission', description: '', price: '0', quantity: '', bookingDeadline: '' };
 const EMPTY_FORM: EventForm = {
   title: '',
   description: '',
@@ -70,6 +71,7 @@ const toForm = (event: Event): EventForm => ({
     description: ticket.description ?? '',
     price: String(ticket.price),
     quantity: String(ticket.quantity),
+    bookingDeadline: ticket.bookingDeadline ? asLocalDateTime(ticket.bookingDeadline) : '',
   })),
 });
 
@@ -137,11 +139,17 @@ export default function CreateEvent() {
       description: ticket.description.trim(),
       price: Number(ticket.price),
       quantity: Number(ticket.quantity),
+      bookingDeadline: ticket.bookingDeadline ? new Date(ticket.bookingDeadline) : undefined,
     }));
     if (!Number.isInteger(capacity) || capacity < 1 || ticketTypes.some(ticket =>
       !ticket.name || !Number.isFinite(ticket.price) || ticket.price < 0 ||
       !Number.isInteger(ticket.quantity) || ticket.quantity < 1)) {
       setError('Enter a valid capacity and valid name, price and quantity for each ticket type.');
+      return;
+    }
+    if (ticketTypes.some(ticket => ticket.bookingDeadline &&
+      (!Number.isFinite(ticket.bookingDeadline.getTime()) || ticket.bookingDeadline > startTime))) {
+      setError('Each ticket booking deadline must be a valid time no later than the event start.');
       return;
     }
     if (ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== capacity) {
@@ -173,12 +181,15 @@ export default function CreateEvent() {
       meetingDetails: form.meetingDetails.trim() || undefined,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      date: startTime.toISOString(),
       capacity,
       isFree: ticketTypes.every(ticket => ticket.price === 0),
       bannerImageUrl: form.bannerImageUrl.trim() || undefined,
-      ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
-        name, description: description || undefined, price, quantity,
+      ticketTypes: ticketTypes.map(({ name, description, price, quantity, bookingDeadline }) => ({
+        name,
+        description: description || undefined,
+        price,
+        quantity,
+        ...(bookingDeadline && { bookingDeadline: bookingDeadline.toISOString() }),
       })),
     };
 
@@ -336,6 +347,7 @@ export default function CreateEvent() {
                         <Textarea label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
                         <Input label="Price (ZAR, 0 for free)" type="number" min={0} max={99_999_999.99} step={0.01} value={ticket.price} onChange={event => updateTicket(index, { price: event.target.value })} required />
                         <Input label="Quantity" type="number" min={1} max={1_000_000} step={1} value={ticket.quantity} onChange={event => updateTicket(index, { quantity: event.target.value })} required />
+                        <Input label="Booking deadline (optional)" type="datetime-local" max={form.startTime} value={ticket.bookingDeadline} onChange={event => updateTicket(index, { bookingDeadline: event.target.value })} />
                       </div>
                       {form.ticketTypes.length > 1 && (
                         <button type="button" className="mt-3 text-sm font-semibold text-rose-700 hover:text-rose-900" onClick={() => setForm(current => ({ ...current, ticketTypes: current.ticketTypes.filter((_, ticketIndex) => ticketIndex !== index) }))}>

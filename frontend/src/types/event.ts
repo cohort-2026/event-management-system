@@ -8,19 +8,14 @@ export interface EventTicketType {
   price: number;
   quantity: number;
   availableQuantity: number;
+  bookingDeadline?: string | null;
 }
 
 export interface EventOrganizer {
-  name: string;
-  description?: string;
+  firstname: string;
+  lastname: string;
   email?: string;
-}
-
-export interface EventTicketType {
-  name: string;
-  price: number;
-  availableQuantity: number;
-  bookingDeadline?: string;
+  description?: string;
 }
 
 export interface Event {
@@ -29,10 +24,11 @@ export interface Event {
   description: string;
   category: string;
   venue: string;
+  location?: string;
   imageUrl?: string;
-  date: string;
   startTime: string;
   endTime: string;
+  endDate?: string;
   eventType: EventType;
   meetingDetails?: string | null;
   bannerImageUrl?: string | null;
@@ -42,15 +38,25 @@ export interface Event {
   price?: number | null;
   status: EventStatus;
   organizerId: string;
+  organizer?: EventOrganizer;
   rejectionReason?: string;
-  organizer?: { firstname: string; lastname: string; email: string };
+  bookingOpen?: boolean;
+  bookingDeadline?: string;
+  popularity?: number;
   ticketTypes: EventTicketType[];
+  rules?: string[];
+  accessibilityInformation?: string[];
+  attendeeRequirements?: string[];
+  cancellationPolicy?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & { description?: string };
-export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
+export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & {
+  description?: string;
+  bookingDeadline?: string;
+};
+export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
   meetingDetails?: string;
   bannerImageUrl?: string;
   ticketTypes: EventTicketTypeInput[];

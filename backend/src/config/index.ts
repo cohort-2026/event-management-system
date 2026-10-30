@@ -2,12 +2,13 @@ import dotenv from "dotenv";
 import path from "node:path";
 dotenv.config();
 
+const port = Number(process.env.PORT);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be a valid TCP port between 1 and 65535");
+}
+
 export const config = {
-  port:
-    process.env.PORT ??
-    (() => {
-      throw new Error("PORT is not defined in environment variables");
-    })(),
+  port,
   nodeEnv:
     process.env.NODE_ENV ??
     (() => {

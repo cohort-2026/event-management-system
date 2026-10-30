@@ -198,10 +198,12 @@ model EventTicketType {
   price           Decimal  @db.Decimal(10, 2)
   quantity        Int
   availableQuantity Int    @map("available_quantity")
+  bookingDeadline DateTime? @map("booking_deadline")
   createdAt       DateTime @default(now()) @map("created_at")
 
   eventId String @map("event_id")
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookings Booking[]
 
   @@index([eventId])
   @@map("event_ticket_types")
@@ -217,6 +219,8 @@ model Booking {
   // Relations
   eventId    String   @map("event_id")
   event      Event    @relation(fields: [eventId], references: [id])
+  eventTicketTypeId String? @map("event_ticket_type_id")
+  eventTicketType   EventTicketType? @relation(fields: [eventTicketTypeId], references: [id], onDelete: SetNull)
   attendeeId String   @map("attendee_id")
   attendee   User     @relation(fields: [attendeeId], references: [id])
   ticket     Ticket?

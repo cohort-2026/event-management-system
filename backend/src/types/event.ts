@@ -8,6 +8,7 @@ export interface EventTicketType {
   price: number;
   quantity: number;
   availableQuantity: number;
+  bookingDeadline?: Date | null;
 }
 
 export interface Event {
@@ -35,7 +36,10 @@ export interface Event {
   updatedAt: Date;
 }
 
-export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & { description?: string };
+export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & {
+  description?: string;
+  bookingDeadline?: Date;
+};
 export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
   meetingDetails?: string;
   bannerImageUrl?: string;
