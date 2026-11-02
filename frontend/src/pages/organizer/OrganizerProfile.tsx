@@ -23,6 +23,7 @@ const emptyProfile: UpdateOrganizerProfileDto = {
 
 const sidebarItems = [
   { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
+  { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
   { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
   { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
 ];

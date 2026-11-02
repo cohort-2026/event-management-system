@@ -5,4 +5,4 @@
 
 */
 -- AlterTable
-ALTER TABLE "users" DROP COLUMN "organization_description";
+ALTER TABLE "users" DROP COLUMN IF EXISTS "organization_description";

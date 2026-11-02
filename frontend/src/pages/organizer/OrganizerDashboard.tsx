@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
@@ -31,6 +31,7 @@ const formatDate = (date: string): string => new Date(date).toLocaleString('en-Z
 });
 
 export default function OrganizerDashboard() {
+  const isMyEventsPage = useLocation().pathname === '/organizer/events';
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -102,28 +103,33 @@ export default function OrganizerDashboard() {
           subtitle="Operations"
           items={[
             { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
+            { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
             { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
             { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
           ]}
         />
         <section className="flex-1 min-w-0">
           <DashboardHeader
-            title="Organizer Dashboard"
-            subtitle="Manage your events and track approval decisions."
-            breadcrumbs={[{ label: 'Dashboard', to: '/organizer' }]}
+            title={isMyEventsPage ? 'My events' : 'Organizer Dashboard'}
+            subtitle={isMyEventsPage ? 'Manage your events and track approval decisions.' : 'Track your event activity and approval decisions.'}
+            breadcrumbs={isMyEventsPage
+              ? [{ label: 'Dashboard', to: '/organizer' }, { label: 'My events' }]
+              : [{ label: 'Dashboard', to: '/organizer' }]}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" />
-            <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
-            <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" />
-            <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" />
-          </div>
+          {!isMyEventsPage && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" />
+              <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
+              <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" />
+              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" />
+            </div>
+          )}
 
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {notice && <p role="status" className="mb-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
-          <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          {isMyEventsPage && <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
             <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
               <h2 className="font-semibold text-neutral-900">My events</h2>
               <Link to="/organizer/events/new"><Button size="sm">Create event</Button></Link>
@@ -175,7 +181,7 @@ export default function OrganizerDashboard() {
                 ))}
               </div>
             )}
-          </section>
+          </section>}
         </section>
       </div>
     </PageWrapper>
