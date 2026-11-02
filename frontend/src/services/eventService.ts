@@ -8,6 +8,12 @@ interface ApiResponse<T> {
   notificationSent?: boolean;
 }
 
+interface ApiActionResponse {
+  success: boolean;
+  message: string;
+  notificationSent: boolean;
+}
+
 export interface AdminEventAnalytics {
   statusCounts: Array<{ status: Event['status']; count: number }>;
   approvedByCategory: Array<{ category: string; count: number }>;
@@ -25,4 +31,4 @@ export const deleteEvent     = (id: string)                          => api.dele
 export const submitForApproval = (id: string)                        => api.patch<ApiResponse<Event>>(`/events/${id}/submit`);
 export const approveEvent    = (id: string)                          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/approve`);
 export const rejectEvent    = (id: string, reason: string)          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/reject`, { reason });
-export const cancelEvent     = (id: string)                          => api.patch(`/events/${id}/cancel`);
+export const cancelEvent     = (id: string)                          => api.patch<ApiActionResponse>(`/events/${id}/cancel`);

@@ -7,7 +7,7 @@ import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { getMyEvents, submitForApproval } from '@/services/eventService';
+import { cancelEvent, getMyEvents, submitForApproval } from '@/services/eventService';
 import type { Event, EventStatus } from '@/types/event';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
@@ -20,7 +20,7 @@ const statusVariant: Record<EventStatus, BadgeVariant> = {
   COMPLETED: 'info',
 };
 
-const statusLabel = (status: EventStatus): string => status === 'PUBLISHED' ? 'APPROVED' : status.replace('_', ' ');
+const statusLabel = (status: EventStatus): string => status === 'PUBLISHED' ? 'PUBLISHED' : status.replace('_', ' ');
 const formatDate = (date: string): string => new Date(date).toLocaleString('en-ZA', {
   weekday: 'short',
   day: 'numeric',
@@ -36,6 +36,7 @@ export default function OrganizerDashboard() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +75,25 @@ export default function OrganizerDashboard() {
     }
   };
 
+  const cancel = async (event: Event) => {
+    if (!window.confirm(`Cancel "${event.title}"? Registered attendees and approved vendors will be notified.`)) return;
+    setError('');
+    setNotice('');
+    setCancellingId(event.id);
+    try {
+      const response = await cancelEvent(event.id);
+      setNotice(response.data.message ?? 'Event cancelled.');
+      const refreshed = await getMyEvents();
+      setEvents(refreshed.data.data);
+    } catch (cancelError) {
+      setError(axios.isAxiosError(cancelError)
+        ? (cancelError.response?.data?.message ?? 'Event could not be cancelled.')
+        : 'Event could not be cancelled.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row gap-8">
@@ -94,9 +114,9 @@ export default function OrganizerDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" />
-            <StatCard label="Approved" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
+            <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
             <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" />
-            <StatCard label="Rejected" value={events.filter(event => event.status === 'REJECTED').length} icon={<span aria-hidden="true">!</span>} color="purple" />
+            <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" />
           </div>
 
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
@@ -128,15 +148,22 @@ export default function OrganizerDashboard() {
                         <p className="mt-1 text-xs text-neutral-400">{event.capacity - event.availableCapacity} / {event.capacity} places booked</p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
-                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
-                          <Link to={`/organizer/events/${event.id}/edit`}><Button variant="secondary" size="sm">{event.status === 'REJECTED' ? 'Correct event' : 'Edit draft'}</Button></Link>
+                        {(['DRAFT', 'REJECTED', 'PENDING_APPROVAL', 'PUBLISHED'].includes(event.status)) && (
+                          <Link to={`/organizer/events/${event.id}/edit`}>
+                            <Button variant="secondary" size="sm">
+                              {event.status === 'PUBLISHED' ? 'Edit published event' : event.status === 'PENDING_APPROVAL' ? 'Edit pending event' : event.status === 'REJECTED' ? 'Correct event' : 'Edit draft'}
+                            </Button>
+                          </Link>
                         )}
-                        {event.status === 'DRAFT' && (
+                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
                           <Button size="sm" loading={submittingId === event.id} onClick={() => void resubmit(event.id)}>Submit for approval</Button>
+                        )}
+                        {event.status === 'PUBLISHED' && (
+                          <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => void cancel(event)}>Cancel event</Button>
                         )}
                       </div>
                     </div>
-                    {event.status === 'REJECTED' && event.rejectionReason && (
+                    {(event.status === 'DRAFT' || event.status === 'REJECTED') && event.rejectionReason && (
                       <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
                         <h4 className="text-sm font-bold text-rose-900">Admin feedback</h4>
                         <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{event.rejectionReason}</p>

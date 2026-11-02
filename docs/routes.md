@@ -36,13 +36,19 @@ Organizer event creation uses `POST /api/events` and requires title,
 description, category, event format, start/end date and time, capacity, venue
 or meeting information, and ticket types whose quantities sum to the event
 capacity. An optional HTTPS/HTTP banner image URL is supported. Drafts are
-editable, while rejected events can be corrected and resubmitted through
+editable, and organizers can also edit pending events. Admin rejection returns
+the event to `DRAFT`, records required feedback, and emails that feedback to the
+organizer; the organizer can correct the draft and resubmit it through
 `PATCH /api/events/:id/submit`. `PUBLISHED` is the project status for an
 approved event; only `PUBLISHED` events are returned by public event routes.
-Admins review events through `GET /api/events/admin/approval-queue`, then use
-the approve/reject endpoints. Rejections require admin feedback, which remains
-visible to the organizer and is also emailed; approval and rejection decisions
-trigger organizer email notifications.
+Minor edits to published events take effect immediately, while changes to the
+date, time, venue, capacity, or ticket prices return the event to
+`PENDING_APPROVAL`. Published-event changes notify registered attendees and
+approved vendors. Organizers can cancel their own published events through
+`PATCH /api/events/:id/cancel`, which also notifies registered attendees and
+approved vendors. Admins review events through
+`GET /api/events/admin/approval-queue`, then use the approve/reject endpoints.
+Approval and rejection decisions trigger organizer email notifications.
 
 ---
 
