@@ -10,7 +10,7 @@ interface FieldErrors { firstname?: string; lastname?: string; email?: string; p
 
 const ROLES: { value: UserRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
-  // { value: 'ORGANIZER', label: 'Organizer', desc: 'Create and manage events' },
+  { value: 'ORGANIZER', label: 'Organizer', desc: 'Create and manage events' },
   { value: 'VENDOR',    label: 'Vendor',    desc: 'Apply for vendor stands' },
 ];
 
