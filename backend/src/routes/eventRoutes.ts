@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, requireRole } from '@/middleware/auth';
+import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
 import {
   approveEvent,
   cancelEvent,
@@ -35,9 +35,9 @@ router.get('/:id', getPublicEvent);
 // DELETE /api/events/:id                Delete own draft event
 // GET    /api/events/:id/bookings        View registrations for own event
 // GET    /api/events/:id/vendors         View vendor applications for own event
-router.post('/',                requireAuth, requireRole('ORGANIZER'), createEvent);
+router.post('/',                requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, createEvent);
 router.put('/:id',              requireAuth, requireRole('ORGANIZER'), updateEvent);
-router.patch('/:id/submit',     requireAuth, requireRole('ORGANIZER'), submitEventForApproval);
+router.patch('/:id/submit',     requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, submitEventForApproval);
 router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), cancelEvent);
 router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
 router.get('/:id/bookings',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));

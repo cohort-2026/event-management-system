@@ -1,2 +1,2 @@
-// Organizer pages: OrganizerDashboard, CreateEvent, EditEvent, EventRegistrations, VendorApplications, CheckIn
+// Organizer pages: OrganizerDashboard, OrganizerProfile, CreateEvent, EditEvent, EventRegistrations, VendorApplications, CheckIn
 export {};

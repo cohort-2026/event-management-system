@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { config } from '@/config/index';
 import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
 
@@ -15,6 +15,7 @@ const MAX_OTP_ATTEMPTS = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
 const SETUP_TOKEN_MAX_AGE_HOURS = 24;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const REGISTRATION_ROLES = ['ATTENDEE', 'VENDOR', 'ORGANIZER'] as const;
 
 const cookieOptions = {
   httpOnly: true,
@@ -39,60 +40,119 @@ const createOtp = (): string => randomInt(100000, 1000000).toString();
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { firstname, lastname, email: rawEmail, password } = req.body;
+    const body = req.body && typeof req.body === 'object'
+      ? req.body as Record<string, unknown>
+      : {};
+    const firstname = typeof body.firstname === 'string' ? body.firstname.trim() : '';
+    const lastname = typeof body.lastname === 'string' ? body.lastname.trim() : '';
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = body.password;
+    const role = REGISTRATION_ROLES.find(candidate => candidate === body.role);
+    const organizationName = typeof body.organizationName === 'string' ? body.organizationName.trim() : '';
+    const organizationDescription = typeof body.organizationDescription === 'string' ? body.organizationDescription.trim() : '';
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
 
-    const allow_self_registration = ['ATTENDEE', 'VENDOR', 'ORGANIZER'];
-    const role = allow_self_registration.includes(req.body.role) ? req.body.role : 'ATTENDEE';
-    
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
-
-    if (!firstname || !lastname || !email || !role || !password) {
-      res.status(400).json({ success: false, message: 'firstname, lastname, email, role and password are required' });
+    if (!firstname || !lastname || !email || !role || typeof password !== 'string' || !password) {
+      res.status(400).json({ success: false, message: 'First name, last name, email, an allowed account type, and password are required' });
       return;
     }
 
-    if (!EMAIL_REGEX.test(email)) {
-      res.status(400).json({ success: false, message: 'Invalid email address' });
+    if (firstname.length > 80 || lastname.length > 80) {
+      res.status(400).json({ success: false, message: 'First and last names must be 80 characters or fewer' });
       return;
     }
 
-    if (typeof password !== 'string' || password.length < 8) {
-      res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    if (email.length > 254 || !EMAIL_REGEX.test(email)) {
+      res.status(400).json({ success: false, message: 'Enter a valid email address (254 characters or fewer)' });
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      res.status(409).json({ success: false, message: 'Email already registered' });
+    if (
+      Buffer.byteLength(password, 'utf8') > 72 ||
+      !STRONG_PASSWORD_REGEX.test(password)
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'Password must be 8–72 UTF-8 bytes and include uppercase, lowercase, a number, and a special character',
+      });
+      return;
+    }
+
+    if (body.organizationName !== undefined && typeof body.organizationName !== 'string') {
+      res.status(400).json({ success: false, message: 'Enter a valid organization name' });
+      return;
+    }
+    if (body.organizationDescription !== undefined && typeof body.organizationDescription !== 'string') {
+      res.status(400).json({ success: false, message: 'Enter a valid organization description' });
+      return;
+    }
+    if (body.phone !== undefined && typeof body.phone !== 'string') {
+      res.status(400).json({ success: false, message: 'Enter a valid phone number' });
+      return;
+    }
+    if (role === 'ORGANIZER' && (organizationName.length < 2 || organizationName.length > 120)) {
+      res.status(400).json({ success: false, message: 'Organization name must be between 2 and 120 characters' });
+      return;
+    }
+    if (role === 'ORGANIZER' && organizationDescription.length > 500) {
+      res.status(400).json({ success: false, message: 'Organization description must be 500 characters or fewer' });
+      return;
+    }
+    if (
+      role === 'ORGANIZER' &&
+      (phone.length > 30 || (phone && (!/^\+?[0-9\s().-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7)))
+    ) {
+      res.status(400).json({ success: false, message: 'Enter a valid phone number with at least 7 digits' });
       return;
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: { firstname, lastname, email, role, passwordHash },
-      select: USER_SELECT,
-    });
-
     const code = createOtp();
     const codeHash = await bcrypt.hash(code, 12);
 
-    await prisma.emailVerification.create({
-      data: {
-        userId: user.id,
-        codeHash,
-        expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-      },
+    const user = await prisma.$transaction(async transaction => {
+      const createdUser = await transaction.user.create({
+        data: {
+          firstname,
+          lastname,
+          email,
+          role,
+          passwordHash,
+          ...(role === 'ORGANIZER' ? {
+            organizationName,
+            organizationDescription: organizationDescription || null,
+            phone: phone || null,
+          } : {}),
+        },
+        select: USER_SELECT,
+      });
+
+      await transaction.emailVerification.create({
+        data: {
+          userId: createdUser.id,
+          codeHash,
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+        },
+      });
+
+      return createdUser;
     });
 
     await sendVerificationCode(email, code);
 
     res.status(201).json({
       success: true,
-      message: 'Account created. Check your email for the verification code.',
-      data: { email: user.email },
+      message: role === 'ORGANIZER'
+        ? 'Organizer account created. Verify your email, complete your profile, and wait for admin approval before creating events.'
+        : 'Account created. Check your email for the verification code.',
+      data: { email: user.email, role: user.role },
     });
   } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      res.status(409).json({ success: false, message: 'Email already registered' });
+      return;
+    }
     next(err);
   }
 };
