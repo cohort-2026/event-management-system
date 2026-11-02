@@ -75,6 +75,11 @@ enum VendorApplicationStatus {
   REJECTED
 }
 
+enum ProfileApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -101,8 +106,10 @@ model User {
   vendorDocuments     VendorDocument[]
   auditEvents         AuditLog[] @relation("AuditActor")
   organizationName   String? @map("organization_name")
+  organizationDescription String? @map("organization_description")
   organization       String?
   phone              String?
+  profileApprovalStatus ProfileApprovalStatus @default(PENDING_APPROVAL) @map("profile_approval_status")
 
   @@map("users")
 }

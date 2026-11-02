@@ -11,6 +11,11 @@ export default function Input({ label, error, helperText, showPasswordToggle = f
   const [showPassword, setShowPassword] = useState(false);
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
   const isPassword = type === 'password';
+  const describedBy = [
+    props['aria-describedby'],
+    error ? `${inputId}-error` : undefined,
+    !error && helperText ? `${inputId}-helper` : undefined,
+  ].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -21,8 +26,11 @@ export default function Input({ label, error, helperText, showPasswordToggle = f
       )}
       <div className="relative">
         <input
+          {...props}
           id={inputId}
           type={isPassword && showPassword ? 'text' : type}
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={describedBy}
           className={`block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400
             shadow-xs transition-colors duration-150
             focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
@@ -30,7 +38,6 @@ export default function Input({ label, error, helperText, showPasswordToggle = f
             ${showPasswordToggle && isPassword ? 'pr-11' : ''}
             ${error ? 'border-rose-400 focus:ring-rose-400' : 'border-neutral-200 hover:border-neutral-300'}
             ${className}`}
-          {...props}
         />
         {showPasswordToggle && isPassword && (
           <button
@@ -52,8 +59,8 @@ export default function Input({ label, error, helperText, showPasswordToggle = f
           </button>
         )}
       </div>
-      {error     && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-      {!error && helperText && <p className="text-xs text-neutral-400">{helperText}</p>}
+      {error     && <p id={`${inputId}-error`} className="text-xs text-rose-600 font-medium">{error}</p>}
+      {!error && helperText && <p id={`${inputId}-helper`} className="text-xs text-neutral-400">{helperText}</p>}
     </div>
   );
 }

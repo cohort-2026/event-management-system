@@ -5,7 +5,12 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
-import { createOrganizer, getOrganizers, type ManagedOrganizer } from '@/services/organizerService';
+import {
+  approveOrganizerProfile,
+  createOrganizer,
+  getOrganizers,
+  type ManagedOrganizer,
+} from '@/services/organizerService';
 
 interface OrganizerForm {
   firstname: string;
@@ -21,6 +26,7 @@ export default function UserManagement() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -80,11 +86,29 @@ export default function UserManagement() {
     }
   };
 
+  const handleApproveProfile = async (person: ManagedOrganizer) => {
+    setError('');
+    setNotice('');
+    setApprovingId(person.id);
+    try {
+      const response = await approveOrganizerProfile(person.id);
+      setNotice(response.data.message);
+      const organizersResponse = await getOrganizers();
+      setOrganizers(organizersResponse.data.data);
+    } catch (err) {
+      setError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Organizer profile could not be approved.')
+        : 'Organizer profile could not be approved.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
   return (
     <PageWrapper>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-neutral-900">Organizer Management</h1>
-        <p className="text-neutral-500 mt-1">Create organizer accounts and manage their initial password setup.</p>
+        <p className="text-neutral-500 mt-1">Create organizer accounts and review completed profiles before event access is granted.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,0.8fr)_minmax(480px,1.2fr)] gap-6">
@@ -126,7 +150,7 @@ export default function UserManagement() {
               />
             </div>
             <p className="mt-3 text-xs text-neutral-500">
-              A secure temporary password will be sent by email. The organizer must replace it with a permanent password before accessing the account.
+              A secure temporary password will be sent by email. The organizer must set a permanent password, complete their profile, and wait for admin approval before creating events.
             </p>
             <div className="mt-5 flex justify-end">
               <Button type="submit" loading={saving}>Create organizer</Button>
@@ -161,10 +185,30 @@ export default function UserManagement() {
                   <div className="min-w-0">
                     <p className="font-semibold text-neutral-900 truncate">{person.firstname} {person.lastname}</p>
                     <p className="text-sm text-neutral-500 truncate">{person.email}</p>
+                    <p className="mt-1 text-sm text-neutral-700">
+                      Organization: {person.organizationName?.trim() || 'Not provided'}
+                    </p>
+                    {person.phone && <p className="text-sm text-neutral-500">Phone: {person.phone}</p>}
+                    {person.organizationDescription && (
+                      <p className="mt-1 max-w-prose text-sm text-neutral-500">{person.organizationDescription}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={person.isActive ? 'success' : 'danger'}>{person.isActive ? 'Active' : 'Inactive'}</Badge>
                     {person.mustChangePassword && <Badge variant="warning">Setup pending</Badge>}
+                    <Badge variant={person.profileApprovalStatus === 'APPROVED' ? 'success' : 'warning'}>
+                      {person.profileApprovalStatus === 'APPROVED' ? 'Profile approved' : 'Profile pending'}
+                    </Badge>
+                    {person.profileApprovalStatus !== 'APPROVED' && (
+                      <Button
+                        size="sm"
+                        loading={approvingId === person.id}
+                        disabled={!person.organizationName?.trim() || Boolean(approvingId)}
+                        onClick={() => void handleApproveProfile(person)}
+                      >
+                        Approve profile
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
