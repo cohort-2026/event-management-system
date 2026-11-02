@@ -41,7 +41,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
   try {
     const { firstname, lastname, email: rawEmail, password } = req.body;
 
-    const allow_self_registration = ['ATTENDEE','VENDOR']
+    const allow_self_registration = ['ATTENDEE', 'VENDOR', 'ORGANIZER'];
     const role = allow_self_registration.includes(req.body.role) ? req.body.role : 'ATTENDEE';
     
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
