@@ -88,6 +88,7 @@ export default function App() {
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
+            <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
             <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />

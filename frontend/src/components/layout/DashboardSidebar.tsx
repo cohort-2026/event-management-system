@@ -64,7 +64,7 @@ export default function DashboardSidebar({ title, subtitle, items }: DashboardSi
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
+                end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
                 className={({ isActive }) =>
                   [
                     'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200',
