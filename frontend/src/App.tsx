@@ -21,6 +21,7 @@ import NotFound from '@/pages/NotFound';
 
 // Organizer
 import OrganizerDashboard from '@/pages/organizer/OrganizerDashboard';
+import OrganizerProfile from '@/pages/organizer/OrganizerProfile';
 import CreateEvent from '@/pages/organizer/CreateEvent';
 import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
@@ -88,6 +89,8 @@ export default function App() {
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
+            <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />
             <Route path="/organizer/events/:id/registrations"     element={<EventRegistrations />} />

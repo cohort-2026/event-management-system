@@ -86,6 +86,42 @@ export const requireRole = (...roles: UserRole[]) =>
     next();
   };
 
+export const requireApprovedOrganizerProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const profile = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        firstname: true,
+        lastname: true,
+        organizationName: true,
+        profileApprovalStatus: true,
+      },
+    });
+
+    if (
+      !profile ||
+      !profile.firstname.trim() ||
+      !profile.lastname.trim() ||
+      !profile.organizationName?.trim() ||
+      profile.profileApprovalStatus !== ProfileApprovalStatus.APPROVED
+    ) {
+      res.status(403).json({
+        success: false,
+        message: 'Please complete the profile and try again. Your profile must be approved by an admin before creating events.',
+      });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── requireOwnership ────────────────────────────────────────────────────────
 // Checks that req.user.id matches the owner id resolved by the provided getter.
 // Privileged roles (ADMIN, PLATFORM_ADMIN) bypass the ownership check.

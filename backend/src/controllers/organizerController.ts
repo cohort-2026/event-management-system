@@ -16,6 +16,10 @@ export const listOrganizers = async (_req: Request, res: Response, next: NextFun
         firstname: true,
         lastname: true,
         email: true,
+        organizationName: true,
+        organizationDescription: true,
+        phone: true,
+        profileApprovalStatus: true,
         isActive: true,
         mustChangePassword: true,
         createdAt: true,
@@ -25,6 +29,78 @@ export const listOrganizers = async (_req: Request, res: Response, next: NextFun
     res.json({ success: true, data: organizers });
   } catch (err) {
     next(err);
+  }
+};
+
+export const approveOrganizerProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const organizerId = req.params.id;
+    if (typeof organizerId !== 'string' || !organizerId.trim()) {
+      res.status(400).json({ success: false, message: 'A valid organizer ID is required' });
+      return;
+    }
+
+    const result = await prisma.$transaction(async transaction => {
+      const organizer = await transaction.user.findFirst({
+        where: { id: organizerId, role: Role.ORGANIZER },
+        select: {
+          id: true,
+          firstname: true,
+          lastname: true,
+          organizationName: true,
+          profileApprovalStatus: true,
+        },
+      });
+      if (!organizer) return { error: 'not_found' as const };
+      if (
+        !organizer.firstname.trim() ||
+        !organizer.lastname.trim() ||
+        !organizer.organizationName?.trim()
+      ) {
+        return { error: 'incomplete' as const };
+      }
+      if (organizer.profileApprovalStatus === 'APPROVED') return { error: 'already_approved' as const };
+
+      const updated = await transaction.user.updateMany({
+        where: {
+          id: organizer.id,
+          role: Role.ORGANIZER,
+          profileApprovalStatus: 'PENDING_APPROVAL',
+        },
+        data: { profileApprovalStatus: 'APPROVED' },
+      });
+      if (updated.count !== 1) return { error: 'already_approved' as const };
+
+      await transaction.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          affectedUserId: organizer.id,
+          action: 'ORGANIZER_PROFILE_APPROVED',
+          outcome: 'approved',
+        },
+      });
+      return { error: null, organizer };
+    });
+
+    if (result.error === 'not_found') {
+      res.status(404).json({ success: false, message: 'Organizer account not found' });
+      return;
+    }
+    if (result.error === 'incomplete') {
+      res.status(400).json({ success: false, message: 'The organizer must complete their profile before it can be approved.' });
+      return;
+    }
+    if (result.error === 'already_approved') {
+      res.status(409).json({ success: false, message: 'This organizer profile is already approved.' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `Organizer profile for ${result.organizer.firstname} ${result.organizer.lastname} approved.`,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -74,6 +150,10 @@ export const createOrganizer = async (req: Request, res: Response, next: NextFun
           firstname: true,
           lastname: true,
           email: true,
+          organizationName: true,
+          organizationDescription: true,
+          phone: true,
+          profileApprovalStatus: true,
           isActive: true,
           mustChangePassword: true,
           createdAt: true,

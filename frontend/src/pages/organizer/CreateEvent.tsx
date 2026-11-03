@@ -8,7 +8,9 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import { createEvent, getManagedEvent, submitForApproval, updateEvent } from '@/services/eventService';
+import { getOrganizerProfile } from '@/services/organizerService';
 import type { CreateEventDto, Event, EventType } from '@/types/event';
+import type { ProfileApprovalStatus } from '@/types/user';
 
 interface TicketForm {
   name: string;
@@ -80,6 +82,9 @@ export default function CreateEvent() {
   const [form, setForm] = useState<EventForm>(EMPTY_FORM);
   const [existingEvent, setExistingEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(isEditing);
+  const [loadingProfile, setLoadingProfile] = useState(!isEditing);
+  const [profileApprovalStatus, setProfileApprovalStatus] = useState<ProfileApprovalStatus | null>(null);
+  const [profileCheckError, setProfileCheckError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -103,6 +108,22 @@ export default function CreateEvent() {
       });
     return () => { active = false; };
   }, [id]);
+
+  useEffect(() => {
+    if (isEditing) return;
+    let active = true;
+    getOrganizerProfile()
+      .then(response => {
+        if (active) setProfileApprovalStatus(response.data.data.profileApprovalStatus);
+      })
+      .catch(error => {
+        if (active) setProfileCheckError(getApiError(error, 'Your profile could not be checked. Please try again.'));
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
+      });
+    return () => { active = false; };
+  }, [isEditing]);
 
   const updateForm = <K extends keyof EventForm>(key: K, value: EventForm[K]) => {
     setForm(current => ({ ...current, [key]: value }));
@@ -214,6 +235,27 @@ export default function CreateEvent() {
   if (loadingEvent) {
     return <PageWrapper><p className="py-16 text-center text-neutral-500">Loading event…</p></PageWrapper>;
   }
+  if (loadingProfile) {
+    return <PageWrapper><p role="status" className="py-16 text-center text-neutral-500">Checking your organizer profile…</p></PageWrapper>;
+  }
+  if (!isEditing && (profileCheckError || profileApprovalStatus !== 'APPROVED')) {
+    return (
+      <PageWrapper>
+        <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
+          <h1 className="text-xl font-bold text-neutral-900">Event creation unavailable</h1>
+          <p role={profileCheckError ? 'alert' : 'status'} className="mt-3 text-sm text-amber-900">
+            {profileCheckError || 'Please complete the profile and try again. Your profile must be approved by an admin before creating events.'}
+          </p>
+          {!profileCheckError && profileApprovalStatus === 'PENDING_APPROVAL' && (
+            <p className="mt-2 text-sm text-amber-900">Your profile is awaiting admin review. You can create events after it is approved.</p>
+          )}
+          <Link to="/organizer/profile" className="mt-5 inline-flex">
+            <Button type="button">Complete your profile</Button>
+          </Link>
+        </div>
+      </PageWrapper>
+    );
+  }
   if (isEditing && error && !existingEvent) {
     return <PageWrapper><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></PageWrapper>;
   }
@@ -235,7 +277,7 @@ export default function CreateEvent() {
           items={[
             { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
             { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-            { label: 'My events', to: '/organizer', icon: <span aria-hidden="true">▦</span> },
+            { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
           ]}
         />
         <section className="flex-1 min-w-0">

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
+import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import type { UserRole } from '@/types/user';
@@ -21,9 +22,9 @@ interface FieldErrors {
   supportingDocuments?: string;
 }
 
-const ROLES: { value: UserRole; label: string; desc: string }[] = [
+const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
-  // { value: 'ORGANIZER', label: 'Organizer', desc: 'Create and manage events' },
+  { value: 'ORGANIZER', label: 'Organizer', desc: 'Create and manage events' },
   { value: 'VENDOR',    label: 'Vendor',    desc: 'Apply for vendor stands' },
 ];
 
@@ -33,6 +34,7 @@ const PASSWORD_RULES = [
   { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
   { label: 'One number', test: (value: string) => /\d/.test(value) },
   { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+  { label: 'No more than 72 UTF-8 bytes', test: (value: string) => new TextEncoder().encode(value).length <= 72 },
 ];
 
 export default function Register() {
@@ -53,8 +55,11 @@ export default function Register() {
   const [loading, setLoading]         = useState(false);
 
   const set = (field: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm(f => ({ ...f, [field]: e.target.value }));
+    (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      setForm(current => ({ ...current, [field]: event.target.value }));
+      setErrors(current => ({ ...current, [field]: undefined }));
+      setServerError('');
+    };
 
   const setVendorField = (field: keyof typeof vendorProfile) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -110,11 +115,15 @@ export default function Register() {
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!form.firstname.trim())  next.firstname = 'First name is required';
-    if (!form.lastname.trim())   next.lastname  = 'Last name is required';
-    if (!form.email)             next.email     = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = 'Enter a valid email address';
-    if (!form.password)          next.password  = 'Password is required';
+    if (!form.firstname.trim()) next.firstname = 'First name is required';
+    else if (form.firstname.trim().length > 80) next.firstname = 'Use 80 characters or fewer';
+    if (!form.lastname.trim()) next.lastname = 'Last name is required';
+    else if (form.lastname.trim().length > 80) next.lastname = 'Use 80 characters or fewer';
+    if (!form.email.trim()) next.email = 'Email is required';
+    else if (form.email.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      next.email = 'Enter a valid email address (254 characters or fewer)';
+    }
+    if (!form.password) next.password = 'Password is required';
     else if (!PASSWORD_RULES.every(rule => rule.test(form.password))) next.password = 'Password does not meet all requirements';
     if (!form.confirmPassword) next.confirmPassword = 'Please confirm your password';
     else if (form.password !== form.confirmPassword) next.confirmPassword = 'Passwords do not match';
@@ -136,6 +145,8 @@ export default function Register() {
     e.preventDefault();
     setServerError('');
     if (!validate()) return;
+    const role = form.role;
+    if (!role) return;
     setLoading(true);
     try {
       await register({
@@ -163,6 +174,8 @@ export default function Register() {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
         setServerError(err.response?.status === 409 ? 'An account with this email already exists.' : (msg ?? 'Something went wrong.'));
+      } else {
+        setServerError('Your account could not be created. Please try again.');
       }
     } finally { setLoading(false); }
   };
@@ -226,14 +239,14 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} noValidate className="form-stack">
             <div className="grid grid-cols-2 gap-3">
-              <Input label="First name" autoComplete="given-name"
+              <Input label="First name" autoComplete="given-name" maxLength={80} required
                 value={form.firstname} onChange={set('firstname')} error={errors.firstname} placeholder='e.g Solomon'/>
-              <Input label="Last name" autoComplete="family-name"
+              <Input label="Last name" autoComplete="family-name" maxLength={80} required
                 value={form.lastname} onChange={set('lastname')} error={errors.lastname} placeholder='e.g Khoza'/>
             </div>
-            <Input label="Email address" type="email" autoComplete="email"
+            <Input label="Email address" type="email" autoComplete="email" maxLength={254} required
               value={form.email} onChange={set('email')} error={errors.email} placeholder='example@gmail.com' />
-            <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle
+            <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle maxLength={72} required
               value={form.password} onChange={handlePasswordChange} error={errors.password} placeholder="••••••••" />
             <div className="-mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" aria-live="polite">
               {PASSWORD_RULES.map(rule => {
@@ -245,7 +258,7 @@ export default function Register() {
                 );
               })}
             </div>
-            <Input label="Confirm password" type="password" autoComplete="new-password" placeholder="••••••••"
+            <Input label="Confirm password" type="password" autoComplete="new-password" placeholder="••••••••" maxLength={72} required
               showPasswordToggle value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword}
               helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 
@@ -254,7 +267,7 @@ export default function Register() {
               <label className="text-sm font-medium text-neutral-700">I am a…</label>
               <div className="grid grid-cols-2 gap-2">
                 {ROLES.map(r => (
-                  <button
+                  <label
                     key={r.value}
                     type="button"
                     onClick={() => selectRole(r.value)}
@@ -263,12 +276,70 @@ export default function Register() {
                         ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-brand-300 hover:text-brand-600'}`}
                   >
-                    {r.label}
-                  </button>
+                    <input
+                      type="radio"
+                      name="role"
+                      value={r.value}
+                      checked={form.role === r.value}
+                      required={r.value === ROLES[0].value}
+                      onChange={() => {
+                        setForm(current => ({ ...current, role: r.value }));
+                        setErrors(current => ({ ...current, role: undefined }));
+                        setServerError('');
+                      }}
+                      className="peer sr-only"
+                    />
+                    <span className={`block rounded-lg border px-3 py-2.5 text-center text-xs font-semibold transition-all duration-150 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brand-600
+                      ${form.role === r.value
+                        ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
+                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-brand-300 hover:text-brand-600'}`}>
+                      {r.label}
+                    </span>
+                  </label>
                 ))}
               </div>
-              {errors.role && <p className="text-xs text-rose-600 font-medium">{errors.role}</p>}
-            </div>
+              {errors.role && <p id="registration-role-error" role="alert" className="text-xs font-medium text-rose-600">{errors.role}</p>}
+            </fieldset>
+
+            {form.role === 'ORGANIZER' && (
+              <section aria-labelledby="organizer-details-heading" className="space-y-4 rounded-lg border border-brand-100 bg-brand-50/50 p-4">
+                <div>
+                  <h2 id="organizer-details-heading" className="text-sm font-bold text-neutral-900">Organizer details</h2>
+                  <p className="mt-1 text-xs text-neutral-600">These details identify your organization on the events you manage.</p>
+                </div>
+                <Input
+                  label="Organization name"
+                  autoComplete="organization"
+                  maxLength={120}
+                  required
+                  value={form.organizationName}
+                  onChange={set('organizationName')}
+                  error={errors.organizationName}
+                  helperText="Required so attendees know who is hosting your events."
+                />
+                <Input
+                  label="Phone number (optional)"
+                  type="tel"
+                  autoComplete="tel"
+                  maxLength={30}
+                  value={form.phone}
+                  onChange={set('phone')}
+                  error={errors.phone}
+                  helperText="A contact number for questions about your events."
+                />
+                <Textarea
+                  label="Organization description (optional)"
+                  maxLength={500}
+                  value={form.organizationDescription}
+                  onChange={set('organizationDescription')}
+                  error={errors.organizationDescription}
+                  helperText="A short introduction that can help attendees understand your organization."
+                />
+                <p className="text-xs text-neutral-600">
+                  Verify your email to sign in. An admin must approve your completed profile before you can create events.
+                </p>
+              </section>
+            )}
 
             {form.role === 'VENDOR' && (
               <section aria-labelledby="vendor-profile-heading" className="space-y-4 rounded-lg border border-neutral-200 bg-white p-4">
