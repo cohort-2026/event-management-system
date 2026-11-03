@@ -15,13 +15,14 @@ const roleNav: Record<UserRole, { label: string; to: string; icon: React.ReactNo
   ],
   VENDOR: [
     { label: 'Overview',         to: '/vendor',                        icon: <HomeIcon /> },
-    { label: 'Apply for Stand',  to: '/events',                        icon: <PlusIcon /> },
+    { label: 'Browse Events',    to: '/vendor/events',                 icon: <CalIcon /> },
     { label: 'My Applications',  to: '/vendor/applications',           icon: <DocIcon /> },
     { label: 'Staff Management', to: '/vendor/staff',  icon: <UsersIcon /> },
   ],
   ADMIN: [
     { label: 'Overview',         to: '/admin',            icon: <HomeIcon /> },
     { label: 'Approval Queue',   to: '/admin/approvals',  icon: <ClockIcon /> },
+    { label: 'Vendor Profiles',  to: '/admin/vendors',    icon: <StoreIcon /> },
     { label: 'User Management',  to: '/admin/users',      icon: <UsersIcon /> },
   ],
   PLATFORM_ADMIN: [

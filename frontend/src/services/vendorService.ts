@@ -1,6 +1,6 @@
 import api from '@/services/api';
 import type { ApiResponse } from '@/types/api';
-import type { VendorApplication, CreateVendorApplicationDto, AddStaffMemberDto, VendorStaffMember, VendorStaffWithEvent, VendorProfile, UpdateVendorProfileDto, VendorDocument } from '@/types/vendor';
+import type { VendorApplication, CreateVendorApplicationDto, AddStaffMemberDto, VendorStaffMember, VendorStaffWithEvent, VendorProfile, UpdateVendorProfileDto, VendorDocument, PendingVendorProfile } from '@/types/vendor';
 
 export const getVendorProfile     = () => api.get<ApiResponse<VendorProfile>>('/vendors/profile');
 export const updateVendorProfile  = (data: UpdateVendorProfileDto) => api.put<ApiResponse<VendorProfile>>('/vendors/profile', data);
@@ -14,6 +14,11 @@ export const uploadVendorDocument = (file: File) => {
 };
 export const downloadVendorDocument = (id: string) => api.get<Blob>(`/vendors/documents/${encodeURIComponent(id)}/download`, { responseType: 'blob' });
 export const deleteVendorDocument = (id: string) => api.delete<ApiResponse<null>>(`/vendors/documents/${encodeURIComponent(id)}`);
+export const getPendingVendorProfiles = () => api.get<ApiResponse<PendingVendorProfile[]>>('/vendors/admin/profiles/pending');
+export const reviewVendorProfile = (id: string, decision: 'approve' | 'reject') =>
+	api.patch<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(id)}/${decision}`);
+export const downloadVendorReviewDocument = (id: string) =>
+	api.get<Blob>(`/vendors/admin/documents/${encodeURIComponent(id)}/download`, { responseType: 'blob' });
 
 export const applyForStand      = (data: CreateVendorApplicationDto)              => api.post<ApiResponse<VendorApplication>>('/vendors/apply', data);
 export const getMyApplications  = ()                                               => api.get<ApiResponse<VendorApplication[]>>('/vendors/me');

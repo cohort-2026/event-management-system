@@ -10,11 +10,24 @@ export interface VendorProfile {
   contactPhone: string;
   productsServices: string[];
   supportingDocumentUrls: string[];
+  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'createdAt' | 'updatedAt'>;
+export interface PendingVendorProfile extends VendorProfile {
+  user: {
+    id: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+    createdAt: string;
+    vendorDocuments: VendorDocument[];
+  };
+}
+
+export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
 
 export interface VendorApplication {
   id: string;

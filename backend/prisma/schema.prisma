@@ -75,9 +75,10 @@ enum VendorApplicationStatus {
   REJECTED
 }
 
-enum ProfileApprovalStatus {
-  PENDING_APPROVAL
+enum VendorProfileStatus {
+  PENDING_REVIEW
   APPROVED
+  REJECTED
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────────
@@ -297,6 +298,8 @@ model VendorProfile {
   productsServices         String[] @default([]) @map("products_services")
   logoUrl                  String?  @map("logo_url")
   supportingDocumentUrls   String[] @default([]) @map("supporting_document_urls")
+  status                   VendorProfileStatus @default(APPROVED)
+  reviewedAt               DateTime? @map("reviewed_at")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, ProfileApprovalStatus } from '@prisma/client';
+import { PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { config } from '@/config/index';
 import type { UserRole } from '@/types/user';
 
@@ -47,6 +47,17 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   if (!user || !user.isActive) {
     res.status(401).json({ success: false, message: 'Invalid or expired session' });
     return;
+  }
+
+  if (user.role === 'VENDOR') {
+    const profile = await prisma.vendorProfile.findUnique({
+      where: { userId: user.id },
+      select: { status: true },
+    });
+    if (profile?.status !== VendorProfileStatus.APPROVED) {
+      res.status(403).json({ success: false, message: 'Vendor profile approval is required before signing in' });
+      return;
+    }
   }
 
   req.user = {
