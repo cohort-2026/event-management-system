@@ -442,7 +442,7 @@ export const listMyEvents = async (req: Request, res: Response, next: NextFuncti
 export const listPublicEvents = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const events = await prisma.event.findMany({
-      where: { status: EventStatus.PUBLISHED, startTime: { gte: new Date() } },
+      where: { status: EventStatus.PUBLISHED },
       include: eventInclude,
       orderBy: { startTime: 'asc' },
     });

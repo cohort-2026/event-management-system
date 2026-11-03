@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { promises as fs } from 'node:fs';
+import { basename } from 'node:path';
+import { PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { config } from '@/config/index';
 import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
 
@@ -38,6 +40,8 @@ const createOtp = (): string => randomInt(100000, 1000000).toString();
 // ─── Register ────────────────────────────────────────────────────────────────
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const uploadedDocuments = Array.isArray(req.files) ? req.files as Express.Multer.File[] : [];
+  let keepUploadedDocuments = false;
   try {
     const { firstname, lastname, email: rawEmail, password } = req.body;
 
@@ -61,6 +65,79 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       return;
     }
 
+    let vendorProfileData: {
+      businessName: string;
+      businessDescription: string;
+      businessRegistrationNumber: string;
+      contactPerson: string;
+      contactEmail: string;
+      contactPhone: string;
+      productsServices: string[];
+      supportingDocumentUrls: string[];
+    } | undefined;
+    if (role === 'VENDOR') {
+      let rawProfile = req.body.vendorProfile;
+      if (typeof rawProfile === 'string') {
+        try {
+          rawProfile = JSON.parse(rawProfile);
+        } catch {
+          rawProfile = null;
+        }
+      }
+      const profile = rawProfile && typeof rawProfile === 'object' && !Array.isArray(rawProfile)
+        ? rawProfile as Record<string, unknown>
+        : {};
+      const readText = (key: string) => typeof profile[key] === 'string' ? (profile[key] as string).trim() : '';
+      const businessName = readText('businessName');
+      const businessDescription = readText('businessDescription');
+      const businessRegistrationNumber = readText('businessRegistrationNumber');
+      const contactPerson = readText('contactPerson');
+      const contactEmail = readText('contactEmail').toLowerCase();
+      const contactPhone = readText('contactPhone');
+      const productsServices = Array.isArray(profile.productsServices) && profile.productsServices.every(item => typeof item === 'string')
+        ? [...new Set((profile.productsServices as string[]).map(item => item.trim()).filter(Boolean))]
+        : null;
+      const profileErrors: Record<string, string> = {};
+
+      if (businessName.length < 2 || businessName.length > 120) profileErrors.businessName = 'Enter a business name of 2 to 120 characters';
+      if (businessDescription.length > 2000) profileErrors.businessDescription = 'Business description must be 2000 characters or fewer';
+      if (businessRegistrationNumber.length > 100) profileErrors.businessRegistrationNumber = 'Registration number must be 100 characters or fewer';
+      if (contactPerson.length < 2 || contactPerson.length > 120) profileErrors.contactPerson = 'Enter a contact person of 2 to 120 characters';
+      if (!EMAIL_REGEX.test(contactEmail) || contactEmail.length > 254) profileErrors.contactEmail = 'Enter a valid business email address';
+      if (!/^\+?[0-9\s().-]{7,30}$/.test(contactPhone) || contactPhone.replace(/\D/g, '').length < 7) {
+        profileErrors.contactPhone = 'Enter a valid phone number';
+      }
+      if (!productsServices || productsServices.length > 20 || productsServices.some(item => item.length > 100)) {
+        profileErrors.productsServices = 'Enter up to 20 products or services, each no longer than 100 characters';
+      }
+      if (uploadedDocuments.length === 0) profileErrors.supportingDocuments = 'Upload at least one supporting PDF';
+      for (const document of uploadedDocuments) {
+        const contents = await fs.readFile(document.path);
+        if (contents.subarray(0, 5).toString('ascii') !== '%PDF-') {
+          profileErrors.supportingDocuments = 'One or more files are not valid PDFs';
+          break;
+        }
+      }
+      if (Object.keys(profileErrors).length > 0) {
+        res.status(400).json({ success: false, message: 'Check the business profile fields', errors: profileErrors });
+        return;
+      }
+
+      vendorProfileData = {
+        businessName,
+        businessDescription,
+        businessRegistrationNumber,
+        contactPerson,
+        contactEmail,
+        contactPhone,
+        productsServices: productsServices!,
+        supportingDocumentUrls: [],
+      };
+    } else if (uploadedDocuments.length > 0) {
+      res.status(400).json({ success: false, message: 'Supporting documents are only accepted for vendor accounts' });
+      return;
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       res.status(409).json({ success: false, message: 'Email already registered' });
@@ -69,10 +146,33 @@ export const register = async (req: Request, res: Response, next: NextFunction):
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: { firstname, lastname, email, role, passwordHash },
-      select: USER_SELECT,
+    const user = await prisma.$transaction(async transaction => {
+      const createdUser = await transaction.user.create({
+        data: {
+          firstname,
+          lastname,
+          email,
+          role,
+          passwordHash,
+          ...(vendorProfileData ? {
+            vendorProfile: { create: { ...vendorProfileData, status: VendorProfileStatus.PENDING_REVIEW } },
+          } : {}),
+        },
+        select: USER_SELECT,
+      });
+      if (uploadedDocuments.length > 0) {
+        await transaction.vendorDocument.createMany({
+          data: uploadedDocuments.map(document => ({
+            vendorId: createdUser.id,
+            storageName: document.filename,
+            originalName: basename(document.originalname).replace(/[^\w .()\-]/g, '_').trim().slice(0, 200) || 'document.pdf',
+            sizeBytes: document.size,
+          })),
+        });
+      }
+      return createdUser;
     });
+    keepUploadedDocuments = true;
 
     const code = createOtp();
     const codeHash = await bcrypt.hash(code, 12);
@@ -94,6 +194,10 @@ export const register = async (req: Request, res: Response, next: NextFunction):
     });
   } catch (err) {
     next(err);
+  } finally {
+    if (!keepUploadedDocuments) {
+      await Promise.all(uploadedDocuments.map(document => fs.unlink(document.path).catch(() => undefined)));
+    }
   }
 };
 
@@ -130,6 +234,20 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     if (!user.emailVerified) {
       res.status(403).json({ success: false, message: 'Please verify your email before signing in' });
       return;
+    }
+
+    if (user.role === 'VENDOR') {
+      const profile = await prisma.vendorProfile.findUnique({
+        where: { userId: user.id },
+        select: { status: true },
+      });
+      if (profile?.status !== VendorProfileStatus.APPROVED) {
+        const message = profile?.status === VendorProfileStatus.REJECTED
+          ? 'Your vendor profile was not approved. Contact the administrator.'
+          : 'Your vendor profile is pending administrator approval.';
+        res.status(403).json({ success: false, message });
+        return;
+      }
     }
 
     const token = jwt.sign(
