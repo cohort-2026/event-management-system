@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import path from "node:path";
 dotenv.config();
 
 export const config = {
@@ -57,4 +58,5 @@ export const config = {
   platformAdminFirstname: process.env.PLATFORM_ADMIN_FIRSTNAME?.trim() || undefined,
   platformAdminLastname: process.env.PLATFORM_ADMIN_LASTNAME?.trim() || undefined,
   platformAdminInitialPassword: process.env.PLATFORM_ADMIN_INITIAL_PASSWORD || undefined,
+  vendorDocumentsDir: process.env.VENDOR_DOCUMENTS_DIR || path.resolve(__dirname, '../../private_uploads/vendor-documents'),
 };

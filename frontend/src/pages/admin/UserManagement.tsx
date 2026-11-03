@@ -1,90 +1,138 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import type { BadgeVariant } from '@/components/ui/Badge';
-
-const roleVariant: Record<string, BadgeVariant> = {
-  ATTENDEE: 'success', ORGANIZER: 'info', VENDOR: 'purple', ADMIN: 'warning', PLATFORM_ADMIN: 'danger', MANAGEMENT: 'amber',
-};
-
-const USERS = [
-  { id: 'u1', firstname: 'Sipho',   lastname: 'Mahlangu',  email: 'sipho@example.com',   role: 'ORGANIZER',  isActive: true,  joined: '12 Jan 2025' },
-  { id: 'u2', firstname: 'Fatima',  lastname: 'Osman',     email: 'fatima@example.com',  role: 'ATTENDEE',   isActive: true,  joined: '03 Feb 2025' },
-  { id: 'u3', firstname: 'James',   lastname: 'van Wyk',   email: 'james@example.com',   role: 'VENDOR',     isActive: true,  joined: '18 Feb 2025' },
-  { id: 'u4', firstname: 'Lerato',  lastname: 'Dlamini',   email: 'lerato@example.com',  role: 'ORGANIZER',  isActive: false, joined: '22 Mar 2025' },
-  { id: 'u5', firstname: 'Priya',   lastname: 'Govender',  email: 'priya@example.com',   role: 'ORGANIZER',  isActive: true,  joined: '01 Apr 2025' },
-  { id: 'u6', firstname: 'Thabo',   lastname: 'Nkosi',     email: 'thabo@example.com',   role: 'ATTENDEE',   isActive: true,  joined: '14 Apr 2025' },
-];
+import Badge from '@/components/ui/Badge';
+import Spinner from '@/components/ui/Spinner';
+import {
+  approveOrganizerProfile,
+  getOrganizers,
+  type ManagedOrganizer,
+} from '@/services/organizerService';
 
 export default function UserManagement() {
+  const [organizers, setOrganizers] = useState<ManagedOrganizer[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const filtered = USERS.filter(u => {
-    const q = search.toLowerCase();
-    return `${u.firstname} ${u.lastname}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q);
-  });
+  useEffect(() => {
+    let active = true;
+    getOrganizers()
+      .then(response => {
+        if (active) setOrganizers(response.data.data);
+      })
+      .catch(err => {
+        if (active) {
+          setError(axios.isAxiosError(err)
+            ? (err.response?.data?.message ?? 'Organizer accounts could not be loaded.')
+            : 'Organizer accounts could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const filteredOrganizers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return organizers.filter(person =>
+      `${person.firstname} ${person.lastname}`.toLowerCase().includes(query) ||
+      person.email.toLowerCase().includes(query),
+    );
+  }, [organizers, search]);
+
+  const handleApproveProfile = async (person: ManagedOrganizer) => {
+    setError('');
+    setNotice('');
+    setApprovingId(person.id);
+    try {
+      const response = await approveOrganizerProfile(person.id);
+      setNotice(response.data.message);
+      const organizersResponse = await getOrganizers();
+      setOrganizers(organizersResponse.data.data);
+    } catch (err) {
+      setError(axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Organizer profile could not be approved.')
+        : 'Organizer profile could not be approved.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   return (
     <PageWrapper>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">User Management</h1>
-          <p className="text-neutral-500 mt-1">{USERS.length} registered users</p>
-        </div>
-        <div className="w-full sm:w-72">
-          <Input placeholder="Search by name, email or role…" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-neutral-900">Organizer Management</h1>
+        <p className="text-neutral-500 mt-1">Review completed profiles before event access is granted.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-neutral-100 text-sm">
-            <thead className="bg-neutral-50">
-              <tr>
-                {['User', 'Email', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-50">
-              {filtered.map(u => (
-                <tr key={u.id} className="hover:bg-neutral-50 transition-colors">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex items-center justify-center shrink-0">
-                        {u.firstname.charAt(0)}
-                      </div>
-                      <span className="font-medium text-neutral-900">{u.firstname} {u.lastname}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-neutral-500">{u.email}</td>
-                  <td className="px-5 py-3">
-                    <Badge variant={roleVariant[u.role] ?? 'default'}>{u.role}</Badge>
-                  </td>
-                  <td className="px-5 py-3">
-                    <Badge variant={u.isActive ? 'success' : 'danger'}>{u.isActive ? 'Active' : 'Inactive'}</Badge>
-                  </td>
-                  <td className="px-5 py-3 text-neutral-500 whitespace-nowrap">{u.joined}</td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <button className="text-xs text-brand-600 hover:text-brand-700 font-medium">Edit role</button>
-                      <span className="text-neutral-300">·</span>
-                      <button className={`text-xs font-medium ${u.isActive ? 'text-rose-500 hover:text-rose-700' : 'text-emerald-600 hover:text-emerald-700'}`}>
-                        {u.isActive ? 'Deactivate' : 'Reactivate'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+      <div className="grid grid-cols-1">
+        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+        {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+
+        <section className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-500">Accounts</span>
+              <h2 className="text-xl font-black text-neutral-900 mt-1">Organizer directory</h2>
+            </div>
+            <div className="w-full sm:w-64">
+              <Input
+                aria-label="Search organizers"
+                placeholder="Search name or email"
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+              />
+            </div>
+          </div>
+
+          {loading ? <div className="py-8 flex justify-center"><Spinner /></div> : organizers.length === 0 ? (
+            <p className="py-8 text-sm text-neutral-500">No organizer accounts yet.</p>
+          ) : filteredOrganizers.length === 0 ? (
+            <p className="py-8 text-sm text-neutral-500">No organizers match your search.</p>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {filteredOrganizers.map(person => (
+                <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-neutral-900 truncate">{person.firstname} {person.lastname}</p>
+                    <p className="text-sm text-neutral-500 truncate">{person.email}</p>
+                    <p className="mt-1 text-sm text-neutral-700">
+                      Organization: {person.organizationName?.trim() || 'Not provided'}
+                    </p>
+                    {person.phone && <p className="text-sm text-neutral-500">Phone: {person.phone}</p>}
+                    {person.organizationDescription && (
+                      <p className="mt-1 max-w-prose text-sm text-neutral-500">{person.organizationDescription}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={person.isActive ? 'success' : 'danger'}>{person.isActive ? 'Active' : 'Inactive'}</Badge>
+                    {person.mustChangePassword && <Badge variant="warning">Setup pending</Badge>}
+                    <Badge variant={person.profileApprovalStatus === 'APPROVED' ? 'success' : 'warning'}>
+                      {person.profileApprovalStatus === 'APPROVED' ? 'Profile approved' : 'Profile pending'}
+                    </Badge>
+                    {person.profileApprovalStatus !== 'APPROVED' && (
+                      <Button
+                        size="sm"
+                        loading={approvingId === person.id}
+                        disabled={!person.organizationName?.trim() || Boolean(approvingId)}
+                        onClick={() => void handleApproveProfile(person)}
+                      >
+                        Approve profile
+                      </Button>
+                    )}
+                  </div>
+                </div>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-neutral-400">No users match your search.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+        </section>
       </div>
     </PageWrapper>
   );

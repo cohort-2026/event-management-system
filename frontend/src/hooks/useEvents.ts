@@ -9,7 +9,7 @@ export function useEvents() {
 
   useEffect(() => {
     getEvents()
-      .then(r => setEvents(r.data))
+      .then(r => setEvents(r.data.data))
       .catch(() => setError('Failed to load events'))
       .finally(() => setLoading(false));
   }, []);

@@ -21,6 +21,9 @@ Sessions are maintained via a signed **httpOnly cookie** — no tokens in `local
 ## POST /api/auth/register
 
 Creates a new unverified user account and sends a six-digit OTP to the email address. The account must be verified before login.
+Self-registration is limited to `ATTENDEE`, `VENDOR`, and `ORGANIZER`; administrative roles cannot be assigned through this endpoint.
+Organizer self-registration is intentional. Organizers must verify their email before signing in, complete their profile, and receive admin approval before creating events.
+Organizer profiles start in `PENDING_APPROVAL`. Editing an approved profile returns it to pending review.
 
 **Request body**
 ```json
@@ -28,28 +31,49 @@ Creates a new unverified user account and sends a six-digit OTP to the email add
   "firstname": "Jane",
   "lastname": "Doe",
   "email": "jane.doe@example.com",
-  "role": "ATTENDEE",
-  "password": "securepassword123"
+  "role": "ORGANIZER",
+  "password": "SecurePassword123!",
+  "organizationName": "Example Events",
+  "phone": "+27123456789",
+  "organizationDescription": "We organize community events."
 }
 ```
 
-| Field       | Type   | Required | Rules                                                          |
-|-------------|--------|----------|----------------------------------------------------------------|
-| `firstname` | string | Yes      | Non-empty                                                      |
-| `lastname`  | string | Yes      | Non-empty                                                      |
-| `email`     | string | Yes      | Valid email format                                             |
-| `role`      | string | Yes      | One of: `ATTENDEE`, `VENDOR`, `ORGANIZER`, `ADMIN`, `PLATFORM_ADMIN`, `MANAGEMENT` |
-| `password`  | string | Yes      | Minimum 8 characters                                           |
+| Field                    | Type   | Required | Rules |
+|--------------------------|--------|----------|-------|
+| `firstname`              | string | Yes      | 1–80 characters |
+| `lastname`               | string | Yes      | 1–80 characters |
+| `email`                  | string | Yes      | Valid email, at most 254 characters |
+| `role`                   | string | Yes      | `ATTENDEE`, `VENDOR`, or `ORGANIZER` only |
+| `password`               | string | Yes      | 8–72 UTF-8 bytes; uppercase, lowercase, number, and special character |
+| `organizationName`       | string | Organizer | 2–120 characters |
+| `phone`                  | string | No       | If supplied for an Organizer, valid phone number with at least 7 digits |
+| `organizationDescription`| string | No       | Organizer description, at most 500 characters |
 
 **Responses**
 
 | Status | Meaning                  | Body                                                                 |
 |--------|--------------------------|----------------------------------------------------------------------|
-| 201    | Account created          | `{ success: true, data: { id, firstname, lastname, email, role, createdAt } }` |
+| 201    | Account created          | `{ success: true, message: "...", data: { email, role } }` |
 | 400    | Validation failed        | `{ success: false, message: "..." }`                                 |
 | 409    | Email already registered | `{ success: false, message: "Email already registered" }`            |
 
-The OTP expires after 10 minutes. OTP values are stored only as bcrypt hashes.
+Organizer profile details are saved with the user account in the same transaction. The OTP expires after 10 minutes. OTP values are stored only as bcrypt hashes.
+
+## Organizer profile
+
+The authenticated Organizer can view and update only their own profile. The profile endpoints use the account ID from the authenticated session; callers cannot select another account or update roles, email addresses, or passwords through these routes.
+
+| Method | Path | Auth required |
+|--------|------|---------------|
+| GET | `/api/organizer/profile` | Organizer |
+| PUT | `/api/organizer/profile` | Organizer |
+
+`PUT` accepts `firstname`, `lastname`, `organizationName`, `phone`, and `organizationDescription`. First and last names are limited to 80 characters, organization name to 2–120, phone to 30, and description to 500. Phone and description may be empty. Password changes remain on the existing authenticated password-change flow.
+
+The profile response includes `profileApprovalStatus` (`PENDING_APPROVAL` or `APPROVED`). Updating any profile detail resets approval to `PENDING_APPROVAL`.
+
+Admins can review Organizer profiles through `/api/users/organizers` and approve a complete profile with `PATCH /api/users/organizers/:id/approve-profile`. Event creation and event submission are rejected with HTTP 403 until the Organizer has a complete, approved profile.
 
 ## POST /api/auth/verify-email
 
@@ -185,7 +209,7 @@ Returns the currently authenticated user. Requires the `auth_token` cookie to be
     "password": "securepassword123"
   }
   ```
-- Expected: `201` — user object, no `password_hash` field
+- Expected: `201` — registration succeeds and a verification code is emailed
 
 ---
 
@@ -310,6 +334,18 @@ creation, a cryptographically generated temporary password is emailed to the
 new administrator, stored only as a bcrypt hash, and required to be changed
 before other authenticated API routes are available.
 
+Admins and Platform Admins can use `GET /api/users/organizers` and
+`POST /api/users/organizers` to list and create Organizer accounts. Creation
+validates names and email addresses, normalizes email casing, and rejects
+duplicate accounts. The Organizer is created with a random password stored
+only as a bcrypt hash. A cryptographically generated temporary password is
+emailed over TLS; it is never returned by the API or logged. Organizers must
+sign in with this temporary password and establish a permanent password before
+accessing authenticated account functionality. When a password change is
+required, the new password must be 8-72 UTF-8 bytes and include uppercase,
+lowercase, numeric, and special characters. Delivery failures are reported and
+the unclaimed account is removed so an administrator can retry.
+
 `POST /api/auth/change-password` accepts `currentPassword` and
 `newPassword`. The current password must be valid and the new password must be
 at least eight characters and different from it.
@@ -333,6 +369,11 @@ passwords, and reset codes.
 - As a Platform Admin, create an Admin with a new email; confirm the invitation
   arrives, the temporary credential is accepted only until the required
   password change, and duplicate emails return `409`.
+- As an Admin or Platform Admin, create an Organizer; confirm a one-time setup
+  link arrives, expires after 24 hours, cannot be reused, and enables the
+  account only after the organizer sets a permanent password. Confirm invalid
+  fields and duplicate emails are rejected and no password or setup token is
+  stored or logged in plaintext.
 - Repeat the create request without authentication and with an `ADMIN` session;
   confirm both are denied. Confirm `ADMIN` cannot access audit history.
 - Request recovery for both a registered and unregistered email; confirm both

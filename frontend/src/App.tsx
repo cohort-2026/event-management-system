@@ -11,6 +11,7 @@ import VerifyEmail from '@/pages/auth/VerifyEmail';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
 import ChangePassword from '@/pages/auth/ChangePassword';
+import SetupPassword from '@/pages/auth/SetupPassword';
 
 // Public
 import LandingPage from '@/pages/LandingPage';
@@ -20,6 +21,7 @@ import NotFound from '@/pages/NotFound';
 
 // Organizer
 import OrganizerDashboard from '@/pages/organizer/OrganizerDashboard';
+import OrganizerProfile from '@/pages/organizer/OrganizerProfile';
 import CreateEvent from '@/pages/organizer/CreateEvent';
 import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
@@ -31,6 +33,7 @@ import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
+import VendorProfilePage from '@/pages/vendor/VendorProfile';
 import ApplyForStand from '@/pages/vendor/ApplyForStand';
 import MyApplications from '@/pages/vendor/MyApplications';
 import StaffManagement from '@/pages/vendor/StaffManagement';
@@ -65,6 +68,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password"  element={<ResetPassword />} />
           </Route>
+          <Route path="/setup-password" element={<SetupPassword />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/change-password" element={<ChangePassword />} />
             </Route>
@@ -84,6 +88,8 @@ export default function App() {
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
+            <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />
             <Route path="/organizer/events/:id/registrations"     element={<EventRegistrations />} />
@@ -94,6 +100,8 @@ export default function App() {
           {/* ── Vendor ── */}
           <Route element={<ProtectedRoute roles={['VENDOR']} />}>
             <Route path="/vendor"                          element={<VendorDashboard />} />
+            <Route path="/vendor/profile"                  element={<VendorProfilePage />} />
+            <Route path="/vendor/staff"                    element={<StaffManagement />} />
             <Route path="/vendor/events/:id/apply"         element={<ApplyForStand />} />
             <Route path="/vendor/applications"             element={<MyApplications />} />
             <Route path="/vendor/applications/:id/staff"   element={<StaffManagement />} />

@@ -3,7 +3,7 @@ import type { Event } from '@/types/event';
 import Badge, { type BadgeVariant } from './Badge';
 
 const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', CANCELLED: 'danger', COMPLETED: 'info',
+  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', REJECTED: 'danger', CANCELLED: 'danger', COMPLETED: 'info',
 };
 
 const categoryColors: Record<string, string> = {
@@ -14,7 +14,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function EventCard({ event }: { event: Event }) {
-  const date = new Date(event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
   const filled = event.capacity - event.availableCapacity;
   const fillPct = Math.round((filled / event.capacity) * 100);
@@ -22,8 +22,9 @@ export default function EventCard({ event }: { event: Event }) {
   return (
     <Link to={`/events/${event.id}`} className="block group">
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col h-full">
-        {/* Colour bar */}
-        <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />
+        {event.bannerImageUrl
+          ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
+          : <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />}
 
         <div className="p-5 flex flex-col gap-3 flex-1">
           {/* Category + status */}
@@ -32,7 +33,7 @@ export default function EventCard({ event }: { event: Event }) {
               {event.category}
             </span>
             <Badge variant={statusVariant[event.status] ?? 'default'}>
-              {event.status.replace(/_/g, ' ')}
+              {event.status === 'PUBLISHED' ? 'APPROVED' : event.status.replace(/_/g, ' ')}
             </Badge>
           </div>
 
@@ -64,7 +65,7 @@ export default function EventCard({ event }: { event: Event }) {
           {/* Price + capacity */}
           <div className="flex items-center justify-between">
             <span className={`text-sm font-bold ${event.isFree ? 'text-emerald-600' : 'text-neutral-900'}`}>
-              {event.isFree ? 'Free' : `R${event.price}`}
+              {event.isFree ? 'Free' : `From R${event.price ?? '—'}`}
             </span>
             <div className="flex items-center gap-2">
               <div className="w-20 h-1.5 bg-neutral-100 rounded-full overflow-hidden">

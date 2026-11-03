@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
+import { approveOrganizerProfile, createOrganizer, listOrganizers } from '@/controllers/organizerController';
 
 const router = Router();
+
+router.get('/organizers', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listOrganizers);
+router.post('/organizers', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), createOrganizer);
+router.patch('/organizers/:id/approve-profile', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), approveOrganizerProfile);
 
 // All user management endpoints are Admin-only
 // GET   /api/users                  List all users
