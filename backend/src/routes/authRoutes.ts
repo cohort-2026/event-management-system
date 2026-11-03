@@ -12,10 +12,11 @@ import {
   completeOrganizerPasswordSetup,
 } from '@/controllers/authController';
 import { requireAuth } from '@/middleware/auth';
+import { parseVendorRegistrationDocuments } from '@/middleware/vendorDocumentUpload';
 
 const router = Router();
 
-router.post('/register', register);
+router.post('/register', parseVendorRegistrationDocuments, register);
 router.post('/verify-email', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
 router.post('/forgot-password', requestPasswordReset);

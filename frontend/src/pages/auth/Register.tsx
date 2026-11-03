@@ -4,7 +4,8 @@ import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
-import type { RegistrationRole } from '@/types/user';
+import Textarea from '@/components/ui/Textarea';
+import type { UserRole } from '@/types/user';
 import axios from 'axios';
 
 interface FieldErrors {
@@ -14,9 +15,11 @@ interface FieldErrors {
   password?: string;
   confirmPassword?: string;
   role?: string;
-  organizationName?: string;
-  phone?: string;
-  organizationDescription?: string;
+  businessName?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  supportingDocuments?: string;
 }
 
 const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
@@ -36,17 +39,17 @@ const PASSWORD_RULES = [
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    firstname: '',
-    lastname: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: '' as RegistrationRole | '',
-    organizationName: '',
-    phone: '',
-    organizationDescription: '',
+  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', confirmPassword: '', role: '' as UserRole | '' });
+  const [vendorProfile, setVendorProfile] = useState({
+    businessName: '',
+    businessDescription: '',
+    businessRegistrationNumber: '',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+    productsServices: '',
   });
+  const [supportingDocuments, setSupportingDocuments] = useState<File[]>([]);
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading]         = useState(false);
@@ -57,6 +60,38 @@ export default function Register() {
       setErrors(current => ({ ...current, [field]: undefined }));
       setServerError('');
     };
+
+  const setVendorField = (field: keyof typeof vendorProfile) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setVendorProfile(current => ({ ...current, [field]: event.target.value }));
+
+  const selectRole = (role: UserRole) => {
+    setForm(current => ({ ...current, role }));
+    setErrors(current => ({ ...current, role: undefined }));
+    if (role === 'VENDOR') {
+      setVendorProfile(current => ({
+        ...current,
+        contactPerson: current.contactPerson || `${form.firstname} ${form.lastname}`.trim(),
+        contactEmail: current.contactEmail || form.email,
+      }));
+    }
+  };
+
+  const handleSupportingDocuments = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    const invalidFile = files.find(file => file.type !== 'application/pdf' || !file.name.toLowerCase().endsWith('.pdf'));
+    if (files.length > 10) {
+      setErrors(current => ({ ...current, supportingDocuments: 'Upload no more than 10 PDF documents.' }));
+    } else if (invalidFile) {
+      setErrors(current => ({ ...current, supportingDocuments: 'Choose PDF documents only.' }));
+    } else if (files.some(file => file.size > 10 * 1024 * 1024)) {
+      setErrors(current => ({ ...current, supportingDocuments: 'Each PDF must be 10 MB or smaller.' }));
+    } else {
+      setSupportingDocuments(files);
+      setErrors(current => ({ ...current, supportingDocuments: undefined }));
+    }
+    event.target.value = '';
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -92,20 +127,15 @@ export default function Register() {
     else if (!PASSWORD_RULES.every(rule => rule.test(form.password))) next.password = 'Password does not meet all requirements';
     if (!form.confirmPassword) next.confirmPassword = 'Please confirm your password';
     else if (form.password !== form.confirmPassword) next.confirmPassword = 'Passwords do not match';
-    if (!form.role) next.role = 'Please select a role';
-    if (form.role === 'ORGANIZER') {
-      if (form.organizationName.trim().length < 2 || form.organizationName.trim().length > 120) {
-        next.organizationName = 'Enter an organization name between 2 and 120 characters';
+    if (!form.role)              next.role      = 'Please select a role';
+    if (form.role === 'VENDOR') {
+      if (vendorProfile.businessName.trim().length < 2) next.businessName = 'Enter a business name';
+      if (vendorProfile.contactPerson.trim().length < 2) next.contactPerson = 'Enter a contact person';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(vendorProfile.contactEmail.trim())) next.contactEmail = 'Enter a valid business email address';
+      if (!/^\+?[0-9\s().-]{7,30}$/.test(vendorProfile.contactPhone.trim()) || vendorProfile.contactPhone.replace(/\D/g, '').length < 7) {
+        next.contactPhone = 'Enter a valid phone number';
       }
-      if (
-        form.phone.trim().length > 30 ||
-        (form.phone.trim() && (!/^\+?[0-9\s().-]+$/.test(form.phone.trim()) || form.phone.replace(/\D/g, '').length < 7))
-      ) {
-        next.phone = 'Enter a valid phone number with at least 7 digits';
-      }
-      if (form.organizationDescription.trim().length > 500) {
-        next.organizationDescription = 'Use 500 characters or fewer';
-      }
+      if (supportingDocuments.length === 0) next.supportingDocuments = 'Upload at least one supporting PDF.';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -120,26 +150,26 @@ export default function Register() {
     setLoading(true);
     try {
       await register({
-        firstname: form.firstname.trim(),
-        lastname: form.lastname.trim(),
-        email: form.email.trim(),
+        firstname: form.firstname,
+        lastname: form.lastname,
+        email: form.email,
         password: form.password,
-        role,
-        ...(role === 'ORGANIZER' ? {
-          organizationName: form.organizationName.trim(),
-          phone: form.phone.trim(),
-          organizationDescription: form.organizationDescription.trim(),
+        role: form.role as UserRole,
+        ...(form.role === 'VENDOR' ? {
+          vendorProfile: {
+            ...vendorProfile,
+            businessName: vendorProfile.businessName.trim(),
+            businessDescription: vendorProfile.businessDescription.trim(),
+            businessRegistrationNumber: vendorProfile.businessRegistrationNumber.trim(),
+            contactPerson: vendorProfile.contactPerson.trim(),
+            contactEmail: vendorProfile.contactEmail.trim(),
+            contactPhone: vendorProfile.contactPhone.trim(),
+            productsServices: vendorProfile.productsServices.split(/[\n,]/).map(item => item.trim()).filter(Boolean),
+          },
+          supportingDocuments,
         } : {}),
       });
-      navigate('/verify-email', {
-        replace: true,
-        state: {
-          email: form.email.trim(),
-          verificationNotice: role === 'ORGANIZER'
-            ? 'Organizer account created. Verify your email, complete your profile, and wait for admin approval before creating events.'
-            : undefined,
-        },
-      });
+      navigate('/verify-email', { replace: true, state: { email: form.email } });
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
@@ -233,17 +263,18 @@ export default function Register() {
               helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 
             {/* Role selector */}
-            <fieldset
-              aria-invalid={Boolean(errors.role)}
-              aria-describedby={errors.role ? 'registration-role-error' : undefined}
-              className="flex flex-col gap-1.5"
-            >
-              <legend className="text-sm font-medium text-neutral-700">I am a…</legend>
-              <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-neutral-700">I am a…</label>
+              <div className="grid grid-cols-2 gap-2">
                 {ROLES.map(r => (
                   <label
                     key={r.value}
-                    className="cursor-pointer"
+                    type="button"
+                    onClick={() => selectRole(r.value)}
+                    className={`px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150 text-center
+                      ${form.role === r.value
+                        ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                        : 'bg-white text-neutral-600 border-neutral-200 hover:border-brand-300 hover:text-brand-600'}`}
                   >
                     <input
                       type="radio"
@@ -307,6 +338,37 @@ export default function Register() {
                 <p className="text-xs text-neutral-600">
                   Verify your email to sign in. An admin must approve your completed profile before you can create events.
                 </p>
+              </section>
+            )}
+
+            {form.role === 'VENDOR' && (
+              <section aria-labelledby="vendor-profile-heading" className="space-y-4 rounded-lg border border-neutral-200 bg-white p-4">
+                <div>
+                  <h2 id="vendor-profile-heading" className="text-base font-bold text-neutral-900">Business profile</h2>
+                  <p className="mt-1 text-xs text-neutral-500">Add the details vendors need to apply for event stands.</p>
+                </div>
+                <Input label="Business or trading name" value={vendorProfile.businessName} onChange={setVendorField('businessName')} required maxLength={120} error={errors.businessName} />
+                <Input label="Business registration number" value={vendorProfile.businessRegistrationNumber} onChange={setVendorField('businessRegistrationNumber')} maxLength={100} />
+                <Textarea label="Business description" value={vendorProfile.businessDescription} onChange={setVendorField('businessDescription')} maxLength={2000} />
+                <Input label="Contact person" value={vendorProfile.contactPerson} onChange={setVendorField('contactPerson')} required maxLength={120} error={errors.contactPerson} />
+                <Input label="Business email address" type="email" value={vendorProfile.contactEmail} onChange={setVendorField('contactEmail')} required maxLength={254} error={errors.contactEmail} />
+                <Input label="Business phone number" type="tel" value={vendorProfile.contactPhone} onChange={setVendorField('contactPhone')} required maxLength={30} error={errors.contactPhone} />
+                <Textarea label="Products or services offered" value={vendorProfile.productsServices} onChange={setVendorField('productsServices')} maxLength={2000} helperText="Separate items with commas or new lines." />
+                <Input
+                  label="Supporting documents (PDF)"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  multiple
+                  required
+                  onChange={handleSupportingDocuments}
+                  error={errors.supportingDocuments}
+                  helperText={supportingDocuments.length ? `${supportingDocuments.length} PDF${supportingDocuments.length === 1 ? '' : 's'} selected · Up to 10 files, 10 MB each.` : 'Upload at least one PDF, such as a business registration certificate.'}
+                />
+                {supportingDocuments.length > 0 && (
+                  <ul aria-label="Selected supporting documents" className="-mt-2 divide-y divide-neutral-100 rounded-md border border-neutral-200 px-3">
+                    {supportingDocuments.map(file => <li key={`${file.name}-${file.lastModified}`} className="truncate py-2 text-xs text-neutral-600">{file.name}</li>)}
+                  </ul>
+                )}
               </section>
             )}
 

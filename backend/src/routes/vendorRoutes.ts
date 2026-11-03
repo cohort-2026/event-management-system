@@ -1,47 +1,14 @@
-import { Router, type RequestHandler } from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Router } from 'express';
+import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
-import multer from 'multer';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { config } from '@/config/index';
+import { maxVendorDocuments, parseVendorPdf } from '@/middleware/vendorDocumentUpload';
 
 const router = Router();
 const prisma = new PrismaClient();
-const maxVendorDocumentBytes = 10 * 1024 * 1024;
-const maxVendorDocuments = 10;
-
-const vendorDocumentUpload = multer({
-	storage: multer.diskStorage({
-		destination: (_req, _file, callback) => {
-			fs.mkdir(config.vendorDocumentsDir, { recursive: true })
-				.then(() => callback(null, config.vendorDocumentsDir))
-				.catch(error => callback(error, ''));
-		},
-		filename: (_req, _file, callback) => callback(null, `${randomUUID()}.pdf`),
-	}),
-	limits: { fileSize: maxVendorDocumentBytes, files: 1 },
-	fileFilter: (_req, file, callback) => {
-		const isPdf = file.mimetype === 'application/pdf' && path.extname(file.originalname).toLowerCase() === '.pdf';
-		callback(null, isPdf);
-	},
-});
-
-const parseVendorPdf: RequestHandler = (req, res, next) => {
-	vendorDocumentUpload.single('document')(req, res, error => {
-		if (error instanceof multer.MulterError) {
-			const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
-			res.status(status).json({ success: false, message: status === 413 ? 'PDF files must be 10 MB or smaller' : 'Upload one PDF file at a time' });
-			return;
-		}
-		if (error) {
-			res.status(400).json({ success: false, message: 'Unable to process this document' });
-			return;
-		}
-		next();
-	});
-};
 
 interface VendorDocumentRecord {
 	id: string;
@@ -67,6 +34,7 @@ const profileColumns = `
 	"contact_phone" AS "contactPhone",
 	"products_services" AS "productsServices",
 	"supporting_document_urls" AS "supportingDocumentUrls",
+	"status",
 	"created_at" AS "createdAt",
 	"updated_at" AS "updatedAt"
 `;
@@ -80,6 +48,17 @@ type VendorProfileInput = {
 	contactPhone: string;
 	productsServices: string[];
 	supportingDocumentUrls: string[];
+};
+
+const routeId = (value: string | string[] | undefined): string => typeof value === 'string' ? value : '';
+
+const requireProfileEditable = async (userId: string, res: import('express').Response): Promise<boolean> => {
+	const profile = await prisma.vendorProfile.findUnique({ where: { userId }, select: { status: true } });
+	if (profile?.status === VendorProfileStatus.APPROVED) {
+		res.status(403).json({ success: false, message: 'Approved business profiles cannot be edited' });
+		return false;
+	}
+	return true;
 };
 
 function isHttpsUrl(value: string): boolean {
@@ -175,6 +154,7 @@ router.get('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const userId = req.user?.id;
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+	if (!await requireProfileEditable(userId, res)) return;
 
 	const { data, errors } = validateProfile(req.body);
 	if (!data) return res.status(400).json({ success: false, message: 'Check the highlighted profile fields', errors });
@@ -209,6 +189,10 @@ router.post('/documents', requireAuth, requireRole('VENDOR'), parseVendorPdf, as
 	const file = req.file;
 	if (!vendorId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 	if (!file) return res.status(400).json({ success: false, message: 'Choose a PDF document to upload' });
+	if (!await requireProfileEditable(vendorId, res)) {
+		await fs.unlink(file.path).catch(() => undefined);
+		return;
+	}
 
 	try {
 		const contents = await fs.readFile(file.path);
@@ -259,6 +243,78 @@ router.get('/documents', requireAuth, requireRole('VENDOR'), async (req, res) =>
 	return res.json({ success: true, data: documents });
 });
 
+router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (_req, res) => {
+	const profiles = await prisma.vendorProfile.findMany({
+		where: { status: VendorProfileStatus.PENDING_REVIEW },
+		include: {
+			user: {
+				select: {
+					id: true,
+					firstname: true,
+					lastname: true,
+					email: true,
+					createdAt: true,
+					vendorDocuments: {
+						orderBy: { createdAt: 'asc' },
+						select: { id: true, originalName: true, sizeBytes: true, createdAt: true },
+					},
+				},
+			},
+		},
+		orderBy: { createdAt: 'asc' },
+	});
+	return res.json({ success: true, data: profiles });
+});
+
+router.get('/admin/documents/:id/download', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res, next) => {
+	const id = routeId(req.params.id);
+	if (!id) return res.status(400).json({ success: false, message: 'A valid document ID is required' });
+	const document = await prisma.vendorDocument.findUnique({ where: { id } });
+	if (!document) return res.status(404).json({ success: false, message: 'Document not found' });
+	res.setHeader('X-Content-Type-Options', 'nosniff');
+	return res.download(path.resolve(config.vendorDocumentsDir, document.storageName), document.originalName, error => {
+		if (error && !res.headersSent) next(error);
+	});
+});
+
+const reviewVendorProfile = async (
+	profileId: string,
+	status: 'APPROVED' | 'REJECTED',
+	adminId: string,
+): Promise<boolean> => prisma.$transaction(async transaction => {
+	const profile = await transaction.vendorProfile.findFirst({
+		where: { id: profileId, status: VendorProfileStatus.PENDING_REVIEW },
+		select: { id: true, userId: true },
+	});
+	if (!profile) return false;
+	await transaction.vendorProfile.update({ where: { id: profile.id }, data: { status, reviewedAt: new Date() } });
+	await transaction.auditLog.create({
+		data: {
+			actorId: adminId,
+			affectedUserId: profile.userId,
+			action: status === VendorProfileStatus.APPROVED ? 'VENDOR_PROFILE_APPROVED' : 'VENDOR_PROFILE_REJECTED',
+			outcome: status === VendorProfileStatus.APPROVED ? 'approved' : 'rejected',
+		},
+	});
+	return true;
+});
+
+router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+	const id = routeId(req.params.id);
+	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
+	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.APPROVED, req.user!.id);
+	if (!reviewed) return res.status(404).json({ success: false, message: 'Pending vendor profile not found' });
+	return res.json({ success: true, message: 'Vendor profile approved. The vendor can now sign in.' });
+});
+
+router.patch('/admin/profiles/:id/reject', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+	const id = routeId(req.params.id);
+	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
+	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.REJECTED, req.user!.id);
+	if (!reviewed) return res.status(404).json({ success: false, message: 'Pending vendor profile not found' });
+	return res.json({ success: true, message: 'Vendor profile rejected.' });
+});
+
 router.get('/documents/:id/download', requireAuth, requireRole('VENDOR'), async (req, res, next) => {
 	const vendorId = req.user?.id;
 	if (!vendorId) return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -278,6 +334,7 @@ router.get('/documents/:id/download', requireAuth, requireRole('VENDOR'), async 
 router.delete('/documents/:id', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const vendorId = req.user?.id;
 	if (!vendorId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+	if (!await requireProfileEditable(vendorId, res)) return;
 
 	const [document] = await prisma.$queryRaw<VendorDocumentRecord[]>`
 		SELECT "id", "original_name" AS "originalName", "storage_name" AS "storageName", "size_bytes" AS "sizeBytes", "created_at" AS "createdAt"
@@ -301,9 +358,10 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 	if (!eventId || eventId.length > 64) return res.status(400).json({ success: false, message: 'A valid event is required' });
 
-	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true } });
+	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true } });
 	if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
 	if (event.status !== 'PUBLISHED') return res.status(409).json({ success: false, message: 'Vendor applications are only available for published events' });
+	if (event.startTime <= new Date()) return res.status(409).json({ success: false, message: 'Vendor applications are closed because this event has started' });
 
 	const [profile] = await prisma.$queryRaw<Array<{
 		businessName: string;

@@ -7,7 +7,7 @@ import type { VendorStaffWithEvent } from '@/types/vendor';
 const sidebarItems = [
   { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
   { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
-  { label: 'Apply for a stand', to: '/events', icon: <PlusIcon /> },
+  { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
   { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
   { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
 ];

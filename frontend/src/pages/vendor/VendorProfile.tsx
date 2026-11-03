@@ -5,6 +5,7 @@ import DashboardSidebar, { DashboardHeader } from '@/components/layout/Dashboard
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
+import Badge from '@/components/ui/Badge';
 import {
   deleteVendorDocument,
   downloadVendorDocument,
@@ -14,9 +15,9 @@ import {
   uploadVendorDocument,
 } from '@/services/vendorService';
 import type { ApiError } from '@/types/api';
-import type { UpdateVendorProfileDto, VendorDocument } from '@/types/vendor';
+import type { UpdateVendorProfileDto, VendorDocument, VendorProfile } from '@/types/vendor';
 
-const emptyProfile: UpdateVendorProfileDto = {
+const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status'> = {
   businessName: '',
   businessDescription: '',
   businessRegistrationNumber: '',
@@ -25,18 +26,19 @@ const emptyProfile: UpdateVendorProfileDto = {
   contactPhone: '',
   productsServices: [],
   supportingDocumentUrls: [],
+  status: 'PENDING_REVIEW',
 };
 
 const sidebarItems = [
   { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
   { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
-  { label: 'Apply for a stand', to: '/events', icon: <PlusIcon /> },
+  { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
   { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
   { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
 ];
 
 export default function VendorProfilePage() {
-  const [profile, setProfile] = useState<UpdateVendorProfileDto>(emptyProfile);
+  const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status'>>(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -48,6 +50,7 @@ export default function VendorProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [documentMessage, setDocumentMessage] = useState('');
   const [documentError, setDocumentError] = useState('');
+  const isApproved = profile.status === 'APPROVED';
 
   useEffect(() => {
     getVendorProfile()
@@ -203,18 +206,25 @@ export default function VendorProfilePage() {
         <section className="min-w-0 flex-1">
           <DashboardHeader
             title="Business profile"
-            subtitle="Manage the details used on your vendor applications"
+            subtitle={isApproved ? 'Your approved business profile' : 'Manage the details used on your vendor applications'}
             breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Business profile' }]}
           />
 
-          <form onSubmit={saveProfile} className="space-y-6">
+          {isApproved && (
+            <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
+              <Badge variant="success">Approved</Badge>
+              <p className="text-sm text-neutral-600">This profile is locked after approval. Contact an administrator if it needs to be changed.</p>
+            </div>
+          )}
+
+          <form onSubmit={saveProfile} className="space-y-6" noValidate={isApproved}>
             <section aria-labelledby="business-details-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
               <h2 id="business-details-heading" className="text-lg font-bold text-neutral-900">Business details</h2>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Input label="Business or trading name" value={profile.businessName} onChange={event => updateField('businessName', event.target.value)} required maxLength={120} error={fieldErrors.businessName} />
-                <Input label="Business registration number" value={profile.businessRegistrationNumber} onChange={event => updateField('businessRegistrationNumber', event.target.value)} maxLength={100} error={fieldErrors.businessRegistrationNumber} />
+                <Input label="Business or trading name" value={profile.businessName} onChange={event => updateField('businessName', event.target.value)} required maxLength={120} error={fieldErrors.businessName} disabled={isApproved} />
+                <Input label="Business registration number" value={profile.businessRegistrationNumber} onChange={event => updateField('businessRegistrationNumber', event.target.value)} maxLength={100} error={fieldErrors.businessRegistrationNumber} disabled={isApproved} />
                 <div className="md:col-span-2">
-                  <Textarea label="Business description" value={profile.businessDescription} onChange={event => updateField('businessDescription', event.target.value)} maxLength={2000} helperText={`${profile.businessDescription.length}/2000 characters`} error={fieldErrors.businessDescription} />
+                  <Textarea label="Business description" value={profile.businessDescription} onChange={event => updateField('businessDescription', event.target.value)} maxLength={2000} helperText={`${profile.businessDescription.length}/2000 characters`} error={fieldErrors.businessDescription} disabled={isApproved} />
                 </div>
                 <div className="md:col-span-2" role="group" aria-labelledby="products-services-heading">
                   <h3 id="products-services-heading" className="mb-1.5 text-sm font-medium text-neutral-700">Products or services offered</h3>
@@ -228,9 +238,10 @@ export default function VendorProfilePage() {
                         maxLength={100}
                         placeholder="e.g. Catering, photography, floral design"
                         error={serviceError || fieldErrors.productsServices}
+                        disabled={isApproved}
                       />
                     </div>
-                    <Button type="button" variant="secondary" onClick={addProductOrService} disabled={!serviceDraft.trim()}>Add item</Button>
+                    {!isApproved && <Button type="button" variant="secondary" onClick={addProductOrService} disabled={!serviceDraft.trim()}>Add item</Button>}
                   </div>
                   <p className="mt-2 text-xs text-neutral-500">Add up to 20 products or services ({profile.productsServices.length}/20).</p>
                   {profile.productsServices.length > 0 && (
@@ -238,23 +249,23 @@ export default function VendorProfilePage() {
                       {profile.productsServices.map(item => (
                         <li key={item} className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm text-neutral-800">
                           <span className="break-words">{item}</span>
-                          <button type="button" onClick={() => removeProductOrService(item)} aria-label={`Remove ${item}`} title={`Remove ${item}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+                          {!isApproved && <button type="button" onClick={() => removeProductOrService(item)} aria-label={`Remove ${item}`} title={`Remove ${item}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
                             <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
+                          </button>}
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
-                <Input label="Contact person" value={profile.contactPerson} onChange={event => updateField('contactPerson', event.target.value)} required maxLength={120} error={fieldErrors.contactPerson} />
+                <Input label="Contact person" value={profile.contactPerson} onChange={event => updateField('contactPerson', event.target.value)} required maxLength={120} error={fieldErrors.contactPerson} disabled={isApproved} />
               </div>
             </section>
 
             <section aria-labelledby="contact-details-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
               <h2 id="contact-details-heading" className="text-lg font-bold text-neutral-900">Contact details</h2>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Input label="Business email address" type="email" value={profile.contactEmail} onChange={event => updateField('contactEmail', event.target.value)} required maxLength={254} error={fieldErrors.contactEmail} />
-                <Input label="Business phone number" type="tel" value={profile.contactPhone} onChange={event => updateField('contactPhone', event.target.value)} required maxLength={30} error={fieldErrors.contactPhone} />
+                <Input label="Business email address" type="email" value={profile.contactEmail} onChange={event => updateField('contactEmail', event.target.value)} required maxLength={254} error={fieldErrors.contactEmail} disabled={isApproved} />
+                <Input label="Business phone number" type="tel" value={profile.contactPhone} onChange={event => updateField('contactPhone', event.target.value)} required maxLength={30} error={fieldErrors.contactPhone} disabled={isApproved} />
               </div>
             </section>
 
@@ -262,7 +273,7 @@ export default function VendorProfilePage() {
               <h2 id="documents-heading" className="text-lg font-bold text-neutral-900">Supporting documents</h2>
               <p className="mt-2 text-sm text-neutral-600">Upload PDF files only, up to 10 MB each. You can store up to 10 documents.</p>
               <div className="mt-5 max-w-xl">
-                <Input id="vendor-document-upload" label="Upload a PDF document" type="file" accept=".pdf,application/pdf" onChange={uploadDocument} disabled={uploading || documents.length >= 10} helperText={`${documents.length}/10 documents · Files are private to your vendor account.`} />
+                {!isApproved && <Input id="vendor-document-upload" label="Upload a PDF document" type="file" accept=".pdf,application/pdf" onChange={uploadDocument} disabled={uploading || documents.length >= 10} helperText={`${documents.length}/10 documents · Files are private to your vendor account.`} />}
               </div>
               {uploading && <p role="status" className="mt-3 text-sm text-neutral-600">Uploading PDF…</p>}
               {documentError && <p role="alert" className="mt-3 text-sm font-medium text-rose-700">{documentError}</p>}
@@ -277,7 +288,7 @@ export default function VendorProfilePage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Button type="button" size="sm" variant="secondary" onClick={() => downloadDocument(document)}>Download</Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => removeDocument(document)} aria-label={`Remove ${document.originalName}`}>Remove</Button>
+                        {!isApproved && <Button type="button" size="sm" variant="ghost" onClick={() => removeDocument(document)} aria-label={`Remove ${document.originalName}`}>Remove</Button>}
                       </div>
                     </li>
                   ))}
@@ -285,10 +296,10 @@ export default function VendorProfilePage() {
               )}
             </section>
 
-            <div className="flex flex-wrap items-center gap-4">
+            {!isApproved && <div className="flex flex-wrap items-center gap-4">
               <Button type="submit" loading={saving}>Save business profile</Button>
               {saveMessage && <p role={Object.values(fieldErrors).some(Boolean) ? 'alert' : 'status'} className={`text-sm font-medium ${Object.values(fieldErrors).some(Boolean) ? 'text-rose-700' : 'text-emerald-700'}`}>{saveMessage}</p>}
-            </div>
+            </div>}
           </form>
         </section>
       </div>

@@ -3,7 +3,23 @@ import type { User, CreateUserDto, LoginDto } from '@/types/user';
 
 interface ApiResponse<T> { success: boolean; data: T; }
 
-export const register = (data: CreateUserDto)  => api.post<ApiResponse<User>>('/auth/register', data);
+export const register = (data: CreateUserDto) => {
+	if (data.role !== 'VENDOR' || !data.vendorProfile) {
+		return api.post<ApiResponse<User>>('/auth/register', data);
+	}
+
+	const formData = new FormData();
+	formData.append('firstname', data.firstname);
+	formData.append('lastname', data.lastname);
+	formData.append('email', data.email);
+	formData.append('password', data.password);
+	formData.append('role', data.role);
+	formData.append('vendorProfile', JSON.stringify(data.vendorProfile));
+	data.supportingDocuments?.forEach(file => formData.append('supportingDocuments', file));
+	return api.post<ApiResponse<User>>('/auth/register', formData, {
+		headers: { 'Content-Type': 'multipart/form-data' },
+	});
+};
 export const verifyEmail = (data: { email: string; code: string }) =>
 	api.post<{ success: boolean; message: string }>('/auth/verify-email', data);
 export const resendVerificationEmail = (email: string) =>

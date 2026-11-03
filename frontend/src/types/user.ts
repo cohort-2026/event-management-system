@@ -22,10 +22,17 @@ export interface CreateUserDto {
   lastname: string;
   email: string;
   password: string;
-  role: RegistrationRole;
-  organizationName?: string;
-  organizationDescription?: string;
-  phone?: string;
+  role: UserRole;
+  vendorProfile?: {
+    businessName: string;
+    businessDescription: string;
+    businessRegistrationNumber: string;
+    contactPerson: string;
+    contactEmail: string;
+    contactPhone: string;
+    productsServices: string[];
+  };
+  supportingDocuments?: File[];
 }
 
 export interface LoginDto {

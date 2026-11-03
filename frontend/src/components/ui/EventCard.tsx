@@ -13,8 +13,10 @@ const categoryColors: Record<string, string> = {
   'Company Activity': 'bg-amber-50 text-amber-700',
 };
 
-export default function EventCard({ event }: { event: Event }) {
+export default function EventCard({ event, vendorView = false }: { event: Event; vendorView?: boolean }) {
   const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = new Date(event.startTime).toLocaleTimeString('en-ZA', { hour: 'numeric', minute: '2-digit' });
+  const applicationsOpen = event.status === 'PUBLISHED' && new Date(event.startTime) > new Date();
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
   const filled = event.capacity - event.availableCapacity;
   const fillPct = Math.round((filled / event.capacity) * 100);
@@ -51,7 +53,7 @@ export default function EventCard({ event }: { event: Event }) {
               <svg className="w-3.5 h-3.5 shrink-0 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {date}
+              {date} at {time}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-neutral-500">
               <svg className="w-3.5 h-3.5 shrink-0 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,6 +63,12 @@ export default function EventCard({ event }: { event: Event }) {
               <span className="truncate">{event.venue}</span>
             </div>
           </div>
+
+          {vendorView && (
+            <p className={`text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-500'}`}>
+              Vendor applications {applicationsOpen ? 'open' : 'closed'}
+            </p>
+          )}
 
           {/* Price + capacity */}
           <div className="flex items-center justify-between">
