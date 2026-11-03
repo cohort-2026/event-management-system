@@ -41,6 +41,7 @@ export default function EventDetail() {
       <PageWrapper>
         <div role="alert" className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
           <p className="font-semibold text-neutral-800">{error || 'Event not found.'}</p>
+          {user?.role === 'VENDOR' && <p className="mt-2 text-sm text-neutral-500">Vendor applications are unavailable for this event.</p>}
           <Link to="/events" className="mt-4 inline-block text-sm font-semibold text-brand-700">Browse approved events</Link>
         </div>
       </PageWrapper>
@@ -52,6 +53,7 @@ export default function EventDetail() {
     : 0;
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
+  const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
 
   return (
     <PageWrapper>
@@ -101,6 +103,18 @@ export default function EventDetail() {
             <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">{event.description}</p>
           </section>
 
+          {user?.role === 'VENDOR' && (
+            <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-900">Vendor participation</h2>
+              <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application status</dt><dd className={`mt-1 text-sm font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-600'}`}>{applicationsOpen ? 'Open' : 'Closed'}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Available vendor spaces</dt><dd className="mt-1 text-sm text-neutral-700">Not provided by the organizer</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Participation requirements</dt><dd className="mt-1 text-sm text-neutral-700">Not specified by the organizer</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application deadline</dt><dd className="mt-1 text-sm text-neutral-700">Not provided</dd></div>
+              </dl>
+            </section>
+          )}
+
           <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Ticket options</h2>
             <ul className="mt-4 divide-y divide-neutral-100">
@@ -128,9 +142,11 @@ export default function EventDetail() {
             </div>
 
             {user?.role === 'VENDOR' ? (
-              <Link to={`/vendor/events/${event.id}/apply`}>
-                <Button className="w-full">Apply for a stand</Button>
-              </Link>
+              applicationsOpen ? (
+                <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
+              ) : (
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm font-medium text-neutral-600">Vendor applications are closed</div>
+              )
             ) : event.availableCapacity === 0 ? (
               <div className="rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700 text-center font-medium">
                 Sold out

@@ -41,6 +41,7 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import ApprovalQueue from '@/pages/admin/ApprovalQueue';
 import UserManagement from '@/pages/admin/UserManagement';
+import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
 
 // Platform Admin
 import PlatformSettings from '@/pages/platform-admin/PlatformSettings';
@@ -97,6 +98,7 @@ export default function App() {
           {/* ── Vendor ── */}
           <Route element={<ProtectedRoute roles={['VENDOR']} />}>
             <Route path="/vendor"                          element={<VendorDashboard />} />
+            <Route path="/vendor/events"                   element={<EventList />} />
             <Route path="/vendor/profile"                  element={<VendorProfilePage />} />
             <Route path="/vendor/staff"                    element={<StaffManagement />} />
             <Route path="/vendor/events/:id/apply"         element={<ApplyForStand />} />
@@ -108,6 +110,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/admin"            element={<AdminDashboard />} />
             <Route path="/admin/approvals"  element={<ApprovalQueue />} />
+            <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
             <Route path="/admin/users"      element={<UserManagement />} />
           </Route>
 

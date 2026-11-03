@@ -17,6 +17,16 @@ export interface CreateUserDto {
   email: string;
   password: string;
   role: UserRole;
+  vendorProfile?: {
+    businessName: string;
+    businessDescription: string;
+    businessRegistrationNumber: string;
+    contactPerson: string;
+    contactEmail: string;
+    contactPhone: string;
+    productsServices: string[];
+  };
+  supportingDocuments?: File[];
 }
 
 export interface LoginDto {

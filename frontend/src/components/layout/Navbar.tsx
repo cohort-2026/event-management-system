@@ -10,12 +10,13 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Dashboard", to: "/organizer" },
   ],
   VENDOR: [
-    { label: "Events", to: "/events" },
+    { label: "Browse Events", to: "/vendor/events" },
     { label: "Dashboard", to: "/vendor" },
   ],
   ADMIN: [
     { label: "Events", to: "/events" },
     { label: "Admin", to: "/admin" },
+    { label: "Vendor Reviews", to: "/admin/vendors" },
   ],
   PLATFORM_ADMIN: [{ label: "Settings", to: "/platform-admin/settings" }],
   MANAGEMENT: [{ label: "Reports", to: "/management/reports" }],
