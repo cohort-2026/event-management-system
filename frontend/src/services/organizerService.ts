@@ -46,3 +46,7 @@ export const updateOrganizerProfile = (data: UpdateOrganizerProfileDto) =>
   api.put<ApiResponse<OrganizerProfile>>('/organizer/profile', data);
 export const approveOrganizerProfile = (id: string) =>
   api.patch<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}/approve-profile`);
+export const rejectOrganizerProfile = (id: string) =>
+  api.patch<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}/reject-profile`);
+export const deleteOrganizerAccount = (id: string) =>
+  api.delete<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}`);

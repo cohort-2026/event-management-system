@@ -1,11 +1,13 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 export interface SidebarItem {
   label: string;
   to: string;
   icon: ReactNode;
+  children?: { label: string; to: string }[];
 }
 
 interface DashboardSidebarProps {
@@ -17,6 +19,8 @@ interface DashboardSidebarProps {
 export default function DashboardSidebar({ title, subtitle, items }: DashboardSidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const handleLogout = async () => {
     await logout();
@@ -60,24 +64,63 @@ export default function DashboardSidebar({ title, subtitle, items }: DashboardSi
             <span className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-700">{subtitle}</span>
           </div>
           <nav className="space-y-1">
-            {items.map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
-                className={({ isActive }) =>
-                  [
-                    'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200',
-                    isActive
-                      ? 'bg-brand-100 text-white shadow-sm'
-                      : 'text-neutral-600 hover:bg-neutral-50 hover:text-brand-700',
-                  ].join(' ')
-                }
-              >
-                <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {items.map(item => {
+              const isExpanded = expandedItems.includes(item.to) ||
+                Boolean(item.children?.some(child => location.pathname === child.to));
+              const itemClass = 'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200';
+              const activeClass = 'bg-brand-100 text-white shadow-sm';
+              const inactiveClass = 'text-neutral-600 hover:bg-neutral-50 hover:text-brand-700';
+
+              return (
+                <div key={item.to}>
+                  {item.children ? (
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      aria-controls={`sidebar-submenu-${item.to.replaceAll('/', '-')}`}
+                      onClick={() => setExpandedItems(current =>
+                        current.includes(item.to)
+                          ? current.filter(path => path !== item.to)
+                          : [...current, item.to],
+                      )}
+                      className={`${itemClass} w-full ${item.children.some(child => location.pathname === child.to) ? activeClass : inactiveClass}`}
+                    >
+                      <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.032l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
+                      className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}
+                    >
+                      <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </NavLink>
+                  )}
+                  {item.children && isExpanded && (
+                    <div id={`sidebar-submenu-${item.to.replaceAll('/', '-')}`} className="mt-1 space-y-1">
+                      {item.children.map(child => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          className={({ isActive }) =>
+                            `ml-8 block rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                              isActive ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-50 hover:text-brand-700'
+                            }`
+                          }
+                        >
+                          {child.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
         </div>
 

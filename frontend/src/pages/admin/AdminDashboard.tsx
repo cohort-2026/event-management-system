@@ -92,8 +92,24 @@ export default function AdminDashboard() {
           subtitle="Governance"
           items={[
             { label: 'Overview', to: '/admin', icon: <CalIcon /> },
-            { label: 'Approval queue', to: '/admin/approvals', icon: <ClockIcon /> },
-            { label: 'User management', to: '/admin/users', icon: <UsersIcon /> },
+            {
+              label: 'User management',
+              to: '/admin/users',
+              icon: <UsersIcon />,
+              children: [
+                { label: 'ORGANIZER PROFILE AWAITING APPROVAL', to: '/admin/users/organizers/pending' },
+                { label: 'VENDOR PROFILES AWAITING APPROVAL', to: '/admin/users/vendors/pending' },
+              ],
+            },
+            {
+              label: 'User accounts',
+              to: '/admin/user-accounts',
+              icon: <UsersIcon />,
+              children: [
+                { label: 'ORGANIZER PROFILES', to: '/admin/users/organizers' },
+                { label: 'VENDOR PROFILES', to: '/admin/users/vendors' },
+              ],
+            },
           ]}
         />
 
@@ -110,8 +126,7 @@ export default function AdminDashboard() {
               <p className="text-neutral-500 mt-1">Platform overview and pending actions.</p>
             </div>
             <div className="flex gap-2">
-              <Link to="/admin/approvals"><Button variant="secondary">Approval queue</Button></Link>
-              <Link to="/admin/users"><Button>Manage users</Button></Link>
+              <Link to="/admin/users"><Button>User management</Button></Link>
             </div>
           </div> */}
 

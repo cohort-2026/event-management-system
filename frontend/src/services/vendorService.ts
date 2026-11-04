@@ -14,7 +14,11 @@ export const uploadVendorDocument = (file: File) => {
 };
 export const downloadVendorDocument = (id: string) => api.get<Blob>(`/vendors/documents/${encodeURIComponent(id)}/download`, { responseType: 'blob' });
 export const deleteVendorDocument = (id: string) => api.delete<ApiResponse<null>>(`/vendors/documents/${encodeURIComponent(id)}`);
-export const getPendingVendorProfiles = () => api.get<ApiResponse<PendingVendorProfile[]>>('/vendors/admin/profiles/pending');
+export const getVendorProfilesByStatus = (status: 'PENDING_REVIEW' | 'APPROVED') =>
+	api.get<ApiResponse<PendingVendorProfile[]>>(`/vendors/admin/profiles/${status === 'PENDING_REVIEW' ? 'pending' : 'approved'}`);
+export const getPendingVendorProfiles = () => getVendorProfilesByStatus('PENDING_REVIEW');
+export const deleteVendorAccount = (profileId: string) =>
+	api.delete<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(profileId)}`);
 export const reviewVendorProfile = (id: string, decision: 'approve' | 'reject') =>
 	api.patch<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(id)}/${decision}`);
 export const downloadVendorReviewDocument = (id: string) =>

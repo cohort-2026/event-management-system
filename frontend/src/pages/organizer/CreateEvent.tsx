@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
-import { createEvent, getManagedEvent, submitForApproval, updateEvent } from '@/services/eventService';
+import { createEvent, getManagedEvent, publishEvent, updateEvent } from '@/services/eventService';
 import { getOrganizerProfile } from '@/services/organizerService';
 import type { CreateEventDto, Event, EventType } from '@/types/event';
 import type { ProfileApprovalStatus } from '@/types/user';
@@ -184,7 +184,7 @@ export default function CreateEvent() {
     }
 
     const submitter = (formEvent.nativeEvent as SubmitEvent).submitter;
-    const submitForReview = submitter?.getAttribute('data-submit-action') === 'submit';
+    const publishAfterSave = submitter?.getAttribute('data-submit-action') === 'publish';
     const payload: CreateEventDto = {
       title: form.title.trim(),
       description: form.description.trim(),
@@ -209,14 +209,14 @@ export default function CreateEvent() {
         ? await updateEvent(id, payload)
         : await createEvent(payload);
       let event = saved.data.data;
-      if (submitForReview) {
+      if (publishAfterSave) {
         try {
-          const submitted = await submitForApproval(event.id);
-          event = submitted.data.data;
-          setNotice(submitted.data.message ?? 'Event submitted for admin approval.');
-        } catch (submitError) {
+          const published = await publishEvent(event.id);
+          event = published.data.data;
+          setNotice(published.data.message ?? 'Event published and is now available to attendees.');
+        } catch (publishError) {
           setExistingEvent(event);
-          setError(`Event was saved as a draft, but could not be submitted for approval: ${getApiError(submitError, 'Please try again.')}`);
+          setError(`Event was saved as a draft, but could not be published: ${getApiError(publishError, 'Please try again.')}`);
           if (!isEditing) navigate(`/organizer/events/${event.id}/edit`, { replace: true });
           return;
         }
@@ -295,13 +295,13 @@ export default function CreateEvent() {
             <section className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
               <h2 className="font-bold text-rose-900">Admin feedback</h2>
               <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{existingEvent.rejectionReason}</p>
-              <p className="mt-2 text-xs text-rose-700">Update the event details and submit it again for approval.</p>
+              <p className="mt-2 text-xs text-rose-700">Update the event details, then publish it when ready.</p>
             </section>
           )}
 
           {completed ? (
             <section role="status" className="max-w-3xl rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm">
-              <h2 className="text-xl font-black text-neutral-900">{existingEvent?.status === 'PENDING_APPROVAL' ? 'Event submitted for approval' : 'Event saved'}</h2>
+              <h2 className="text-xl font-black text-neutral-900">{existingEvent?.status === 'PUBLISHED' ? 'Event published' : 'Event saved'}</h2>
               <p className="mt-2 text-sm text-neutral-600">{notice}</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/organizer"><Button type="button">Back to my events</Button></Link>
@@ -400,9 +400,9 @@ export default function CreateEvent() {
                 <Button type="submit" name="action" value="draft" data-submit-action="draft" variant="outline" loading={saving}>
                   {isEditing ? 'Save changes' : 'Save draft'}
                 </Button>
-                {(!existingEvent || existingEvent.status === 'DRAFT' || existingEvent.status === 'REJECTED') && (
-                  <Button type="submit" name="action" value="submit" data-submit-action="submit" loading={saving}>
-                    Save and submit for approval
+                {(!existingEvent || ['DRAFT', 'REJECTED', 'PENDING_APPROVAL'].includes(existingEvent.status)) && (
+                  <Button type="submit" name="action" value="publish" data-submit-action="publish" loading={saving}>
+                    Save and publish event
                   </Button>
                 )}
               </div>

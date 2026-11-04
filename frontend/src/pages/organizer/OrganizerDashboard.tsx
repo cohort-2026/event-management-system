@@ -7,7 +7,7 @@ import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { cancelEvent, getMyEvents, submitForApproval } from '@/services/eventService';
+import { cancelEvent, getMyEvents, publishEvent } from '@/services/eventService';
 import type { Event, EventStatus } from '@/types/event';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
@@ -58,19 +58,19 @@ export default function OrganizerDashboard() {
     return () => { active = false; };
   }, []);
 
-  const resubmit = async (eventId: string) => {
+  const publish = async (eventId: string) => {
     setError('');
     setNotice('');
     setSubmittingId(eventId);
     try {
-      const response = await submitForApproval(eventId);
-      setNotice(response.data.message ?? 'Event submitted for approval.');
+      const response = await publishEvent(eventId);
+      setNotice(response.data.message ?? 'Event published and is now available to attendees.');
       const refreshed = await getMyEvents();
       setEvents(refreshed.data.data);
-    } catch (submitError) {
-      setError(axios.isAxiosError(submitError)
-        ? (submitError.response?.data?.message ?? 'Event could not be submitted.')
-        : 'Event could not be submitted.');
+    } catch (publishError) {
+      setError(axios.isAxiosError(publishError)
+        ? (publishError.response?.data?.message ?? 'Event could not be published.')
+        : 'Event could not be published.');
     } finally {
       setSubmittingId(null);
     }
@@ -162,8 +162,8 @@ export default function OrganizerDashboard() {
                             </Button>
                           </Link>
                         )}
-                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
-                          <Button size="sm" loading={submittingId === event.id} onClick={() => void resubmit(event.id)}>Submit for approval</Button>
+                        {(['DRAFT', 'REJECTED', 'PENDING_APPROVAL'].includes(event.status)) && (
+                          <Button size="sm" loading={submittingId === event.id} onClick={() => void publish(event.id)}>Publish event</Button>
                         )}
                         {event.status === 'PUBLISHED' && (
                           <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => void cancel(event)}>Cancel event</Button>
@@ -174,7 +174,7 @@ export default function OrganizerDashboard() {
                       <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
                         <h4 className="text-sm font-bold text-rose-900">Admin feedback</h4>
                         <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{event.rejectionReason}</p>
-                        <p className="mt-2 text-xs text-rose-700">Correct the event and resubmit it for review.</p>
+                        <p className="mt-2 text-xs text-rose-700">Correct the event details and publish it when ready.</p>
                       </div>
                     )}
                   </article>

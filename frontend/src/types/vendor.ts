@@ -22,6 +22,7 @@ export interface PendingVendorProfile extends VendorProfile {
     firstname: string;
     lastname: string;
     email: string;
+    isActive: boolean;
     createdAt: string;
     vendorDocuments: VendorDocument[];
   };
