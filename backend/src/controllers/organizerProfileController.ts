@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { notifyAdmins } from '@/services/notificationService';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,7 @@ const ORGANIZER_PROFILE_SELECT = {
   organizationDescription: true,
   phone: true,
   profileApprovalStatus: true,
+  profileRejectionReason: true,
 } as const;
 
 interface OrganizerProfileInput {
@@ -106,6 +108,7 @@ export const updateOrganizerProfile = async (req: Request, res: Response, next: 
           organizationName: true,
           organizationDescription: true,
           phone: true,
+          profileApprovalStatus: true,
         },
       });
       if (!current) return null;
@@ -116,14 +119,31 @@ export const updateOrganizerProfile = async (req: Request, res: Response, next: 
         current.organizationDescription !== data.organizationDescription ||
         current.phone !== data.phone;
 
-      return transaction.user.update({
+      const profile = await transaction.user.update({
         where: { id: req.user!.id },
         data: {
           ...data,
-          ...(changed ? { profileApprovalStatus: 'PENDING_APPROVAL' } : {}),
+          ...(changed ? {
+            profileApprovalStatus: 'PENDING_APPROVAL',
+            profileRejectionReason: null,
+          } : {}),
         },
         select: ORGANIZER_PROFILE_SELECT,
       });
+      const isNewRequest = changed && (
+        current.profileApprovalStatus !== 'PENDING_APPROVAL' ||
+        !current.firstname.trim() ||
+        !current.lastname.trim() ||
+        !current.organizationName?.trim()
+      );
+      if (isNewRequest) {
+        await notifyAdmins(transaction, {
+          title: 'Organizer profile request',
+          message: `${data.firstname} ${data.lastname} submitted an organizer profile for review.`,
+          link: '/admin/users/organizers/pending',
+        });
+      }
+      return profile;
     });
     if (!profile) {
       res.status(404).json({ success: false, message: 'Organizer profile not found' });

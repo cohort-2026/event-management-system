@@ -75,7 +75,7 @@ export const sendEventStatusNotification = async (
     subject: `Your EventMS event was ${approved ? 'approved' : 'rejected'}`,
     text: approved
       ? `Hello ${firstname},\n\nYour event "${eventTitle}" has been approved and is now published on EventMS.`
-      : `Hello ${firstname},\n\nYour event "${eventTitle}" was not approved.\n\nAdmin feedback:\n${rejectionReason ?? 'Please review and update your event.'}\n\nYou can edit the event and resubmit it for review from your organizer dashboard.`,
+      : `Hello ${firstname},\n\nYour event "${eventTitle}" was not approved.\n\nAdmin feedback:\n${rejectionReason ?? 'Please review and update your event.'}\n\nYou can edit the event and publish it when ready from your organizer dashboard.`,
   });
 };
 

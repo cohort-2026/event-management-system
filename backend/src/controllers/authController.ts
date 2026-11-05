@@ -4,9 +4,10 @@ import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
-import { PrismaClient, VendorProfileStatus } from '@prisma/client';
+import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { config } from '@/config/index';
 import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
+import { notifyAdmins } from '@/services/notificationService';
 
 const prisma = new PrismaClient();
 
@@ -162,35 +163,6 @@ export const register = async (req: Request, res: Response, next: NextFunction):
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-
-    const user = await prisma.$transaction(async transaction => {
-      const createdUser = await transaction.user.create({
-        data: {
-          firstname,
-          lastname,
-          email,
-          role,
-          passwordHash,
-          ...(vendorProfileData ? {
-            vendorProfile: { create: { ...vendorProfileData, status: VendorProfileStatus.PENDING_REVIEW } },
-          } : {}),
-        },
-        select: USER_SELECT,
-      });
-      if (uploadedDocuments.length > 0) {
-        await transaction.vendorDocument.createMany({
-          data: uploadedDocuments.map(document => ({
-            vendorId: createdUser.id,
-            storageName: document.filename,
-            originalName: basename(document.originalname).replace(/[^\w .()\-]/g, '_').trim().slice(0, 200) || 'document.pdf',
-            sizeBytes: document.size,
-          })),
-        });
-      }
-      return createdUser;
-    });
-    keepUploadedDocuments = true;
-
     const code = createOtp();
     const codeHash = await bcrypt.hash(code, 12);
 
@@ -207,9 +179,37 @@ export const register = async (req: Request, res: Response, next: NextFunction):
             organizationDescription: organizationDescription || null,
             phone: phone || null,
           } : {}),
+          ...(vendorProfileData ? {
+            vendorProfile: { create: { ...vendorProfileData, status: VendorProfileStatus.PENDING_REVIEW } },
+          } : {}),
         },
         select: USER_SELECT,
       });
+
+      if (uploadedDocuments.length > 0) {
+        await transaction.vendorDocument.createMany({
+          data: uploadedDocuments.map(document => ({
+            vendorId: createdUser.id,
+            storageName: document.filename,
+            originalName: basename(document.originalname).replace(/[^\w .()\-]/g, '_').trim().slice(0, 200) || 'document.pdf',
+            sizeBytes: document.size,
+          })),
+        });
+      }
+
+      if (role === 'ORGANIZER' || role === 'VENDOR') {
+        await notifyAdmins(transaction, role === 'ORGANIZER'
+          ? {
+            title: 'Organizer profile request',
+            message: `${firstname} ${lastname} submitted an organizer profile for review.`,
+            link: '/admin/users/organizers/pending',
+          }
+          : {
+            title: 'Vendor profile request',
+            message: `${firstname} ${lastname} submitted a vendor profile for review.`,
+            link: '/admin/users/vendors/pending',
+          });
+      }
 
       await transaction.emailVerification.create({
         data: {
@@ -221,6 +221,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
 
       return createdUser;
     });
+    keepUploadedDocuments = true;
 
     await sendVerificationCode(email, code);
 
@@ -279,15 +280,15 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
+    let vendorProfileStatus: VendorProfileStatus | undefined;
     if (user.role === 'VENDOR') {
       const profile = await prisma.vendorProfile.findUnique({
         where: { userId: user.id },
         select: { status: true },
       });
-      if (profile?.status !== VendorProfileStatus.APPROVED) {
-        const message = profile?.status === VendorProfileStatus.REJECTED
-          ? 'Your vendor profile was not approved. Contact the administrator.'
-          : 'Your vendor profile is pending administrator approval.';
+      vendorProfileStatus = profile?.status ?? VendorProfileStatus.PENDING_REVIEW;
+      if (vendorProfileStatus === VendorProfileStatus.PENDING_REVIEW) {
+        const message = 'Your vendor profile is pending administrator approval.';
         res.status(403).json({ success: false, message });
         return;
       }
@@ -302,7 +303,13 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     res.cookie(COOKIE_NAME, token, cookieOptions);
 
     const { passwordHash: _omit, ...safeUser } = user;
-    res.json({ success: true, data: safeUser });
+    res.json({
+      success: true,
+      data: {
+        ...safeUser,
+        ...(vendorProfileStatus ? { vendorProfileStatus } : {}),
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -742,7 +749,19 @@ export const me = async (req: Request, res: Response, next: NextFunction): Promi
       return;
     }
 
-    res.json({ success: true, data: user });
+    const vendorProfile = user.role === 'VENDOR'
+      ? await prisma.vendorProfile.findUnique({
+        where: { userId: user.id },
+        select: { status: true },
+      })
+      : null;
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        ...(vendorProfile ? { vendorProfileStatus: vendorProfile.status } : {}),
+      },
+    });
   } catch (err) {
     next(err);
   }

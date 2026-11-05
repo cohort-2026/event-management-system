@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "vendor_profiles" ALTER COLUMN "status" SET DEFAULT 'APPROVED';

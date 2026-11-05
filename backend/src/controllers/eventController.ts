@@ -372,7 +372,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       }
     }
     const message = result.event.status === EventStatus.PENDING_APPROVAL && result.notifyAudience
-      ? 'Critical event changes were saved and submitted for admin approval.'
+      ? 'Critical event changes were saved. Publish the event when ready.'
       : 'Event changes saved.';
     res.json({
       success: true,
@@ -387,7 +387,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-export const submitEventForApproval = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const publishEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const eventId = getEventId(req);
     if (!eventId) {
@@ -398,11 +398,11 @@ export const submitEventForApproval = async (req: Request, res: Response, next: 
       where: {
         id: eventId,
         organizerId: req.user!.id,
-        status: { in: [EventStatus.DRAFT, EventStatus.REJECTED] },
+        status: { in: [EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL] },
         startTime: { gt: new Date() },
         endTime: { gt: new Date() },
       },
-      data: { status: EventStatus.PENDING_APPROVAL, rejectionReason: null },
+      data: { status: EventStatus.PUBLISHED, rejectionReason: null },
     });
     if (result.count !== 1) {
       const event = await prisma.event.findFirst({
@@ -411,16 +411,16 @@ export const submitEventForApproval = async (req: Request, res: Response, next: 
       });
       if (!event) {
         res.status(404).json({ success: false, message: 'Event not found' });
-      } else if (event.status !== EventStatus.DRAFT && event.status !== EventStatus.REJECTED) {
-        res.status(409).json({ success: false, message: 'Only draft or rejected events can be resubmitted' });
+      } else if (![EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL].includes(event.status)) {
+        res.status(409).json({ success: false, message: 'Only draft or pending events can be published' });
       } else {
-        res.status(400).json({ success: false, message: 'Past events cannot be submitted for approval' });
+        res.status(400).json({ success: false, message: 'Past events cannot be published' });
       }
       return;
     }
 
     const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: eventInclude });
-    res.json({ success: true, data: serializeEvent(event), message: 'Event submitted for admin approval.' });
+    res.json({ success: true, data: serializeEvent(event), message: 'Event published and is now available to attendees.' });
   } catch (err) {
     next(err);
   }
