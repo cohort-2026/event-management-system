@@ -104,6 +104,159 @@ export const approveOrganizerProfile = async (req: Request, res: Response, next:
   }
 };
 
+export const rejectOrganizerProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const organizerId = req.params.id;
+    if (typeof organizerId !== 'string' || !organizerId.trim()) {
+      res.status(400).json({ success: false, message: 'A valid organizer ID is required' });
+      return;
+    }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (reason.length < 10 || reason.length > 2000) {
+      res.status(400).json({ success: false, message: 'Rejection feedback must be between 10 and 2000 characters.' });
+      return;
+    }
+
+    const result = await prisma.$transaction(async transaction => {
+      const updated = await transaction.user.updateMany({
+        where: {
+          id: organizerId,
+          role: Role.ORGANIZER,
+          profileApprovalStatus: 'PENDING_APPROVAL',
+        },
+        data: { profileApprovalStatus: 'REJECTED', profileRejectionReason: reason },
+      });
+      if (updated.count !== 1) {
+        const organizer = await transaction.user.findFirst({
+          where: { id: organizerId, role: Role.ORGANIZER },
+          select: { profileApprovalStatus: true },
+        });
+        return organizer ? { error: 'not_pending' as const } : { error: 'not_found' as const };
+      }
+
+      await transaction.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          affectedUserId: organizerId,
+          action: 'ORGANIZER_PROFILE_REJECTED',
+          outcome: 'rejected',
+        },
+      });
+      return { error: null as null };
+    });
+
+    if (result.error === 'not_found') {
+      res.status(404).json({ success: false, message: 'Organizer account not found' });
+      return;
+    }
+    if (result.error === 'not_pending') {
+      res.status(409).json({ success: false, message: 'This organizer profile is not awaiting approval.' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Organizer profile rejected.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteOrganizerAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const organizerId = req.params.id;
+    if (typeof organizerId !== 'string' || !organizerId.trim()) {
+      res.status(400).json({ success: false, message: 'A valid organizer ID is required' });
+      return;
+    }
+
+    const result = await prisma.$transaction(async transaction => {
+      const organizer = await transaction.user.findFirst({
+        where: {
+          id: organizerId,
+          role: Role.ORGANIZER,
+          profileApprovalStatus: 'APPROVED',
+        },
+        select: { id: true },
+      });
+      if (!organizer) return false;
+
+      const events = await transaction.event.findMany({
+        where: { organizerId },
+        select: { id: true },
+      });
+      const eventIds = events.map(event => event.id);
+      const bookings = await transaction.booking.findMany({
+        where: {
+          OR: [
+            { attendeeId: organizerId },
+            ...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      const bookingIds = bookings.map(booking => booking.id);
+      const applications = await transaction.vendorApplication.findMany({
+        where: {
+          OR: [
+            { vendorId: organizerId },
+            ...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      const applicationIds = applications.map(application => application.id);
+
+      await transaction.ticket.deleteMany({
+        where: {
+          OR: [
+            { holderId: organizerId },
+            ...(bookingIds.length ? [{ bookingId: { in: bookingIds } }] : []),
+            ...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+          ],
+        },
+      });
+      if (bookingIds.length) {
+        await transaction.payment.deleteMany({ where: { bookingId: { in: bookingIds } } });
+        await transaction.booking.deleteMany({ where: { id: { in: bookingIds } } });
+      }
+
+      if (applicationIds.length) {
+        await transaction.vendorStaffMember.deleteMany({
+          where: { applicationId: { in: applicationIds } },
+        });
+        await transaction.vendorApplication.deleteMany({
+          where: { id: { in: applicationIds } },
+        });
+      }
+      if (eventIds.length) {
+        await transaction.event.deleteMany({ where: { id: { in: eventIds } } });
+      }
+
+      await transaction.auditLog.deleteMany({
+        where: { OR: [{ actorId: organizerId }, { affectedUserId: organizerId }] },
+      });
+      await transaction.user.delete({ where: { id: organizerId } });
+      await transaction.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          affectedUserId: organizerId,
+          action: 'ORGANIZER_ACCOUNT_DELETED',
+          outcome: 'permanently_deleted',
+        },
+      });
+      return true;
+    });
+
+    if (!result) {
+      res.status(404).json({ success: false, message: 'Approved organizer account not found' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Organizer account and related records permanently deleted.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createOrganizer = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const firstname = typeof req.body?.firstname === 'string' ? req.body.firstname.trim() : '';

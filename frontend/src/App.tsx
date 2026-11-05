@@ -42,6 +42,7 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import ApprovalQueue from '@/pages/admin/ApprovalQueue';
 import UserManagement from '@/pages/admin/UserManagement';
+import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
 
 // Platform Admin
@@ -114,7 +115,12 @@ export default function App() {
             <Route path="/admin"            element={<AdminDashboard />} />
             <Route path="/admin/approvals"  element={<ApprovalQueue />} />
             <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
-            <Route path="/admin/users"      element={<UserManagement />} />
+            <Route path="/admin/users"      element={<Navigate to="/admin/users/organizers/pending" replace />} />
+            <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />
+            <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
+            <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
+            <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
+            <Route path="/admin/user-accounts" element={<UserAccounts />} />
           </Route>
 
           {/* ── Platform Admin ── */}
@@ -154,7 +160,7 @@ function RootRedirect() {
   if (user) {
     const dashboardPath: Record<string, string> = {
       ORGANIZER: '/organizer',
-      VENDOR: '/vendor',
+      VENDOR: user.vendorProfileStatus === 'REJECTED' ? '/vendor/profile' : '/vendor',
       ADMIN: '/admin',
       PLATFORM_ADMIN: '/platform-admin',
       MANAGEMENT: '/management/reports',

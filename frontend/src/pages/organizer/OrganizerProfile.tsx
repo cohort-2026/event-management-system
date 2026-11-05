@@ -42,6 +42,7 @@ export default function OrganizerProfile() {
   const [profile, setProfile] = useState(emptyProfile);
   const [email, setEmail] = useState('');
   const [profileApprovalStatus, setProfileApprovalStatus] = useState<OrganizerProfileData['profileApprovalStatus'] | null>(null);
+  const [profileRejectionReason, setProfileRejectionReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -57,6 +58,7 @@ export default function OrganizerProfile() {
         setProfile(toFormValues(response.data.data));
         setEmail(response.data.data.email);
         setProfileApprovalStatus(response.data.data.profileApprovalStatus);
+        setProfileRejectionReason(response.data.data.profileRejectionReason);
       })
       .catch(error => {
         if (!active) return;
@@ -89,6 +91,7 @@ export default function OrganizerProfile() {
       setProfile(toFormValues(response.data.data));
       setEmail(response.data.data.email);
       setProfileApprovalStatus(response.data.data.profileApprovalStatus);
+      setProfileRejectionReason(response.data.data.profileRejectionReason);
       setSaveMessage(response.data.message ?? 'Organizer profile saved.');
     } catch (error) {
       if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
@@ -128,8 +131,16 @@ export default function OrganizerProfile() {
             >
               {profileApprovalStatus === 'APPROVED'
                 ? 'Your profile is approved. You can create events.'
-                : 'Your profile is awaiting admin approval. Any profile changes must be reviewed before you can create events.'}
+                : profileApprovalStatus === 'REJECTED'
+                  ? 'Your profile was rejected. Review the feedback below and update your details to resubmit it for approval.'
+                  : 'Your profile is awaiting admin approval. Any profile changes must be reviewed before you can create events.'}
             </div>
+          )}
+          {profileApprovalStatus === 'REJECTED' && profileRejectionReason && (
+            <section aria-labelledby="profile-rejection-feedback" className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+              <h2 id="profile-rejection-feedback" className="text-sm font-semibold text-rose-900">Admin feedback</h2>
+              <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{profileRejectionReason}</p>
+            </section>
           )}
 
           {loading ? (

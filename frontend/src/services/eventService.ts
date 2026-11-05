@@ -28,7 +28,7 @@ export const getAdminEventAnalytics = ()                             => api.get<
 export const createEvent     = (data: CreateEventDto)                => api.post<ApiResponse<Event>>('/events', data);
 export const updateEvent     = (id: string, data: UpdateEventDto)    => api.put<ApiResponse<Event>>(`/events/${id}`, data);
 export const deleteEvent     = (id: string)                          => api.delete(`/events/${id}`);
-export const submitForApproval = (id: string)                        => api.patch<ApiResponse<Event>>(`/events/${id}/submit`);
+export const publishEvent      = (id: string)                        => api.patch<ApiResponse<Event>>(`/events/${id}/publish`);
 export const approveEvent    = (id: string)                          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/approve`);
 export const rejectEvent    = (id: string, reason: string)          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/reject`, { reason });
 export const cancelEvent     = (id: string)                          => api.patch<ApiActionResponse>(`/events/${id}/cancel`);

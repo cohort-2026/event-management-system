@@ -4,7 +4,6 @@ import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
-import Textarea from '@/components/ui/Textarea';
 import type { UserRole } from '@/types/user';
 import axios from 'axios';
 
@@ -15,12 +14,17 @@ interface FieldErrors {
   password?: string;
   confirmPassword?: string;
   role?: string;
+  organizationName?: string;
+  organizationDescription?: string;
+  phone?: string;
   businessName?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;
   supportingDocuments?: string;
 }
+
+type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
 
 const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
@@ -39,7 +43,17 @@ const PASSWORD_RULES = [
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', confirmPassword: '', role: '' as UserRole | '' });
+  const [form, setForm] = useState({
+    firstname: '',
+    lastname: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: '' as UserRole | '',
+    organizationName: '',
+    organizationDescription: '',
+    phone: '',
+  });
   const [vendorProfile, setVendorProfile] = useState({
     businessName: '',
     businessDescription: '',
@@ -263,13 +277,12 @@ export default function Register() {
               helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 
             {/* Role selector */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-neutral-700">I am a…</label>
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-sm font-medium text-neutral-700">I am a…</legend>
               <div className="grid grid-cols-2 gap-2">
                 {ROLES.map(r => (
                   <label
                     key={r.value}
-                    type="button"
                     onClick={() => selectRole(r.value)}
                     className={`px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150 text-center
                       ${form.role === r.value
