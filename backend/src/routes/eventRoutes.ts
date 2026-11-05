@@ -7,6 +7,7 @@ import {
   getAdminEventAnalytics,
   getPublicEvent,
   getManagedEvent,
+  listVendorApplicationsForEvent,
   listEventsForApproval,
   listMyEvents,
   listPublicEvents,
@@ -41,7 +42,7 @@ router.patch('/:id/publish',    requireAuth, requireRole('ORGANIZER'), requireAp
 router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), cancelEvent);
 router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
 router.get('/:id/bookings',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
-router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
+router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listVendorApplicationsForEvent);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 // PATCH  /api/events/:id/approve        Approve a pending event

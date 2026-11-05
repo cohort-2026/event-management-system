@@ -155,6 +155,9 @@ export default function OrganizerDashboard() {
                         <p className="mt-1 text-xs text-neutral-400">{event.capacity - event.availableCapacity} / {event.capacity} places booked</p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
+                        <Link to={`/organizer/events/${event.id}/vendors`}>
+                          <Button variant="secondary" size="sm">Stand requests</Button>
+                        </Link>
                         {(['DRAFT', 'REJECTED', 'PENDING_APPROVAL', 'PUBLISHED'].includes(event.status)) && (
                           <Link to={`/organizer/events/${event.id}/edit`}>
                             <Button variant="secondary" size="sm">

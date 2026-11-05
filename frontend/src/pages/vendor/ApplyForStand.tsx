@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
-import { applyForStand, getVendorProfile } from '@/services/vendorService';
-import type { VendorProfile } from '@/types/vendor';
+import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
+import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
 const sidebarItems = [
   { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
@@ -18,19 +18,45 @@ const sidebarItems = [
 export default function ApplyForStand() {
   const { id: eventId } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<VendorProfile | null>(null);
+  const [applications, setApplications] = useState<VendorApplication[]>([]);
+  const [requestedStandType, setRequestedStandType] = useState('Standard');
+  const [requestedStandSize, setRequestedStandSize] = useState('');
+  const [standDescription, setStandDescription] = useState('');
+  const [supportingInformation, setSupportingInformation] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getVendorProfile()
-      .then(response => setProfile(response.data.data))
+    Promise.all([getVendorProfile(), getMyApplications()])
+      .then(([profileResponse, applicationsResponse]) => {
+        setProfile(profileResponse.data.data);
+        setApplications(applicationsResponse.data.data);
+      })
       .catch(() => setError('Unable to load your business profile.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const submitApplication = async () => {
+  const activeApplication = useMemo(() => applications.find(application =>
+    application.eventId === eventId && application.status !== 'REJECTED',
+  ), [applications, eventId]);
+  const rejectedApplication = useMemo(() => applications
+    .filter(application => application.eventId === eventId && application.status === 'REJECTED')
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0],
+  [applications, eventId]);
+
+  useEffect(() => {
+    if (!activeApplication && rejectedApplication) {
+      setRequestedStandType(rejectedApplication.requestedStandType);
+      setRequestedStandSize(rejectedApplication.requestedStandSize);
+      setStandDescription(rejectedApplication.standDescription);
+      setSupportingInformation(rejectedApplication.supportingInformation ?? '');
+    }
+  }, [activeApplication, rejectedApplication]);
+
+  const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!eventId) {
       setError('This event could not be found.');
       return;
@@ -39,8 +65,14 @@ export default function ApplyForStand() {
     setError('');
     setMessage('');
     try {
-      await applyForStand({ eventId });
-      setMessage('Your stand application has been submitted.');
+      await applyForStand({
+        eventId,
+        requestedStandType,
+        requestedStandSize,
+        standDescription,
+        supportingInformation,
+      });
+      setMessage('Your stand request has been submitted.');
     } catch (requestError) {
       const responseMessage = axios.isAxiosError<{ message?: string }>(requestError)
         ? requestError.response?.data.message
@@ -56,14 +88,14 @@ export default function ApplyForStand() {
       <div className="flex flex-col gap-8 lg:flex-row">
         <DashboardSidebar title="Vendor" subtitle="Operations" items={sidebarItems} />
         <section className="min-w-0 flex-1">
-          <DashboardHeader title="Apply for a stand" subtitle="Your saved business details will be included with this application" breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Apply for a stand' }]} />
+          <DashboardHeader title="Apply for a stand" subtitle="Tell the organizer what you need for your event stand." breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Apply for a stand' }]} />
 
           {loading ? (
             <p role="status" className="py-10 text-center text-neutral-500">Loading your business profile…</p>
           ) : !profile?.businessName ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
               <h2 className="font-bold text-neutral-900">Complete your business profile first</h2>
-              <p className="mt-2 text-sm text-neutral-700">Your business name is required and your saved details are used to prepare stand applications.</p>
+              <p className="mt-2 text-sm text-neutral-700">Your business name is required and your saved details are included with the request.</p>
               <Link to="/vendor/profile" className="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:text-brand-900">Open business profile</Link>
             </div>
           ) : (
@@ -81,9 +113,44 @@ export default function ApplyForStand() {
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Business email</dt><dd className="mt-1 break-all text-sm text-neutral-800">{profile.contactEmail || 'Not provided'}</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Phone</dt><dd className="mt-1 text-sm text-neutral-800">{profile.contactPhone || 'Not provided'}</dd></div>
               </dl>
-              {error && <p role="alert" className="mt-5 text-sm font-medium text-rose-700">{error}</p>}
-              {message && <p role="status" className="mt-5 text-sm font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
-              <Button type="button" className="mt-6" loading={submitting} disabled={Boolean(message)} onClick={submitApplication}>Submit stand application</Button>
+              {activeApplication ? (
+                <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <h3 className="font-semibold text-amber-950">You already have a {activeApplication.status.toLowerCase().replace('_', ' ')} request for this event.</h3>
+                  {activeApplication.assignedStand && <p className="mt-1 text-sm text-amber-900">Assigned stand: {activeApplication.assignedStand}</p>}
+                  <Link to="/vendor/applications" className="mt-2 inline-flex text-sm font-semibold text-brand-700 underline">View your requests</Link>
+                </div>
+              ) : (
+                <form className="mt-6 space-y-4 border-t border-neutral-100 pt-5" onSubmit={submitApplication}>
+                  {rejectedApplication && (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+                      <h3 className="font-semibold text-rose-900">Update your rejected request</h3>
+                      {rejectedApplication.rejectionReason && <p className="mt-1 whitespace-pre-line text-sm text-rose-800">Organizer feedback: {rejectedApplication.rejectionReason}</p>}
+                      <p className="mt-1 text-xs text-rose-800">Your previous request is preserved. Submitting creates a new request with your corrections.</p>
+                    </div>
+                  )}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-neutral-700">
+                      Stand type
+                      <input required minLength={2} maxLength={80} value={requestedStandType} onChange={event => setRequestedStandType(event.target.value)} className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                    </label>
+                    <label className="block text-sm font-medium text-neutral-700">
+                      Requested size
+                      <input required minLength={2} maxLength={80} value={requestedStandSize} onChange={event => setRequestedStandSize(event.target.value)} placeholder="e.g. 3m x 3m" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                    </label>
+                  </div>
+                  <label className="block text-sm font-medium text-neutral-700">
+                    Stand requirements and setup
+                    <textarea required minLength={10} maxLength={2000} rows={4} value={standDescription} onChange={event => setStandDescription(event.target.value)} placeholder="Describe your setup, equipment, power needs, and how you will use the stand." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                  </label>
+                  <label className="block text-sm font-medium text-neutral-700">
+                    Supporting information <span className="font-normal text-neutral-500">(optional)</span>
+                    <textarea maxLength={2000} rows={3} value={supportingInformation} onChange={event => setSupportingInformation(event.target.value)} placeholder="Add any other information the organizer should consider." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                  </label>
+                  {error && <p role="alert" className="text-sm font-medium text-rose-700">{error}</p>}
+                  {message && <p role="status" className="text-sm font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my requests</Link></p>}
+                  <Button type="submit" className="mt-2" loading={submitting} disabled={Boolean(message)}>Submit stand request</Button>
+                </form>
+              )}
             </div>
           )}
         </section>
