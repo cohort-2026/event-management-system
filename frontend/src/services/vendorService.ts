@@ -3,7 +3,8 @@ import type { ApiResponse } from '@/types/api';
 import type { VendorApplication, CreateVendorApplicationDto, AddStaffMemberDto, VendorStaffMember, VendorStaffWithEvent, VendorProfile, UpdateVendorProfileDto, VendorDocument, PendingVendorProfile } from '@/types/vendor';
 
 export const getVendorProfile     = () => api.get<ApiResponse<VendorProfile>>('/vendors/profile');
-export const updateVendorProfile  = (data: UpdateVendorProfileDto) => api.put<ApiResponse<VendorProfile>>('/vendors/profile', data);
+export const updateVendorProfile  = (data: UpdateVendorProfileDto, submitForReview = false) =>
+	api.put<ApiResponse<VendorProfile>>('/vendors/profile', { ...data, submitForReview });
 export const getVendorDocuments   = () => api.get<ApiResponse<VendorDocument[]>>('/vendors/documents');
 export const uploadVendorDocument = (file: File) => {
 	const formData = new FormData();
@@ -19,8 +20,8 @@ export const getVendorProfilesByStatus = (status: 'PENDING_REVIEW' | 'APPROVED')
 export const getPendingVendorProfiles = () => getVendorProfilesByStatus('PENDING_REVIEW');
 export const deleteVendorAccount = (profileId: string) =>
 	api.delete<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(profileId)}`);
-export const reviewVendorProfile = (id: string, decision: 'approve' | 'reject') =>
-	api.patch<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(id)}/${decision}`);
+export const reviewVendorProfile = (id: string, decision: 'approve' | 'reject', reason?: string) =>
+	api.patch<ApiResponse<null>>(`/vendors/admin/profiles/${encodeURIComponent(id)}/${decision}`, decision === 'reject' ? { reason } : undefined);
 export const downloadVendorReviewDocument = (id: string) =>
 	api.get<Blob>(`/vendors/admin/documents/${encodeURIComponent(id)}/download`, { responseType: 'blob' });
 

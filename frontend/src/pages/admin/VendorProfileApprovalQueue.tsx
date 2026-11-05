@@ -3,6 +3,7 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import Spinner from '@/components/ui/Spinner';
 import UserManagementNav from '@/components/admin/UserManagementNav';
 import {
@@ -17,6 +18,8 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 	const [profiles, setProfiles] = useState<PendingVendorProfile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [busyId, setBusyId] = useState<string | null>(null);
+	const [profileToReject, setProfileToReject] = useState<PendingVendorProfile | null>(null);
+	const [rejectionReason, setRejectionReason] = useState('');
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
 
@@ -40,14 +43,17 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 		return () => { active = false; };
 	}, [status]);
 
-	const decide = async (profile: PendingVendorProfile, decision: 'approve' | 'reject') => {
-		if (decision === 'reject' && !window.confirm(`Reject ${profile.businessName}'s vendor profile?`)) return;
+	const decide = async (profile: PendingVendorProfile, decision: 'approve' | 'reject', reason?: string) => {
 		setError('');
 		setNotice('');
 		setBusyId(profile.id);
 		try {
-			const response = await reviewVendorProfile(profile.id, decision);
+			const response = await reviewVendorProfile(profile.id, decision, reason);
 			setNotice(response.data.message ?? `Vendor profile ${decision === 'approve' ? 'approved' : 'rejected'}.`);
+			if (decision === 'reject') {
+				setProfileToReject(null);
+				setRejectionReason('');
+			}
 			await loadProfiles();
 		} catch (reviewError) {
 			setError(axios.isAxiosError(reviewError)
@@ -56,6 +62,11 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 		} finally {
 			setBusyId(null);
 		}
+	};
+
+	const rejectProfile = async () => {
+		if (!profileToReject) return;
+		await decide(profileToReject, 'reject', rejectionReason.trim());
 	};
 
 	const deleteAccount = async (profile: PendingVendorProfile) => {
@@ -140,7 +151,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 										</>
 									)}
 									{status === 'PENDING_REVIEW' && <>
-										<Button variant="danger" size="sm" disabled={busyId === profile.id} onClick={() => void decide(profile, 'reject')}>Reject</Button>
+										<Button variant="danger" size="sm" disabled={Boolean(busyId)} onClick={() => { setProfileToReject(profile); setRejectionReason(''); }}>Reject</Button>
 										<Button size="sm" loading={busyId === profile.id} onClick={() => void decide(profile, 'approve')}>Approve</Button>
 									</>}
 								</div>
@@ -170,6 +181,35 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 					))}
 				</div>
 			)}
+			<Modal
+				open={Boolean(profileToReject)}
+				onClose={() => {
+					if (!busyId) setProfileToReject(null);
+				}}
+				title="Reject vendor profile"
+				size="sm"
+			>
+				<div className="flex flex-col gap-4">
+					<p className="text-sm text-neutral-600">
+						Explain why {profileToReject?.businessName} was rejected. This feedback will be visible to the vendor.
+					</p>
+					<textarea
+						rows={5}
+						maxLength={2000}
+						value={rejectionReason}
+						onChange={event => setRejectionReason(event.target.value)}
+						placeholder="Describe what needs to be corrected (at least 10 characters)…"
+						className="block w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+					/>
+					<p className="text-xs text-neutral-500">{rejectionReason.trim().length}/2000 characters</p>
+					<div className="flex justify-end gap-2">
+						<Button type="button" variant="secondary" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToReject(null)}>Cancel</Button>
+						<Button type="button" variant="danger" size="sm" loading={Boolean(busyId)} disabled={rejectionReason.trim().length < 10} onClick={() => void rejectProfile()}>
+							Confirm rejection
+						</Button>
+					</div>
+				</div>
+			</Modal>
 		</PageWrapper>
 	);
 }

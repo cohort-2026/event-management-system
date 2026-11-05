@@ -15,6 +15,7 @@ export interface User {
   organizationDescription?: string | null;
   phone?: string | null;
   profileApprovalStatus?: ProfileApprovalStatus;
+  vendorProfileStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 }
 
 export interface CreateUserDto {

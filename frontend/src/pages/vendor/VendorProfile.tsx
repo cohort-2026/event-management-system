@@ -17,7 +17,7 @@ import {
 import type { ApiError } from '@/types/api';
 import type { UpdateVendorProfileDto, VendorDocument, VendorProfile } from '@/types/vendor';
 
-const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status'> = {
+const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'> = {
   businessName: '',
   businessDescription: '',
   businessRegistrationNumber: '',
@@ -27,6 +27,7 @@ const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status'> = {
   productsServices: [],
   supportingDocumentUrls: [],
   status: 'PENDING_REVIEW',
+  rejectionReason: null,
 };
 
 const sidebarItems = [
@@ -38,7 +39,7 @@ const sidebarItems = [
 ];
 
 export default function VendorProfilePage() {
-  const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status'>>(emptyProfile);
+  const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'>>(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -51,6 +52,8 @@ export default function VendorProfilePage() {
   const [documentMessage, setDocumentMessage] = useState('');
   const [documentError, setDocumentError] = useState('');
   const isApproved = profile.status === 'APPROVED';
+  const isRejected = profile.status === 'REJECTED';
+  const visibleSidebarItems = isApproved ? sidebarItems : sidebarItems.filter(item => item.to === '/vendor/profile');
 
   useEffect(() => {
     getVendorProfile()
@@ -161,14 +164,16 @@ export default function VendorProfilePage() {
 
   const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const submitForReview = submitter instanceof HTMLButtonElement && submitter.value === 'submit-review';
     setSaving(true);
     setSaveMessage('');
     setFieldErrors({});
 
     try {
-      const response = await updateVendorProfile(profile);
+      const response = await updateVendorProfile(profile, submitForReview);
       setProfile(response.data.data);
-      setSaveMessage('Business profile saved.');
+      setSaveMessage(response.data.message ?? 'Business profile saved.');
     } catch (error) {
       if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
         setFieldErrors(Object.fromEntries(
@@ -202,7 +207,7 @@ export default function VendorProfilePage() {
   return (
     <PageWrapper>
       <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Vendor" subtitle="Operations" items={sidebarItems} />
+        <DashboardSidebar title="Vendor" subtitle="Operations" items={visibleSidebarItems} />
         <section className="min-w-0 flex-1">
           <DashboardHeader
             title="Business profile"
@@ -214,6 +219,23 @@ export default function VendorProfilePage() {
             <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
               <Badge variant="success">Approved</Badge>
               <p className="text-sm text-neutral-600">This profile is locked after approval. Contact an administrator if it needs to be changed.</p>
+            </div>
+          )}
+          {isRejected && (
+            <section aria-labelledby="profile-rejection-feedback" className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+              <h2 id="profile-rejection-feedback" className="font-semibold">Your profile was rejected.</h2>
+              <p className="mt-1">Update the requested details, then submit your profile again for review.</p>
+              {profile.rejectionReason && (
+                <div className="mt-3 border-t border-rose-200 pt-3">
+                  <h3 className="font-semibold">Admin feedback</h3>
+                  <p className="mt-1 whitespace-pre-line">{profile.rejectionReason}</p>
+                </div>
+              )}
+            </section>
+          )}
+          {profile.status === 'PENDING_REVIEW' && (
+            <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Your profile is awaiting administrator review.
             </div>
           )}
 
@@ -297,7 +319,12 @@ export default function VendorProfilePage() {
             </section>
 
             {!isApproved && <div className="flex flex-wrap items-center gap-4">
-              <Button type="submit" loading={saving}>Save business profile</Button>
+              <Button type="submit" name="action" value="save" loading={saving}>Save business profile</Button>
+              {isRejected && (
+                <Button type="submit" name="action" value="submit-review" loading={saving}>
+                  Save and resubmit for review
+                </Button>
+              )}
               {saveMessage && <p role={Object.values(fieldErrors).some(Boolean) ? 'alert' : 'status'} className={`text-sm font-medium ${Object.values(fieldErrors).some(Boolean) ? 'text-rose-700' : 'text-emerald-700'}`}>{saveMessage}</p>}
             </div>}
           </form>

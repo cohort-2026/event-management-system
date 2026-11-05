@@ -3,6 +3,7 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
 import UserManagementNav from '@/components/admin/UserManagementNav';
@@ -21,6 +22,8 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [organizerToReject, setOrganizerToReject] = useState<ManagedOrganizer | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -71,14 +74,16 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
     }
   };
 
-  const handleRejectProfile = async (person: ManagedOrganizer) => {
-    if (!window.confirm(`Reject ${person.firstname} ${person.lastname}'s organizer profile?`)) return;
+  const handleRejectProfile = async () => {
+    if (!organizerToReject) return;
     setError('');
     setNotice('');
-    setRejectingId(person.id);
+    setRejectingId(organizerToReject.id);
     try {
-      const response = await rejectOrganizerProfile(person.id);
+      const response = await rejectOrganizerProfile(organizerToReject.id, rejectionReason.trim());
       setNotice(response.data.message);
+      setOrganizerToReject(null);
+      setRejectionReason('');
       const organizersResponse = await getOrganizers();
       setOrganizers(organizersResponse.data.data);
     } catch (err) {
@@ -187,7 +192,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                           size="sm"
                           loading={rejectingId === person.id}
                           disabled={Boolean(approvingId || rejectingId)}
-                          onClick={() => void handleRejectProfile(person)}
+                          onClick={() => { setOrganizerToReject(person); setRejectionReason(''); }}
                         >
                           Reject
                         </Button>
@@ -208,6 +213,51 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
           )}
         </section>
       </div>
+
+      <Modal
+        open={Boolean(organizerToReject)}
+        onClose={() => {
+          if (!rejectingId) setOrganizerToReject(null);
+        }}
+        title="Reject organizer profile"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-neutral-600">
+            Explain what needs to be corrected. This feedback will be shown to {organizerToReject?.firstname} on their profile.
+          </p>
+          <textarea
+            rows={5}
+            maxLength={2000}
+            value={rejectionReason}
+            onChange={event => setRejectionReason(event.target.value)}
+            placeholder="Describe what needs to change (at least 10 characters)…"
+            className="block w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <p className="text-xs text-neutral-500">{rejectionReason.trim().length}/2000 characters</p>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={Boolean(rejectingId)}
+              onClick={() => setOrganizerToReject(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              loading={Boolean(rejectingId)}
+              disabled={rejectionReason.trim().length < 10}
+              onClick={() => void handleRejectProfile()}
+            >
+              Confirm rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageWrapper>
   );
 }

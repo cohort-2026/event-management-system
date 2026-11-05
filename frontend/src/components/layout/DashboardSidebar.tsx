@@ -2,6 +2,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import AdminNotificationBell from '@/components/layout/AdminNotificationBell';
 
 export interface SidebarItem {
   label: string;
@@ -188,12 +189,7 @@ export function DashboardHeader({
         {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
-        <button type="button" className="relative w-11 h-11 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-brand-50 transition-colors flex items-center justify-center text-neutral-600">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
-          </svg>
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 border-2 border-white" />
-        </button>
+        {(user?.role === 'ADMIN' || user?.role === 'PLATFORM_ADMIN') && <AdminNotificationBell />}
         <div className="flex items-center gap-3 pl-3 border-l border-neutral-200">
           <div className="w-11 h-11 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-black shadow-sm ring-4 ring-white">
             {initials}

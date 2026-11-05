@@ -1,4 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import AdminNotificationBell from '@/components/layout/AdminNotificationBell';
 
 interface PageWrapperProps {
   children: React.ReactNode;
@@ -6,11 +8,18 @@ interface PageWrapperProps {
 
 export default function PageWrapper({ children }: PageWrapperProps) {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
+  const showAdminNotifications = user?.role === 'ADMIN' && pathname.startsWith('/admin/');
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f6_100%)] flex flex-col">
       <main className="flex-1 page-container section-gap">
+        {showAdminNotifications && (
+          <div className="mb-5 flex justify-end">
+            <AdminNotificationBell />
+          </div>
+        )}
         {showAdminBackButton && (
           <Link
             to="/admin"

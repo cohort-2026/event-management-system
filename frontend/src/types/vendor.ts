@@ -11,6 +11,7 @@ export interface VendorProfile {
   productsServices: string[];
   supportingDocumentUrls: string[];
   status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -28,7 +29,7 @@ export interface PendingVendorProfile extends VendorProfile {
   };
 }
 
-export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
+export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'rejectionReason' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
 
 export interface VendorApplication {
   id: string;

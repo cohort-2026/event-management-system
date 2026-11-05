@@ -160,7 +160,7 @@ function RootRedirect() {
   if (user) {
     const dashboardPath: Record<string, string> = {
       ORGANIZER: '/organizer',
-      VENDOR: '/vendor',
+      VENDOR: user.vendorProfileStatus === 'REJECTED' ? '/vendor/profile' : '/vendor',
       ADMIN: '/admin',
       PLATFORM_ADMIN: '/platform-admin',
       MANAGEMENT: '/management/reports',

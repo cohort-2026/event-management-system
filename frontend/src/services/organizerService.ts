@@ -11,6 +11,7 @@ export interface OrganizerProfile {
   organizationDescription: string | null;
   phone: string | null;
   profileApprovalStatus: ProfileApprovalStatus;
+  profileRejectionReason: string | null;
 }
 
 export interface UpdateOrganizerProfileDto {
@@ -46,7 +47,7 @@ export const updateOrganizerProfile = (data: UpdateOrganizerProfileDto) =>
   api.put<ApiResponse<OrganizerProfile>>('/organizer/profile', data);
 export const approveOrganizerProfile = (id: string) =>
   api.patch<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}/approve-profile`);
-export const rejectOrganizerProfile = (id: string) =>
-  api.patch<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}/reject-profile`);
+export const rejectOrganizerProfile = (id: string, reason: string) =>
+  api.patch<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}/reject-profile`, { reason });
 export const deleteOrganizerAccount = (id: string) =>
   api.delete<{ success: boolean; message: string }>(`/users/organizers/${encodeURIComponent(id)}`);

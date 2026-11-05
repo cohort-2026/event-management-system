@@ -43,6 +43,14 @@ export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Prop
 
   // Wrong role → forbidden
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if (
+    user.role === 'VENDOR' &&
+    user.vendorProfileStatus !== 'APPROVED' &&
+    location.pathname !== '/vendor/profile' &&
+    location.pathname !== '/change-password'
+  ) {
+    return <Navigate to="/vendor/profile" replace />;
+  }
 
   return <Outlet />;
 }

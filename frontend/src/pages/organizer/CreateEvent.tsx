@@ -84,6 +84,7 @@ export default function CreateEvent() {
   const [loadingEvent, setLoadingEvent] = useState(isEditing);
   const [loadingProfile, setLoadingProfile] = useState(!isEditing);
   const [profileApprovalStatus, setProfileApprovalStatus] = useState<ProfileApprovalStatus | null>(null);
+  const [profileRejectionReason, setProfileRejectionReason] = useState<string | null>(null);
   const [profileCheckError, setProfileCheckError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -114,7 +115,10 @@ export default function CreateEvent() {
     let active = true;
     getOrganizerProfile()
       .then(response => {
-        if (active) setProfileApprovalStatus(response.data.data.profileApprovalStatus);
+        if (active) {
+          setProfileApprovalStatus(response.data.data.profileApprovalStatus);
+          setProfileRejectionReason(response.data.data.profileRejectionReason);
+        }
       })
       .catch(error => {
         if (active) setProfileCheckError(getApiError(error, 'Your profile could not be checked. Please try again.'));
@@ -248,6 +252,12 @@ export default function CreateEvent() {
           </p>
           {!profileCheckError && profileApprovalStatus === 'PENDING_APPROVAL' && (
             <p className="mt-2 text-sm text-amber-900">Your profile is awaiting admin review. You can create events after it is approved.</p>
+          )}
+          {!profileCheckError && profileApprovalStatus === 'REJECTED' && profileRejectionReason && (
+            <section className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
+              <h2 className="font-bold text-rose-900">Admin feedback</h2>
+              <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{profileRejectionReason}</p>
+            </section>
           )}
           <Link to="/organizer/profile" className="mt-5 inline-flex">
             <Button type="button">Complete your profile</Button>
