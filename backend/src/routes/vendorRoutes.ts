@@ -3,7 +3,7 @@ import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
-import { requireAuth, requireRole } from '@/middleware/auth';
+import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
 import { config } from '@/config/index';
 import { maxVendorDocuments, parseVendorPdf } from '@/middleware/vendorDocumentUpload';
 import { notifyAdmins } from '@/services/notificationService';
@@ -482,8 +482,24 @@ router.delete('/documents/:id', requireAuth, requireRole('VENDOR'), async (req, 
 router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const userId = req.user?.id;
 	const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim() : '';
+	const requestedStandType = typeof req.body?.requestedStandType === 'string' ? req.body.requestedStandType.trim() : '';
+	const requestedStandSize = typeof req.body?.requestedStandSize === 'string' ? req.body.requestedStandSize.trim() : '';
+	const standDescription = typeof req.body?.standDescription === 'string' ? req.body.standDescription.trim() : '';
+	const supportingInformation = typeof req.body?.supportingInformation === 'string' ? req.body.supportingInformation.trim() : '';
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 	if (!eventId || eventId.length > 64) return res.status(400).json({ success: false, message: 'A valid event is required' });
+	if (requestedStandType.length < 2 || requestedStandType.length > 80) {
+		return res.status(400).json({ success: false, message: 'Stand type must be between 2 and 80 characters' });
+	}
+	if (requestedStandSize.length < 2 || requestedStandSize.length > 80) {
+		return res.status(400).json({ success: false, message: 'Stand size must be between 2 and 80 characters' });
+	}
+	if (standDescription.length < 10 || standDescription.length > 2000) {
+		return res.status(400).json({ success: false, message: 'Stand details must be between 10 and 2000 characters' });
+	}
+	if (supportingInformation.length > 2000) {
+		return res.status(400).json({ success: false, message: 'Supporting information must be no more than 2000 characters' });
+	}
 
 	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true } });
 	if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
@@ -523,6 +539,10 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			companyName: profile.businessName,
 			registrationNumber: profile.businessRegistrationNumber,
 			description: profile.businessDescription || profile.productsServices.join(', ') || profile.businessName,
+			requestedStandType,
+			requestedStandSize,
+			standDescription,
+			supportingInformation: supportingInformation || null,
 		},
 	});
 	return res.status(201).json({ success: true, data: application });
@@ -566,9 +586,92 @@ router.get('/staff', requireAuth, requireRole('VENDOR'), async (req, res) => {
 
 router.post('/:id/staff',       requireAuth, requireRole('VENDOR'), (_req, res) => res.sendStatus(501));
 
-// PATCH /api/vendors/:id/approve      Approve a vendor application (Organizer of that event)
-// PATCH /api/vendors/:id/reject       Reject a vendor application (Organizer of that event)
-router.patch('/:id/approve',    requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
-router.patch('/:id/reject',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
+type VendorApplicationDecision =
+	| { status: 'APPROVED'; assignedStand: string }
+	| { status: 'REJECTED'; rejectionReason: string };
+
+const decideVendorApplication = async (
+	req: Request,
+	res: Response,
+	decision: VendorApplicationDecision,
+): Promise<Response> => {
+	const userId = req.user?.id;
+	const applicationId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+	if (!applicationId) return res.status(400).json({ success: false, message: 'A valid stand request ID is required' });
+
+	const application = await prisma.vendorApplication.findUnique({
+		where: { id: applicationId },
+		select: {
+			id: true,
+			status: true,
+			event: { select: { title: true, organizerId: true } },
+		},
+	});
+	if (!application) return res.status(404).json({ success: false, message: 'Stand request not found' });
+	if (application.event.organizerId !== userId) {
+		return res.status(403).json({ success: false, message: 'You can only review requests for events you organize' });
+	}
+	if (application.status !== 'PENDING_REVIEW') {
+		return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+	}
+
+	const decidedAt = new Date();
+	try {
+		const updated = await prisma.$transaction(async transaction => {
+			const result = await transaction.vendorApplication.updateMany({
+				where: { id: applicationId, status: 'PENDING_REVIEW' },
+				data: {
+					status: decision.status,
+					assignedStand: decision.status === 'APPROVED' ? decision.assignedStand : null,
+					decidedById: userId,
+					decidedAt,
+					rejectionReason: decision.status === 'REJECTED' ? decision.rejectionReason : null,
+				},
+			});
+			if (result.count !== 1) return false;
+
+			const message = decision.status === 'APPROVED'
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Contact the organizer if you need help preparing for the event.`
+				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
+			await transaction.notification.create({
+				data: {
+					recipientId: (await transaction.vendorApplication.findUniqueOrThrow({
+						where: { id: applicationId },
+						select: { vendorId: true },
+					})).vendorId,
+					title: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request needs changes',
+					message,
+					link: '/vendor/applications',
+				},
+			});
+			return true;
+		});
+
+		if (!updated) return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+		return res.json({ success: true, message: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request rejected' });
+	} catch (error) {
+		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+			return res.status(409).json({ success: false, message: 'That stand is already assigned for this event' });
+		}
+		throw error;
+	}
+};
+
+router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
+	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';
+	if (assignedStand.length < 1 || assignedStand.length > 80) {
+		return res.status(400).json({ success: false, message: 'Assigned stand must be between 1 and 80 characters' });
+	}
+	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand });
+});
+
+router.patch('/:id/reject', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
+	const rejectionReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+	if (rejectionReason.length < 5 || rejectionReason.length > 1000) {
+		return res.status(400).json({ success: false, message: 'A rejection reason between 5 and 1000 characters is required' });
+	}
+	return decideVendorApplication(req, res, { status: 'REJECTED', rejectionReason });
+});
 
 export default router;

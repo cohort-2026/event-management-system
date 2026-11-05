@@ -494,6 +494,58 @@ export const getManagedEvent = async (req: Request, res: Response, next: NextFun
   }
 };
 
+export const listVendorApplicationsForEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const eventId = getEventId(req);
+    if (!eventId) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, organizerId: req.user!.id },
+      select: { id: true },
+    });
+    if (!event) {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+
+    const applications = await prisma.vendorApplication.findMany({
+      where: { eventId },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+            email: true,
+            vendorProfile: {
+              select: {
+                businessName: true,
+                businessDescription: true,
+                businessRegistrationNumber: true,
+                contactPerson: true,
+                contactEmail: true,
+                contactPhone: true,
+                productsServices: true,
+                supportingDocumentUrls: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
+        decidedBy: { select: { firstname: true, lastname: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ success: true, data: applications });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const listEventsForApproval = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const events = await prisma.event.findMany({

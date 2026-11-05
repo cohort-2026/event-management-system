@@ -109,6 +109,7 @@ model User {
   bookings            Booking[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
+  vendorApplicationDecisions VendorApplication[] @relation("VendorApplicationDecider")
   vendorProfile       VendorProfile?
   vendorDocuments     VendorDocument[]
   auditEvents         AuditLog[] @relation("AuditActor")
@@ -294,7 +295,15 @@ model VendorApplication {
   companyName        String                  @map("company_name")
   registrationNumber String                  @map("registration_number")
   description        String
+  requestedStandType String                  @map("requested_stand_type")
+  requestedStandSize String                  @map("requested_stand_size")
+  standDescription   String                  @map("stand_description")
+  supportingInformation String?               @map("supporting_information")
+  assignedStand      String?                 @map("assigned_stand")
   status             VendorApplicationStatus @default(PENDING_REVIEW)
+  decidedById        String?                 @map("decided_by_id")
+  decidedAt          DateTime?               @map("decided_at")
+  rejectionReason    String?                 @map("rejection_reason")
   invoiceId          String?                 @map("invoice_id")
   createdAt          DateTime                @default(now()) @map("created_at")
 
@@ -303,8 +312,10 @@ model VendorApplication {
   event       Event             @relation(fields: [eventId], references: [id])
   vendorId    String            @map("vendor_id")
   vendor      User              @relation(fields: [vendorId], references: [id])
+  decidedBy   User?             @relation("VendorApplicationDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   staffMembers VendorStaffMember[]
 
+  @@index([eventId, status])
   @@map("vendor_applications")
 }
 
