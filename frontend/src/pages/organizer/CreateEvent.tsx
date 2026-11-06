@@ -200,6 +200,7 @@ export default function CreateEvent() {
       return;
     }
     const capacity = Number(form.capacity);
+    const vendorStandRatePerSqm = Number(form.vendorStandRatePerSqm);
     const ticketTypes = form.ticketTypes.map(ticket => ({
       name: ticket.name.trim(),
       description: ticket.description.trim(),
@@ -214,6 +215,10 @@ export default function CreateEvent() {
     }
     if (ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== capacity) {
       setError('The total quantity of all ticket types must equal the event capacity.');
+      return;
+    }
+    if (!Number.isFinite(vendorStandRatePerSqm) || vendorStandRatePerSqm < 0 || vendorStandRatePerSqm > 99_999_999.99 || Math.round(vendorStandRatePerSqm * 100) !== vendorStandRatePerSqm * 100) {
+      setError('Enter a vendor stand rate between R0 and R99,999,999.99 per square metre.');
       return;
     }
     if (form.eventType !== 'IN_PERSON' && !form.meetingDetails.trim()) {

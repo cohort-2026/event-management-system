@@ -10,7 +10,7 @@ export interface VendorProfile {
   contactPhone: string;
   productsServices: string[];
   supportingDocumentUrls: string[];
-  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
   rejectionReason?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
@@ -42,12 +42,17 @@ export interface VendorApplication {
   requestedStandSize: string;
   standDescription: string;
   supportingInformation?: string | null;
+  standAreaSqm: number | string;
+  standRatePerSqm: number | string;
+  quotedAmount: number | string;
   assignedStand?: string | null;
   status: VendorApplicationStatus;
   decidedById?: string | null;
   decidedAt?: string | null;
   rejectionReason?: string | null;
   invoiceId?: string;
+  invoice?: VendorInvoice | null;
+  staffMembers?: VendorStaffMember[];
   createdAt: string;
   vendor?: {
     id: string;
@@ -76,6 +81,16 @@ export interface VendorApplication {
     date: string;
     venue: string;
   };
+}
+
+export interface VendorInvoice {
+  id: string;
+  invoiceNumber: string;
+  amount: number | string;
+  currency: string;
+  status: 'ISSUED' | 'PAID' | 'VOID';
+  issuedAt: string;
+  dueAt: string;
 }
 
 export interface VendorStaffMember {
@@ -108,5 +123,5 @@ export interface VendorDocument {
 export type CreateVendorApplicationDto = Pick<
   VendorApplication,
   'eventId' | 'requestedStandType' | 'requestedStandSize' | 'standDescription' | 'supportingInformation'
->;
+> & { staffMembers: AddStaffMemberDto[] };
 export type AddStaffMemberDto = Pick<VendorStaffMember, 'name' | 'email'>;

@@ -27,6 +27,7 @@ export interface Event {
   availableCapacity: number;
   isFree: boolean;
   price?: number | null;
+  vendorStandRatePerSqm: number;
   status: EventStatus;
   organizerId: string;
   rejectionReason?: string;

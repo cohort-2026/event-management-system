@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { useAuth } from '@/context/AuthContext';
@@ -54,6 +53,13 @@ export default function EventDetail() {
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
   const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+  const vendorStandRateAvailable = event.vendorStandRatePerSqm > 0;
+  const vendorApproved = user?.role === 'VENDOR' && user.vendorProfileStatus === 'APPROVED';
+  const vendorApprovalMessage = user?.vendorProfileStatus === 'PENDING_REVIEW'
+    ? 'Your business profile is awaiting administrator approval.'
+    : user?.vendorProfileStatus === 'REJECTED'
+      ? 'Update and resubmit your business profile to apply.'
+      : 'Submit your business profile for administrator approval to apply.';
 
   return (
     <PageWrapper>
@@ -75,7 +81,6 @@ export default function EventDetail() {
                   <span className="text-xs font-medium uppercase tracking-wide text-brand-600">{event.category} · {event.eventType.replace('_', ' ')}</span>
                   <h1 className="mt-1 text-2xl font-bold text-neutral-900">{event.title}</h1>
                 </div>
-                <Badge variant="success">APPROVED</Badge>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -115,7 +120,7 @@ export default function EventDetail() {
             </section>
           )}
 
-          <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          {user?.role !== 'VENDOR' && <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Ticket options</h2>
             <ul className="mt-4 divide-y divide-neutral-100">
               {event.ticketTypes.map(ticket => (
@@ -129,21 +134,30 @@ export default function EventDetail() {
                 </li>
               ))}
             </ul>
-          </section>
+          </section>}
         </div>
 
         <aside>
           <section className="sticky top-20 flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <div>
+            {user?.role !== 'VENDOR' && <div>
               <p className="text-2xl font-bold text-neutral-900">
                 {event.isFree ? 'Free' : `From R${Math.min(...event.ticketTypes.filter(ticket => ticket.price > 0).map(ticket => ticket.price)).toFixed(2)}`}
               </p>
               <p className="text-sm text-neutral-400">per ticket</p>
-            </div>
+            </div>}
 
             {user?.role === 'VENDOR' ? (
               applicationsOpen ? (
-                <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
+                !vendorStandRateAvailable ? (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700">Stand applications are unavailable for this event.</div>
+                ) : vendorApproved ? (
+                  <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+                    <p>{vendorApprovalMessage}</p>
+                    <Link to="/vendor/profile" className="mt-2 inline-block font-semibold underline">View business profile</Link>
+                  </div>
+                )
               ) : (
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm font-medium text-neutral-600">Vendor applications are closed</div>
               )

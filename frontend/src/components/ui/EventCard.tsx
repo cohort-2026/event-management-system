@@ -1,10 +1,5 @@
 import { Link } from 'react-router-dom';
 import type { Event } from '@/types/event';
-import Badge, { type BadgeVariant } from './Badge';
-
-const statusVariant: Record<string, BadgeVariant> = {
-  PUBLISHED: 'success', DRAFT: 'default', PENDING_APPROVAL: 'warning', REJECTED: 'danger', CANCELLED: 'danger', COMPLETED: 'info',
-};
 
 const categoryColors: Record<string, string> = {
   Technology:       'bg-brand-50 text-brand-700',
@@ -13,7 +8,7 @@ const categoryColors: Record<string, string> = {
   'Company Activity': 'bg-amber-50 text-amber-700',
 };
 
-export default function EventCard({ event, vendorView = false }: { event: Event; vendorView?: boolean }) {
+export default function EventCard({ event, vendorView = false, vendorApproved = false }: { event: Event; vendorView?: boolean; vendorApproved?: boolean }) {
   const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const time = new Date(event.startTime).toLocaleTimeString('en-ZA', { hour: 'numeric', minute: '2-digit' });
   const applicationsOpen = event.status === 'PUBLISHED' && new Date(event.startTime) > new Date();
@@ -29,14 +24,10 @@ export default function EventCard({ event, vendorView = false }: { event: Event;
           : <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />}
 
         <div className="p-5 flex flex-col gap-3 flex-1">
-          {/* Category + status */}
-          <div className="flex items-center justify-between gap-2">
+          <div>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${catColor}`}>
               {event.category}
             </span>
-            <Badge variant={statusVariant[event.status] ?? 'default'}>
-              {event.status === 'PUBLISHED' ? 'APPROVED' : event.status.replace(/_/g, ' ')}
-            </Badge>
           </div>
 
           {/* Title */}
@@ -66,15 +57,17 @@ export default function EventCard({ event, vendorView = false }: { event: Event;
 
           {vendorView && (
             <p className={`text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-500'}`}>
-              Vendor applications {applicationsOpen ? 'open' : 'closed'}
+              {!applicationsOpen ? 'Vendor applications closed' : event.vendorStandRatePerSqm <= 0 ? 'Stand applications unavailable' : vendorApproved ? 'Vendor applications open' : 'Approval required to apply'}
             </p>
           )}
 
           {/* Price + capacity */}
           <div className="flex items-center justify-between">
-            <span className={`text-sm font-bold ${event.isFree ? 'text-emerald-600' : 'text-neutral-900'}`}>
-              {event.isFree ? 'Free' : `From R${event.price ?? '—'}`}
-            </span>
+            {!vendorView && (
+              <span className={`text-sm font-bold ${event.isFree ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                {event.isFree ? 'Free' : `From R${event.price ?? '—'}`}
+              </span>
+            )}
             <div className="flex items-center gap-2">
               <div className="w-20 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                 <div
