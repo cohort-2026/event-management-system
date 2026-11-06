@@ -4,7 +4,6 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Textarea from '@/components/ui/Textarea';
 import type { ApiError } from '@/types/api';
 import {
   getOrganizerProfile,
@@ -17,9 +16,50 @@ const emptyProfile: UpdateOrganizerProfileDto = {
   firstname: '',
   lastname: '',
   organizationName: '',
-  organizationDescription: '',
+  organizationEmail: '',
+  organizationRegistrationNumber: '',
   phone: '',
 };
+
+const phoneCountryCodes = [
+  { country: 'South Africa', code: '+27' },
+  { country: 'United States', code: '+1' },
+  { country: 'Canada', code: '+1' },
+  { country: 'United Kingdom', code: '+44' },
+  { country: 'Ireland', code: '+353' },
+  { country: 'Australia', code: '+61' },
+  { country: 'New Zealand', code: '+64' },
+  { country: 'India', code: '+91' },
+  { country: 'China', code: '+86' },
+  { country: 'Japan', code: '+81' },
+  { country: 'United Arab Emirates', code: '+971' },
+  { country: 'Saudi Arabia', code: '+966' },
+  { country: 'Nigeria', code: '+234' },
+  { country: 'Kenya', code: '+254' },
+  { country: 'Ghana', code: '+233' },
+  { country: 'Zimbabwe', code: '+263' },
+  { country: 'Botswana', code: '+267' },
+  { country: 'Namibia', code: '+264' },
+  { country: 'Lesotho', code: '+266' },
+  { country: 'Eswatini', code: '+268' },
+  { country: 'Mozambique', code: '+258' },
+  { country: 'Zambia', code: '+260' },
+  { country: 'Tanzania', code: '+255' },
+  { country: 'Uganda', code: '+256' },
+  { country: 'Egypt', code: '+20' },
+  { country: 'France', code: '+33' },
+  { country: 'Germany', code: '+49' },
+  { country: 'Italy', code: '+39' },
+  { country: 'Spain', code: '+34' },
+  { country: 'Netherlands', code: '+31' },
+  { country: 'Brazil', code: '+55' },
+  { country: 'Mexico', code: '+52' },
+  { country: 'Singapore', code: '+65' },
+  { country: 'Pakistan', code: '+92' },
+  { country: 'Philippines', code: '+63' },
+  { country: 'South Korea', code: '+82' },
+  { country: 'Turkey', code: '+90' },
+].sort((a, b) => a.country.localeCompare(b.country));
 
 const sidebarItems = [
   { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
@@ -33,9 +73,21 @@ function toFormValues(profile: OrganizerProfileData): UpdateOrganizerProfileDto 
     firstname: profile.firstname,
     lastname: profile.lastname,
     organizationName: profile.organizationName ?? '',
-    organizationDescription: profile.organizationDescription ?? '',
+    organizationEmail: profile.organizationEmail ?? '',
+    organizationRegistrationNumber: profile.organizationRegistrationNumber ?? '',
     phone: profile.phone ?? '',
   };
+}
+
+function splitPhoneNumber(phone: string | null) {
+  const value = phone?.trim() ?? '';
+  const country = [...phoneCountryCodes]
+    .sort((a, b) => b.code.length - a.code.length)
+    .find(option => value.startsWith(option.code));
+
+  return country
+    ? { countryCode: country.code, number: value.slice(country.code.length).trim() }
+    : { countryCode: '+27', number: value };
 }
 
 export default function OrganizerProfile() {
@@ -49,6 +101,14 @@ export default function OrganizerProfile() {
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+27');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  const setPhoneFromProfile = (phone: string | null) => {
+    const parsedPhone = splitPhoneNumber(phone);
+    setPhoneCountryCode(parsedPhone.countryCode);
+    setPhoneNumber(parsedPhone.number);
+  };
 
   useEffect(() => {
     let active = true;
@@ -56,6 +116,7 @@ export default function OrganizerProfile() {
       .then(response => {
         if (!active) return;
         setProfile(toFormValues(response.data.data));
+        setPhoneFromProfile(response.data.data.phone);
         setEmail(response.data.data.email);
         setProfileApprovalStatus(response.data.data.profileApprovalStatus);
         setProfileRejectionReason(response.data.data.profileRejectionReason);
@@ -87,8 +148,14 @@ export default function OrganizerProfile() {
     setFieldErrors({});
 
     try {
-      const response = await updateOrganizerProfile(profile);
+      const localNumber = phoneNumber.trim().replace(/^0+/, '');
+      const response = await updateOrganizerProfile({
+        ...profile,
+        organizationEmail: profile.organizationEmail.trim().toLowerCase(),
+        phone: localNumber ? `${phoneCountryCode} ${localNumber}` : '',
+      });
       setProfile(toFormValues(response.data.data));
+      setPhoneFromProfile(response.data.data.phone);
       setEmail(response.data.data.email);
       setProfileApprovalStatus(response.data.data.profileApprovalStatus);
       setProfileRejectionReason(response.data.data.profileRejectionReason);
@@ -149,9 +216,9 @@ export default function OrganizerProfile() {
             <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError}</p>
           ) : (
             <form onSubmit={saveProfile} className="space-y-6">
-              <section aria-labelledby="organizer-account-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <h2 id="organizer-account-heading" className="text-lg font-bold text-neutral-900">Account details</h2>
-                <p className="mt-1 text-sm text-neutral-500">Your name identifies you as the person managing this organization.</p>
+              <section aria-labelledby="organizer-profile-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <h2 id="organizer-profile-heading" className="text-lg font-bold text-neutral-900">Profile details</h2>
+                <p className="mt-1 text-sm text-neutral-500">Manage your personal information and organization contact details.</p>
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                   <Input
                     label="First name"
@@ -180,11 +247,11 @@ export default function OrganizerProfile() {
                     helperText="This verified sign-in email cannot be changed here."
                   />
                 </div>
-              </section>
 
-              <section aria-labelledby="organizer-organization-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <h2 id="organizer-organization-heading" className="text-lg font-bold text-neutral-900">Organization details</h2>
-                <p className="mt-1 text-sm text-neutral-500">These details help attendees identify and contact your organization.</p>
+                <div className="mt-8 border-t border-neutral-100 pt-6">
+                  <h3 className="text-base font-bold text-neutral-900">Organization information</h3>
+                  <p className="mt-1 text-sm text-neutral-500">These details help attendees identify and contact your organization.</p>
+                </div>
                 <div className="mt-5 space-y-5">
                   <Input
                     label="Organization name"
@@ -196,23 +263,70 @@ export default function OrganizerProfile() {
                     error={fieldErrors.organizationName}
                   />
                   <Input
-                    label="Phone number (optional)"
-                    type="tel"
-                    autoComplete="tel"
-                    maxLength={30}
-                    value={profile.phone}
-                    onChange={event => updateField('phone', event.target.value)}
-                    error={fieldErrors.phone}
-                    helperText="A contact number for questions about your events."
+                    label="Organization email"
+                    type="email"
+                    autoComplete="email"
+                    maxLength={254}
+                    required
+                    value={profile.organizationEmail}
+                    onChange={event => updateField('organizationEmail', event.target.value)}
+                    error={fieldErrors.organizationEmail}
                   />
-                  <Textarea
-                    label="Organization description (optional)"
-                    maxLength={500}
-                    value={profile.organizationDescription}
-                    onChange={event => updateField('organizationDescription', event.target.value)}
-                    error={fieldErrors.organizationDescription}
-                    helperText="A short introduction, up to 500 characters."
+                  <Input
+                    label="Organization registration number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{9}"
+                    maxLength={9}
+                    required
+                    value={profile.organizationRegistrationNumber}
+                    onChange={event => updateField('organizationRegistrationNumber', event.target.value)}
+                    error={fieldErrors.organizationRegistrationNumber}
+                    helperText="Enter exactly 9 digits."
                   />
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="organizer-phone-number" className="text-sm font-medium text-neutral-700">
+                      Phone number
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <select
+                        id="organizer-phone-country-code"
+                        aria-label="Phone country calling code"
+                        value={phoneCountryCode}
+                        onChange={event => setPhoneCountryCode(event.target.value)}
+                        className="block w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 shadow-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 sm:w-56"
+                      >
+                        {phoneCountryCodes.map(option => (
+                          <option key={`${option.country}-${option.code}`} value={option.code}>
+                            {option.country} ({option.code})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        id="organizer-phone-number"
+                        type="tel"
+                        autoComplete="tel-national"
+                        inputMode="tel"
+                        maxLength={30}
+                        required
+                        value={phoneNumber}
+                        onChange={event => {
+                          setPhoneNumber(event.target.value);
+                          setFieldErrors(current => ({ ...current, phone: '' }));
+                          setSaveError('');
+                          setSaveMessage('');
+                        }}
+                        aria-invalid={Boolean(fieldErrors.phone)}
+                        aria-describedby={fieldErrors.phone ? 'organizer-phone-error' : 'organizer-phone-helper'}
+                        className={`block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-neutral-900 shadow-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                          fieldErrors.phone ? 'border-rose-400' : 'border-neutral-200'
+                        }`}
+                      />
+                    </div>
+                    {fieldErrors.phone
+                      ? <p id="organizer-phone-error" className="text-xs font-medium text-rose-600">{fieldErrors.phone}</p>
+                      : <p id="organizer-phone-helper" className="text-xs text-neutral-400">Choose a country code and enter your phone number.</p>}
+                  </div>
                 </div>
               </section>
 

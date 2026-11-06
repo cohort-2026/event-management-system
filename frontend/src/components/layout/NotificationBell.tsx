@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  getAdminNotifications,
-  markAdminNotificationRead,
-  markAllAdminNotificationsRead,
-  type AdminNotification,
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type AppNotification,
 } from '@/services/notificationService';
 
-export default function AdminNotificationBell() {
+export default function NotificationBell() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +20,7 @@ export default function AdminNotificationBell() {
     let active = true;
     const loadNotifications = async () => {
       try {
-        const response = await getAdminNotifications();
+        const response = await getNotifications();
         if (!active) return;
         setNotifications(response.data.data);
         setUnreadCount(response.data.unreadCount);
@@ -43,10 +43,10 @@ export default function AdminNotificationBell() {
     };
   }, []);
 
-  const openNotification = async (notification: AdminNotification) => {
+  const openNotification = async (notification: AppNotification) => {
     if (!notification.readAt) {
       try {
-        await markAdminNotificationRead(notification.id);
+        await markNotificationRead(notification.id);
         setNotifications(current => current.map(item =>
           item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
         ));
@@ -65,7 +65,7 @@ export default function AdminNotificationBell() {
     setBusy(true);
     setError('');
     try {
-      await markAllAdminNotificationsRead();
+      await markAllNotificationsRead();
       const readAt = new Date().toISOString();
       setNotifications(current => current.map(notification => ({ ...notification, readAt })));
       setUnreadCount(0);

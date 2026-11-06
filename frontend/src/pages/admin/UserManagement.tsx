@@ -163,6 +163,16 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                     <p className="mt-1 text-sm text-neutral-700">
                       Organization: {person.organizationName?.trim() || 'Not provided'}
                     </p>
+                    {person.organizationEmail && (
+                      <p className="text-sm text-neutral-500">
+                        Organization email: {person.organizationEmail}
+                      </p>
+                    )}
+                    {person.organizationRegistrationNumber && (
+                      <p className="text-sm text-neutral-500">
+                        Registration number: {person.organizationRegistrationNumber}
+                      </p>
+                    )}
                     {person.phone && <p className="text-sm text-neutral-500">Phone: {person.phone}</p>}
                     {person.organizationDescription && (
                       <p className="mt-1 max-w-prose text-sm text-neutral-500">{person.organizationDescription}</p>
