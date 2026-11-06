@@ -81,6 +81,11 @@ enum VendorProfileStatus {
   REJECTED
 }
 
+enum ProfileApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {

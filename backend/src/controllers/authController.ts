@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
-import { PrismaClient, VendorProfileStatus } from '@prisma/client';
+import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { config } from '@/config/index';
 import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
 
@@ -171,12 +171,18 @@ export const register = async (req: Request, res: Response, next: NextFunction):
           email,
           role,
           passwordHash,
+          ...(role === 'ORGANIZER' ? {
+            organizationName,
+            organizationDescription: organizationDescription || null,
+            phone: phone || null,
+          } : {}),
           ...(vendorProfileData ? {
             vendorProfile: { create: { ...vendorProfileData, status: VendorProfileStatus.PENDING_REVIEW } },
           } : {}),
         },
         select: USER_SELECT,
       });
+
       if (uploadedDocuments.length > 0) {
         await transaction.vendorDocument.createMany({
           data: uploadedDocuments.map(document => ({
@@ -187,6 +193,15 @@ export const register = async (req: Request, res: Response, next: NextFunction):
           })),
         });
       }
+
+      await transaction.emailVerification.create({
+        data: {
+          userId: createdUser.id,
+          codeHash: await bcrypt.hash(createOtp(), 12),
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+        },
+      });
+
       return createdUser;
     });
     keepUploadedDocuments = true;
@@ -194,32 +209,12 @@ export const register = async (req: Request, res: Response, next: NextFunction):
     const code = createOtp();
     const codeHash = await bcrypt.hash(code, 12);
 
-    const user = await prisma.$transaction(async transaction => {
-      const createdUser = await transaction.user.create({
-        data: {
-          firstname,
-          lastname,
-          email,
-          role,
-          passwordHash,
-          ...(role === 'ORGANIZER' ? {
-            organizationName,
-            organizationDescription: organizationDescription || null,
-            phone: phone || null,
-          } : {}),
-        },
-        select: USER_SELECT,
-      });
-
-      await transaction.emailVerification.create({
-        data: {
-          userId: createdUser.id,
-          codeHash,
-          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-        },
-      });
-
-      return createdUser;
+    await prisma.emailVerification.create({
+      data: {
+        userId: user.id,
+        codeHash,
+        expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+      },
     });
 
     await sendVerificationCode(email, code);

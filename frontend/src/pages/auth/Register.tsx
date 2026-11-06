@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
-import Textarea from '@/components/ui/Textarea';
-import type { UserRole } from '@/types/user';
-import axios from 'axios';
+import type { RegistrationRole, UserRole } from '@/types/user';
 
 interface FieldErrors {
   firstname?: string;
@@ -15,6 +14,9 @@ interface FieldErrors {
   password?: string;
   confirmPassword?: string;
   role?: string;
+  organizationName?: string;
+  phone?: string;
+  organizationDescription?: string;
   businessName?: string;
   contactPerson?: string;
   contactEmail?: string;
@@ -39,7 +41,17 @@ const PASSWORD_RULES = [
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', confirmPassword: '', role: '' as UserRole | '' });
+  const [form, setForm] = useState({
+    firstname: '',
+    lastname: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: '' as UserRole | '',
+    organizationName: '',
+    phone: '',
+    organizationDescription: '',
+  });
   const [vendorProfile, setVendorProfile] = useState({
     businessName: '',
     businessDescription: '',
@@ -155,6 +167,11 @@ export default function Register() {
         email: form.email,
         password: form.password,
         role: form.role as UserRole,
+        ...(form.role === 'ORGANIZER' ? {
+          organizationName: form.organizationName,
+          organizationDescription: form.organizationDescription,
+          phone: form.phone,
+        } : {}),
         ...(form.role === 'VENDOR' ? {
           vendorProfile: {
             ...vendorProfile,
@@ -269,12 +286,11 @@ export default function Register() {
                 {ROLES.map(r => (
                   <label
                     key={r.value}
-                    type="button"
-                    onClick={() => selectRole(r.value)}
-                    className={`px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150 text-center
+                    className={`block cursor-pointer rounded-lg border px-3 py-2.5 text-center text-xs font-semibold transition-all duration-150
                       ${form.role === r.value
                         ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-brand-300 hover:text-brand-600'}`}
+                    onClick={() => selectRole(r.value)}
                   >
                     <input
                       type="radio"
@@ -299,7 +315,7 @@ export default function Register() {
                 ))}
               </div>
               {errors.role && <p id="registration-role-error" role="alert" className="text-xs font-medium text-rose-600">{errors.role}</p>}
-            </fieldset>
+            </div>
 
             {form.role === 'ORGANIZER' && (
               <section aria-labelledby="organizer-details-heading" className="space-y-4 rounded-lg border border-brand-100 bg-brand-50/50 p-4">
