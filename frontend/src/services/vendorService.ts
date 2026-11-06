@@ -29,6 +29,6 @@ export const applyForStand      = (data: CreateVendorApplicationDto)            
 export const getMyApplications  = ()                                               => api.get<ApiResponse<VendorApplication[]>>('/vendors/me');
 export const getMyStaffMembers  = ()                                               => api.get<ApiResponse<VendorStaffWithEvent[]>>('/vendors/staff');
 export const getEventApplications = (eventId: string)                             => api.get<ApiResponse<VendorApplication[]>>(`/events/${eventId}/vendors`);
-export const approveApplication = (id: string, assignedStand: string)             => api.patch(`/vendors/${id}/approve`, { assignedStand });
+export const approveApplication = (id: string, assignedStand: string)             => api.patch<{ success: boolean; message: string; invoiceEmailSent?: boolean }>(`/vendors/${id}/approve`, { assignedStand });
 export const rejectApplication  = (id: string, reason: string)                    => api.patch(`/vendors/${id}/reject`, { reason });
 export const addStaffMember     = (applicationId: string, data: AddStaffMemberDto) => api.post<VendorStaffMember>(`/vendors/${applicationId}/staff`, data);

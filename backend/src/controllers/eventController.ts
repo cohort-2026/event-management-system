@@ -32,6 +32,7 @@ interface EventInput {
   capacity: number;
   isFree: boolean;
   price: number | null;
+  vendorStandRatePerSqm: number;
   ticketTypes: TicketInput[];
 }
 
@@ -62,6 +63,7 @@ const parseEventInput = (body: Record<string, unknown>):
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
   const capacity = body.capacity;
+  const vendorStandRatePerSqm = body.vendorStandRatePerSqm;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
@@ -79,6 +81,15 @@ const parseEventInput = (body: Record<string, unknown>):
   }
   if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { error: `Event capacity must be a whole number between 1 and ${MAX_CAPACITY}` };
+  }
+  if (
+    typeof vendorStandRatePerSqm !== 'number' ||
+    !Number.isFinite(vendorStandRatePerSqm) ||
+    vendorStandRatePerSqm < 0 ||
+    vendorStandRatePerSqm > MAX_PRICE ||
+    Math.abs(vendorStandRatePerSqm - Math.round(vendorStandRatePerSqm * 100) / 100) > 1e-8
+  ) {
+    return { error: 'Vendor stand rate must be between 0 and 99,999,999.99 ZAR per square metre' };
   }
   if (!Array.isArray(ticketTypesInput) || ticketTypesInput.length < 1 || ticketTypesInput.length > MAX_TICKETS) {
     return { error: `Add between 1 and ${MAX_TICKETS} ticket types` };
@@ -162,6 +173,7 @@ const parseEventInput = (body: Record<string, unknown>):
       capacity,
       isFree,
       price,
+      vendorStandRatePerSqm,
       ticketTypes,
     },
   };
@@ -208,9 +220,10 @@ const notifyEventAudience = async (
   return failures.length === 0;
 };
 
-const serializeEvent = <T extends { price: Prisma.Decimal | null; ticketTypes?: Array<{ price: Prisma.Decimal }> }>(event: T) => ({
+const serializeEvent = <T extends { price: Prisma.Decimal | null; vendorStandRatePerSqm: Prisma.Decimal; ticketTypes?: Array<{ price: Prisma.Decimal }> }>(event: T) => ({
   ...event,
   price: event.price === null ? null : Number(event.price),
+  vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
   ...(event.ticketTypes ? {
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
   } : {}),
@@ -241,6 +254,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         availableCapacity: data.capacity,
         isFree: data.isFree,
         price: data.price,
+        vendorStandRatePerSqm: data.vendorStandRatePerSqm,
         status: EventStatus.DRAFT,
         organizerId: req.user!.id,
         ticketTypes: {
@@ -294,6 +308,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         .map(ticket => `${ticket.name.toLocaleLowerCase()}:${ticket.price}`)
         .sort();
       const priceChanged = Number(event.price ?? 0) !== Number(data.price ?? 0) ||
+        Number(event.vendorStandRatePerSqm) !== data.vendorStandRatePerSqm ||
         previousTicketPrices.length !== nextTicketPrices.length ||
         previousTicketPrices.some((price, index) => price !== nextTicketPrices[index]);
       const requiresApproval = event.status === EventStatus.PUBLISHED && (
@@ -326,6 +341,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
           availableCapacity: data.capacity - activeBookingCount,
           isFree: data.isFree,
           price: data.price,
+          vendorStandRatePerSqm: data.vendorStandRatePerSqm,
           status: nextStatus,
           ...(requiresApproval ? { rejectionReason: null } : {}),
         },
@@ -514,6 +530,8 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
     const applications = await prisma.vendorApplication.findMany({
       where: { eventId },
       include: {
+        staffMembers: true,
+        invoice: true,
         vendor: {
           select: {
             id: true,

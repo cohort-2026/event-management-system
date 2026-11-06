@@ -1,11 +1,13 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import axios from 'axios';
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Badge from '@/components/ui/Badge';
+import { useAuth } from '@/context/AuthContext';
 import {
   deleteVendorDocument,
   downloadVendorDocument,
@@ -16,6 +18,12 @@ import {
 } from '@/services/vendorService';
 import type { ApiError } from '@/types/api';
 import type { UpdateVendorProfileDto, VendorDocument, VendorProfile } from '@/types/vendor';
+
+const businessRegistrationRegex = /^\d{4}\/\d{6}\/\d{2}$/;
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
+const phoneCountries = getCountries()
+  .map(country => ({ country, name: countryNames.of(country) ?? country, callingCode: getCountryCallingCode(country) }))
+  .sort((left, right) => left.name.localeCompare(right.name));
 
 const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'> = {
   businessName: '',
@@ -39,7 +47,10 @@ const sidebarItems = [
 ];
 
 export default function VendorProfilePage() {
+  const { user, setUser } = useAuth();
   const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'>>(emptyProfile);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>('ZA');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -52,12 +63,23 @@ export default function VendorProfilePage() {
   const [documentMessage, setDocumentMessage] = useState('');
   const [documentError, setDocumentError] = useState('');
   const isApproved = profile.status === 'APPROVED';
+  const isDraft = profile.status === 'DRAFT';
   const isRejected = profile.status === 'REJECTED';
-  const visibleSidebarItems = isApproved ? sidebarItems : sidebarItems.filter(item => item.to === '/vendor/profile');
+  const visibleSidebarItems = isApproved ? sidebarItems : sidebarItems.filter(item => item.to === '/vendor/profile' || item.to === '/vendor/events');
 
   useEffect(() => {
     getVendorProfile()
-      .then(response => setProfile(response.data.data))
+      .then(response => {
+        const data = response.data.data;
+        setProfile(data);
+        const parsedPhone = parsePhoneNumberFromString(data.contactPhone, 'ZA');
+        if (parsedPhone) {
+          setPhoneCountry(parsedPhone.country ?? 'ZA');
+          setPhoneNumber(parsedPhone.nationalNumber);
+        } else {
+          setPhoneNumber(data.contactPhone);
+        }
+      })
       .catch(() => setLoadError('Unable to load your business profile. Please try again.'))
       .finally(() => setLoading(false));
 
@@ -166,13 +188,27 @@ export default function VendorProfilePage() {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const submitForReview = submitter instanceof HTMLButtonElement && submitter.value === 'submit-review';
-    setSaving(true);
     setSaveMessage('');
+    const errors: Record<string, string> = {};
+    if (profile.businessRegistrationNumber && !businessRegistrationRegex.test(profile.businessRegistrationNumber)) {
+      errors.businessRegistrationNumber = 'Use the format 2020/123456/07.';
+    }
+    const parsedPhone = parsePhoneNumberFromString(phoneNumber, phoneCountry);
+    const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : '';
+    if (!normalizedPhone) errors.contactPhone = `Enter a valid phone number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`;
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSaveMessage('Please check the highlighted fields.');
+      return;
+    }
+
+    setSaving(true);
     setFieldErrors({});
 
     try {
-      const response = await updateVendorProfile(profile, submitForReview);
+      const response = await updateVendorProfile({ ...profile, contactPhone: normalizedPhone }, submitForReview);
       setProfile(response.data.data);
+      if (user?.role === 'VENDOR') setUser({ ...user, vendorProfileStatus: response.data.data.status });
       setSaveMessage(response.data.message ?? 'Business profile saved.');
     } catch (error) {
       if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
@@ -233,6 +269,11 @@ export default function VendorProfilePage() {
               )}
             </section>
           )}
+          {isDraft && (
+            <div role="status" className="mb-5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              Complete your business profile and submit it for administrator approval. You can browse published events while you wait.
+            </div>
+          )}
           {profile.status === 'PENDING_REVIEW' && (
             <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Your profile is awaiting administrator review.
@@ -244,7 +285,7 @@ export default function VendorProfilePage() {
               <h2 id="business-details-heading" className="text-lg font-bold text-neutral-900">Business details</h2>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input label="Business or trading name" value={profile.businessName} onChange={event => updateField('businessName', event.target.value)} required maxLength={120} error={fieldErrors.businessName} disabled={isApproved} />
-                <Input label="Business registration number" value={profile.businessRegistrationNumber} onChange={event => updateField('businessRegistrationNumber', event.target.value)} maxLength={100} error={fieldErrors.businessRegistrationNumber} disabled={isApproved} />
+                <Input label="Business registration number" value={profile.businessRegistrationNumber} onChange={event => updateField('businessRegistrationNumber', event.target.value)} maxLength={14} error={fieldErrors.businessRegistrationNumber} helperText="Format: 2020/123456/07" disabled={isApproved} />
                 <div className="md:col-span-2">
                   <Textarea label="Business description" value={profile.businessDescription} onChange={event => updateField('businessDescription', event.target.value)} maxLength={2000} helperText={`${profile.businessDescription.length}/2000 characters`} error={fieldErrors.businessDescription} disabled={isApproved} />
                 </div>
@@ -287,7 +328,37 @@ export default function VendorProfilePage() {
               <h2 id="contact-details-heading" className="text-lg font-bold text-neutral-900">Contact details</h2>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input label="Business email address" type="email" value={profile.contactEmail} onChange={event => updateField('contactEmail', event.target.value)} required maxLength={254} error={fieldErrors.contactEmail} disabled={isApproved} />
-                <Input label="Business phone number" type="tel" value={profile.contactPhone} onChange={event => updateField('contactPhone', event.target.value)} required maxLength={30} error={fieldErrors.contactPhone} disabled={isApproved} />
+                <div className="md:col-span-2 grid grid-cols-1 gap-5 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                  <label htmlFor="business-phone-country" className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+                    Country code
+                    <select
+                      id="business-phone-country"
+                      value={phoneCountry}
+                      onChange={event => {
+                        setPhoneCountry(event.target.value as CountryCode);
+                        setFieldErrors(current => ({ ...current, contactPhone: '' }));
+                      }}
+                      disabled={isApproved}
+                      className="block w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400"
+                    >
+                      {phoneCountries.map(({ country, name, callingCode }) => (
+                        <option key={country} value={country}>+{callingCode} {name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <Input
+                    label="Business phone number"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    value={phoneNumber}
+                    onChange={event => { setPhoneNumber(event.target.value); setFieldErrors(current => ({ ...current, contactPhone: '' })); }}
+                    required
+                    error={fieldErrors.contactPhone}
+                    helperText={`Enter the number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`}
+                    disabled={isApproved}
+                  />
+                </div>
               </div>
             </section>
 
@@ -320,6 +391,11 @@ export default function VendorProfilePage() {
 
             {!isApproved && <div className="flex flex-wrap items-center gap-4">
               <Button type="submit" name="action" value="save" loading={saving}>Save business profile</Button>
+              {isDraft && (
+                <Button type="submit" name="action" value="submit-review" loading={saving}>
+                  Submit for admin approval
+                </Button>
+              )}
               {isRejected && (
                 <Button type="submit" name="action" value="submit-review" loading={saving}>
                   Save and resubmit for review

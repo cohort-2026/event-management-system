@@ -29,6 +29,7 @@ interface EventForm {
   startTime: string;
   endTime: string;
   capacity: string;
+  vendorStandRatePerSqm: string;
   bannerImageUrl: string;
   ticketTypes: TicketForm[];
 }
@@ -44,6 +45,7 @@ const EMPTY_FORM: EventForm = {
   startTime: '',
   endTime: '',
   capacity: '',
+  vendorStandRatePerSqm: '',
   bannerImageUrl: '',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
@@ -66,6 +68,7 @@ const toForm = (event: Event): EventForm => ({
   startTime: asLocalDateTime(event.startTime),
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
+  vendorStandRatePerSqm: String(event.vendorStandRatePerSqm),
   bannerImageUrl: event.bannerImageUrl ?? '',
   ticketTypes: event.ticketTypes.map(ticket => ({
     name: ticket.name,
@@ -157,6 +160,7 @@ export default function CreateEvent() {
       return;
     }
     const capacity = Number(form.capacity);
+    const vendorStandRatePerSqm = Number(form.vendorStandRatePerSqm);
     const ticketTypes = form.ticketTypes.map(ticket => ({
       name: ticket.name.trim(),
       description: ticket.description.trim(),
@@ -171,6 +175,10 @@ export default function CreateEvent() {
     }
     if (ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== capacity) {
       setError('The total quantity of all ticket types must equal the event capacity.');
+      return;
+    }
+    if (!Number.isFinite(vendorStandRatePerSqm) || vendorStandRatePerSqm < 0 || vendorStandRatePerSqm > 99_999_999.99 || Math.round(vendorStandRatePerSqm * 100) !== vendorStandRatePerSqm * 100) {
+      setError('Enter a vendor stand rate between R0 and R99,999,999.99 per square metre.');
       return;
     }
     if (form.eventType !== 'IN_PERSON' && !form.meetingDetails.trim()) {
@@ -200,6 +208,7 @@ export default function CreateEvent() {
       endTime: endTime.toISOString(),
       date: startTime.toISOString(),
       capacity,
+      vendorStandRatePerSqm,
       isFree: ticketTypes.every(ticket => ticket.price === 0),
       bannerImageUrl: form.bannerImageUrl.trim() || undefined,
       ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
@@ -355,6 +364,7 @@ export default function CreateEvent() {
                 <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} required />
                 <Input label="End date and time" type="datetime-local" min={form.startTime} value={form.endTime} onChange={event => updateForm('endTime', event.target.value)} required />
                 <Input label="Event capacity" type="number" min={1} max={1_000_000} step={1} value={form.capacity} onChange={event => updateForm('capacity', event.target.value)} required />
+                <Input label="Vendor stand rate (ZAR per m²)" type="number" min={0} max={99_999_999.99} step={0.01} value={form.vendorStandRatePerSqm} onChange={event => updateForm('vendorStandRatePerSqm', event.target.value)} required helperText="The approved stand invoice is calculated from this rate and the requested area. Enter 0 if the event will not accept stand applications." />
                 <Input label="Banner image URL (optional)" type="url" maxLength={2048} value={form.bannerImageUrl} onChange={event => updateForm('bannerImageUrl', event.target.value)} placeholder="https://example.com/banner.jpg" />
               </div>
 

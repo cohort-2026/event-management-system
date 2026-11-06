@@ -3,10 +3,12 @@ import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
 import { config } from '@/config/index';
 import { maxVendorDocuments, parseVendorPdf } from '@/middleware/vendorDocumentUpload';
 import { notifyAdmins } from '@/services/notificationService';
+import { sendVendorStandInvoice } from '@/services/emailService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -88,13 +90,15 @@ function validateProfile(body: unknown): { data?: VendorProfileInput; errors: Re
 	const contactPerson = readText('contactPerson', 120);
 	const contactEmail = readText('contactEmail', 254).toLowerCase();
 	const contactPhone = readText('contactPhone', 30);
+	const parsedPhone = parsePhoneNumberFromString(contactPhone, 'ZA');
 
 	if (businessName.length < 2) errors.businessName = 'Enter a business name';
+	if (businessRegistrationNumber && !/^\d{4}\/\d{6}\/\d{2}$/.test(businessRegistrationNumber)) {
+		errors.businessRegistrationNumber = 'Use the format 2020/123456/07';
+	}
 	if (contactPerson.length < 2) errors.contactPerson = 'Enter a contact person';
 	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) errors.contactEmail = 'Enter a valid email address';
-	if (!/^\+?[0-9\s().-]{7,30}$/.test(contactPhone) || contactPhone.replace(/\D/g, '').length < 7) {
-		errors.contactPhone = 'Enter a valid phone number';
-	}
+	if (!parsedPhone?.isValid()) errors.contactPhone = 'Enter a valid international phone number';
 	const parseList = (key: string, maxItems: number, maxLength: number): string[] => {
 		const value = input[key];
 		if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
@@ -122,7 +126,7 @@ function validateProfile(body: unknown): { data?: VendorProfileInput; errors: Re
 			businessRegistrationNumber,
 			contactPerson,
 			contactEmail,
-			contactPhone,
+			contactPhone: parsedPhone!.number,
 			productsServices,
 			supportingDocumentUrls,
 		},
@@ -143,10 +147,10 @@ router.get('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		INSERT INTO "vendor_profiles" (
 			"id", "user_id", "business_name", "business_description", "business_registration_number",
 			"contact_person", "contact_email", "contact_phone", "products_services",
-			"supporting_document_urls", "created_at", "updated_at"
+			"supporting_document_urls", "status", "created_at", "updated_at"
 		) VALUES (
 			${randomUUID()}, ${userId}, '', '', '', ${`${user.firstname} ${user.lastname}`.trim()},
-			${user.email}, '', ARRAY[]::TEXT[], ARRAY[]::TEXT[], NOW(), NOW()
+			${user.email}, '', ARRAY[]::TEXT[], ARRAY[]::TEXT[], 'DRAFT'::"VendorProfileStatus", NOW(), NOW()
 		) ON CONFLICT ("user_id") DO NOTHING
 	`;
 	const [profile] = await prisma.$queryRaw<VendorProfileRecord[]>`
@@ -173,12 +177,14 @@ router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		INSERT INTO "vendor_profiles" (
 			"id", "user_id", "business_name", "business_description", "business_registration_number",
 			"contact_person", "contact_email", "contact_phone", "products_services",
-			"supporting_document_urls", "created_at", "updated_at"
+			"supporting_document_urls", "status", "created_at", "updated_at"
 		) VALUES (
 			${randomUUID()}, ${userId}, ${data.businessName}, ${data.businessDescription}, ${data.businessRegistrationNumber},
 			${data.contactPerson}, ${data.contactEmail}, ${data.contactPhone},
 			ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(data.productsServices)}::jsonb)),
-			ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(data.supportingDocumentUrls)}::jsonb)), NOW(), NOW()
+			ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(data.supportingDocumentUrls)}::jsonb)),
+			CASE WHEN ${submitForReview} THEN 'PENDING_REVIEW'::"VendorProfileStatus" ELSE 'DRAFT'::"VendorProfileStatus" END,
+			NOW(), NOW()
 		) ON CONFLICT ("user_id") DO UPDATE SET
 			"business_name" = EXCLUDED."business_name",
 			"business_description" = EXCLUDED."business_description",
@@ -189,7 +195,7 @@ router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			"products_services" = EXCLUDED."products_services",
 			"supporting_document_urls" = EXCLUDED."supporting_document_urls",
 			"status" = CASE
-				WHEN ${submitForReview} AND "vendor_profiles"."status" = 'REJECTED'
+				WHEN ${submitForReview} AND "vendor_profiles"."status" IN ('DRAFT', 'REJECTED')
 					THEN 'PENDING_REVIEW'::"VendorProfileStatus"
 				ELSE "vendor_profiles"."status"
 			END,
@@ -204,10 +210,10 @@ router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			"updated_at" = NOW()
 		RETURNING ${Prisma.raw(profileColumns)}
 		`;
-		if (submitForReview && current?.status === VendorProfileStatus.REJECTED) {
+		if (submitForReview && (!current || current.status === VendorProfileStatus.DRAFT || current.status === VendorProfileStatus.REJECTED)) {
 			await notifyAdmins(transaction, {
-				title: 'Vendor profile resubmitted',
-				message: `${data.businessName} resubmitted its vendor profile for review.`,
+				title: current?.status === VendorProfileStatus.REJECTED ? 'Vendor profile resubmitted' : 'Vendor profile submitted',
+				message: `${data.businessName} submitted its vendor profile for review.`,
 				link: '/admin/users/vendors/pending',
 			});
 		}
@@ -427,7 +433,7 @@ router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN', 'P
 	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
 	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.APPROVED, req.user!.id);
 	if (!reviewed) return res.status(404).json({ success: false, message: 'Pending vendor profile not found' });
-	return res.json({ success: true, message: 'Vendor profile approved. The vendor can now sign in.' });
+	return res.json({ success: true, message: 'Vendor profile approved. The vendor can now apply for stands.' });
 });
 
 router.patch('/admin/profiles/:id/reject', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
@@ -486,6 +492,7 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const requestedStandSize = typeof req.body?.requestedStandSize === 'string' ? req.body.requestedStandSize.trim() : '';
 	const standDescription = typeof req.body?.standDescription === 'string' ? req.body.standDescription.trim() : '';
 	const supportingInformation = typeof req.body?.supportingInformation === 'string' ? req.body.supportingInformation.trim() : '';
+	const staffInput = req.body?.staffMembers ?? [];
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 	if (!eventId || eventId.length > 64) return res.status(400).json({ success: false, message: 'A valid event is required' });
 	if (requestedStandType.length < 2 || requestedStandType.length > 80) {
@@ -500,11 +507,35 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	if (supportingInformation.length > 2000) {
 		return res.status(400).json({ success: false, message: 'Supporting information must be no more than 2000 characters' });
 	}
+	const dimensions = /^(\d{1,3}(?:\.\d{1,2})?)\s*m?\s*[x×]\s*(\d{1,3}(?:\.\d{1,2})?)\s*m?$/i.exec(requestedStandSize);
+	if (!dimensions) return res.status(400).json({ success: false, message: 'Enter stand width and depth in metres, for example 3m x 3m' });
+	const standWidth = Number(dimensions[1]);
+	const standDepth = Number(dimensions[2]);
+	if (standWidth <= 0 || standDepth <= 0 || standWidth > 100 || standDepth > 100) {
+		return res.status(400).json({ success: false, message: 'Stand width and depth must be greater than zero and no more than 100 metres' });
+	}
+	if (!Array.isArray(staffInput) || staffInput.length > 20) {
+		return res.status(400).json({ success: false, message: 'Add no more than 20 staff members' });
+	}
+	const staffMembers: Array<{ name: string; email: string }> = [];
+	for (const item of staffInput) {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) {
+			return res.status(400).json({ success: false, message: 'Each staff member needs a name and email address' });
+		}
+		const name = typeof item.name === 'string' ? item.name.trim() : '';
+		const email = typeof item.email === 'string' ? item.email.trim().toLowerCase() : '';
+		if (name.length < 2 || name.length > 120 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			return res.status(400).json({ success: false, message: 'Enter a valid name and email for every staff member' });
+		}
+		staffMembers.push({ name, email });
+	}
 
-	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true } });
+	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true, vendorStandRatePerSqm: true } });
 	if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
 	if (event.status !== 'PUBLISHED') return res.status(409).json({ success: false, message: 'Vendor applications are only available for published events' });
 	if (event.startTime <= new Date()) return res.status(409).json({ success: false, message: 'Vendor applications are closed because this event has started' });
+	const standRatePerSqm = Number(event.vendorStandRatePerSqm);
+	if (standRatePerSqm <= 0) return res.status(409).json({ success: false, message: 'This event is not accepting stand requests because its organizer has not set a stand rate' });
 
 	const [profile] = await prisma.$queryRaw<Array<{
 		businessName: string;
@@ -531,6 +562,8 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		select: { id: true },
 	});
 	if (existingApplication) return res.status(409).json({ success: false, message: 'You already have an application for this event' });
+	const standAreaSqm = Math.round(standWidth * standDepth * 100) / 100;
+	const quotedAmount = Math.round(standAreaSqm * standRatePerSqm * 100) / 100;
 
 	const application = await prisma.vendorApplication.create({
 		data: {
@@ -540,10 +573,20 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			registrationNumber: profile.businessRegistrationNumber,
 			description: profile.businessDescription || profile.productsServices.join(', ') || profile.businessName,
 			requestedStandType,
-			requestedStandSize,
+			requestedStandSize: `${standWidth}m x ${standDepth}m`,
 			standDescription,
 			supportingInformation: supportingInformation || null,
+			standAreaSqm,
+			standRatePerSqm,
+			quotedAmount,
+			staffMembers: {
+				create: staffMembers.map(member => ({
+					...member,
+					entryPassId: `VND-${randomUUID().slice(0, 8).toUpperCase()}`,
+				})),
+			},
 		},
+		include: { staffMembers: true },
 	});
 	return res.status(201).json({ success: true, data: application });
 });
@@ -554,7 +597,11 @@ router.get('/me', requireAuth, requireRole('VENDOR'), async (req, res) => {
 
 	const applications = await prisma.vendorApplication.findMany({
 		where: { vendorId: userId },
-		include: { event: { select: { id: true, title: true, date: true, venue: true } } },
+		include: {
+			event: { select: { id: true, title: true, date: true, venue: true } },
+			invoice: true,
+			staffMembers: true,
+		},
 		orderBy: { createdAt: 'desc' },
 	});
 	return res.json({ success: true, data: applications });
@@ -565,7 +612,7 @@ router.get('/staff', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
 	const staffMembers = await prisma.vendorStaffMember.findMany({
-		where: { application: { is: { vendorId: userId } } },
+		where: { application: { is: { vendorId: userId, status: 'APPROVED' } } },
 		select: {
 			id: true,
 			name: true,
@@ -605,7 +652,12 @@ const decideVendorApplication = async (
 		select: {
 			id: true,
 			status: true,
+			requestedStandSize: true,
+			standAreaSqm: true,
+			standRatePerSqm: true,
+			quotedAmount: true,
 			event: { select: { title: true, organizerId: true } },
+			vendor: { select: { email: true, firstname: true } },
 		},
 	});
 	if (!application) return res.status(404).json({ success: false, message: 'Stand request not found' });
@@ -617,6 +669,8 @@ const decideVendorApplication = async (
 	}
 
 	const decidedAt = new Date();
+	const invoiceNumber = `EVMS-${decidedAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+	const dueAt = new Date(decidedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 	try {
 		const updated = await prisma.$transaction(async transaction => {
 			const result = await transaction.vendorApplication.updateMany({
@@ -631,8 +685,18 @@ const decideVendorApplication = async (
 			});
 			if (result.count !== 1) return false;
 
+			if (decision.status === 'APPROVED') {
+				const invoice = await transaction.vendorInvoice.create({
+					data: { invoiceNumber, amount: application.quotedAmount, dueAt },
+				});
+				await transaction.vendorApplication.update({
+					where: { id: applicationId },
+					data: { invoiceId: invoice.id },
+				});
+			}
+
 			const message = decision.status === 'APPROVED'
-				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Contact the organizer if you need help preparing for the event.`
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${Number(application.quotedAmount).toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
 				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
 			await transaction.notification.create({
 				data: {
@@ -640,7 +704,7 @@ const decideVendorApplication = async (
 						where: { id: applicationId },
 						select: { vendorId: true },
 					})).vendorId,
-					title: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request needs changes',
+					title: decision.status === 'APPROVED' ? 'Stand approved and invoice issued' : 'Stand request needs changes',
 					message,
 					link: '/vendor/applications',
 				},
@@ -649,7 +713,31 @@ const decideVendorApplication = async (
 		});
 
 		if (!updated) return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
-		return res.json({ success: true, message: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request rejected' });
+		let invoiceEmailSent = true;
+		if (decision.status === 'APPROVED') {
+			try {
+				await sendVendorStandInvoice({
+					email: application.vendor.email,
+					firstname: application.vendor.firstname,
+					eventTitle: application.event.title,
+					invoiceNumber,
+					amount: Number(application.quotedAmount),
+					dueAt,
+					assignedStand: decision.assignedStand,
+					requestedStandSize: application.requestedStandSize,
+					areaSqm: Number(application.standAreaSqm),
+					ratePerSqm: Number(application.standRatePerSqm),
+				});
+			} catch (emailError) {
+				console.error('Vendor stand invoice email failed:', emailError);
+				invoiceEmailSent = false;
+			}
+		}
+		return res.json({
+			success: true,
+			message: decision.status === 'APPROVED' ? 'Stand request approved and invoice issued' : 'Stand request rejected',
+			...(decision.status === 'APPROVED' ? { invoiceEmailSent } : {}),
+		});
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
 			return res.status(409).json({ success: false, message: 'That stand is already assigned for this event' });

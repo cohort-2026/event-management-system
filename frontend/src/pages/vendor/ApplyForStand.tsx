@@ -7,6 +7,11 @@ import Button from '@/components/ui/Button';
 import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
+interface ApplicationStaffMember {
+  name: string;
+  email: string;
+}
+
 const sidebarItems = [
   { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
   { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
@@ -23,6 +28,7 @@ export default function ApplyForStand() {
   const [requestedStandSize, setRequestedStandSize] = useState('');
   const [standDescription, setStandDescription] = useState('');
   const [supportingInformation, setSupportingInformation] = useState('');
+  const [staffMembers, setStaffMembers] = useState<ApplicationStaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -52,6 +58,7 @@ export default function ApplyForStand() {
       setRequestedStandSize(rejectedApplication.requestedStandSize);
       setStandDescription(rejectedApplication.standDescription);
       setSupportingInformation(rejectedApplication.supportingInformation ?? '');
+      setStaffMembers(rejectedApplication.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
     }
   }, [activeApplication, rejectedApplication]);
 
@@ -71,6 +78,7 @@ export default function ApplyForStand() {
         requestedStandSize,
         standDescription,
         supportingInformation,
+        staffMembers,
       });
       setMessage('Your stand request has been submitted.');
     } catch (requestError) {
@@ -134,10 +142,11 @@ export default function ApplyForStand() {
                       <input required minLength={2} maxLength={80} value={requestedStandType} onChange={event => setRequestedStandType(event.target.value)} className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                     </label>
                     <label className="block text-sm font-medium text-neutral-700">
-                      Requested size
+                      Requested size (width x depth, metres)
                       <input required minLength={2} maxLength={80} value={requestedStandSize} onChange={event => setRequestedStandSize(event.target.value)} placeholder="e.g. 3m x 3m" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                     </label>
                   </div>
+                  <p className="-mt-2 text-xs text-neutral-500">An invoice is calculated from the requested area and sent if the organizer approves your stand.</p>
                   <label className="block text-sm font-medium text-neutral-700">
                     Stand requirements and setup
                     <textarea required minLength={10} maxLength={2000} rows={4} value={standDescription} onChange={event => setStandDescription(event.target.value)} placeholder="Describe your setup, equipment, power needs, and how you will use the stand." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
@@ -146,6 +155,28 @@ export default function ApplyForStand() {
                     Supporting information <span className="font-normal text-neutral-500">(optional)</span>
                     <textarea maxLength={2000} rows={3} value={supportingInformation} onChange={event => setSupportingInformation(event.target.value)} placeholder="Add any other information the organizer should consider." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                   </label>
+                  <section className="space-y-3 border-t border-neutral-100 pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-neutral-900">Staff members</h3>
+                        <p className="mt-1 text-xs text-neutral-500">Add the people who will work at your stand. Up to 20.</p>
+                      </div>
+                      <Button type="button" variant="secondary" size="sm" disabled={staffMembers.length >= 20} onClick={() => setStaffMembers(current => [...current, { name: '', email: '' }])}>Add staff</Button>
+                    </div>
+                    {staffMembers.map((member, index) => (
+                      <div key={index} className="grid gap-3 rounded-lg border border-neutral-200 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                        <label className="block text-sm font-medium text-neutral-700">
+                          Name
+                          <input required minLength={2} maxLength={120} value={member.name} onChange={event => setStaffMembers(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                        </label>
+                        <label className="block text-sm font-medium text-neutral-700">
+                          Email
+                          <input required type="email" maxLength={254} value={member.email} onChange={event => setStaffMembers(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                        </label>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setStaffMembers(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove staff member ${index + 1}`}>Remove</Button>
+                      </div>
+                    ))}
+                  </section>
                   {error && <p role="alert" className="text-sm font-medium text-rose-700">{error}</p>}
                   {message && <p role="status" className="text-sm font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my requests</Link></p>}
                   <Button type="submit" className="mt-2" loading={submitting} disabled={Boolean(message)}>Submit stand request</Button>
