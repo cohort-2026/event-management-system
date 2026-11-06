@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
-import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
 import type { UserRole } from '@/types/user';
 import axios from 'axios';
@@ -14,9 +13,6 @@ interface FieldErrors {
   password?: string;
   confirmPassword?: string;
   role?: string;
-  organizationName?: string;
-  organizationDescription?: string;
-  phone?: string;
 }
 
 type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
@@ -45,9 +41,6 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     role: '' as UserRole | '',
-    organizationName: '',
-    organizationDescription: '',
-    phone: '',
   });
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
@@ -243,46 +236,6 @@ export default function Register() {
               </div>
               {errors.role && <p id="registration-role-error" role="alert" className="text-xs font-medium text-rose-600">{errors.role}</p>}
             </fieldset>
-
-            {form.role === 'ORGANIZER' && (
-              <section aria-labelledby="organizer-details-heading" className="space-y-4 rounded-lg border border-brand-100 bg-brand-50/50 p-4">
-                <div>
-                  <h2 id="organizer-details-heading" className="text-sm font-bold text-neutral-900">Organizer details</h2>
-                  <p className="mt-1 text-xs text-neutral-600">These details identify your organization on the events you manage.</p>
-                </div>
-                <Input
-                  label="Organization name"
-                  autoComplete="organization"
-                  maxLength={120}
-                  required
-                  value={form.organizationName}
-                  onChange={set('organizationName')}
-                  error={errors.organizationName}
-                  helperText="Required so attendees know who is hosting your events."
-                />
-                <Input
-                  label="Phone number (optional)"
-                  type="tel"
-                  autoComplete="tel"
-                  maxLength={30}
-                  value={form.phone}
-                  onChange={set('phone')}
-                  error={errors.phone}
-                  helperText="A contact number for questions about your events."
-                />
-                <Textarea
-                  label="Organization description (optional)"
-                  maxLength={500}
-                  value={form.organizationDescription}
-                  onChange={set('organizationDescription')}
-                  error={errors.organizationDescription}
-                  helperText="A short introduction that can help attendees understand your organization."
-                />
-                <p className="text-xs text-neutral-600">
-                  Verify your email to sign in. An admin must approve your completed profile before you can create events.
-                </p>
-              </section>
-            )}
 
             <Button type="submit" loading={loading} className="w-full" size="lg">
               Create account

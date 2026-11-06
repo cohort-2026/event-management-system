@@ -64,7 +64,7 @@ export default function OrganizerDashboard() {
     setSubmittingId(eventId);
     try {
       const response = await publishEvent(eventId);
-      setNotice(response.data.message ?? 'Event published and is now available to attendees.');
+      setNotice(response.data.message ?? 'Event Published');
       const refreshed = await getMyEvents();
       setEvents(refreshed.data.data);
     } catch (publishError) {
@@ -97,10 +97,11 @@ export default function OrganizerDashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6">
         <DashboardSidebar
           title="Organizer"
           subtitle="Operations"
+          appearance="analytics"
           items={[
             { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
             { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
@@ -115,21 +116,22 @@ export default function OrganizerDashboard() {
             breadcrumbs={isMyEventsPage
               ? [{ label: 'Dashboard', to: '/organizer' }, { label: 'My events' }]
               : [{ label: 'Dashboard', to: '/organizer' }]}
+            appearance="analytics"
           />
 
           {!isMyEventsPage && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" />
-              <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" />
-              <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" />
-              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" />
+              <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" appearance="analytics" />
+              <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" appearance="analytics" />
+              <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" appearance="analytics" />
+              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" appearance="analytics" />
             </div>
           )}
 
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {notice && <p role="status" className="mb-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
-          {isMyEventsPage && <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          {isMyEventsPage && <section className="dashboard-panel overflow-hidden">
             <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
               <h2 className="font-semibold text-neutral-900">My events</h2>
               <Link to="/organizer/events/new"><Button size="sm">Create event</Button></Link>

@@ -108,6 +108,9 @@ export const requireApprovedOrganizerProfile = async (
         firstname: true,
         lastname: true,
         organizationName: true,
+        organizationEmail: true,
+        organizationRegistrationNumber: true,
+        phone: true,
         profileApprovalStatus: true,
       },
     });
@@ -117,6 +120,9 @@ export const requireApprovedOrganizerProfile = async (
       !profile.firstname.trim() ||
       !profile.lastname.trim() ||
       !profile.organizationName?.trim() ||
+      !profile.organizationEmail?.trim() ||
+      !profile.organizationRegistrationNumber?.trim() ||
+      !profile.phone?.trim() ||
       profile.profileApprovalStatus !== ProfileApprovalStatus.APPROVED
     ) {
       res.status(403).json({

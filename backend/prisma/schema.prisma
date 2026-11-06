@@ -122,6 +122,8 @@ model User {
   auditEvents         AuditLog[] @relation("AuditActor")
   notifications       Notification[] @relation("NotificationRecipient")
   organizationName   String? @map("organization_name")
+  organizationEmail String? @map("organization_email")
+  organizationRegistrationNumber String? @map("organization_registration_number")
   organizationDescription String? @map("organization_description")
   organization       String?
   phone              String?
@@ -209,6 +211,7 @@ model Event {
   eventType         EventType   @default(IN_PERSON) @map("event_type")
   meetingDetails    String?     @map("meeting_details")
   bannerImageUrl    String?     @map("banner_image_url")
+  vendorStandsAvailable Int     @default(0) @map("vendor_stands_available")
   capacity          Int
   availableCapacity Int         @map("available_capacity")
   isFree            Boolean     @default(true) @map("is_free")

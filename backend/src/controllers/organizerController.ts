@@ -17,6 +17,8 @@ export const listOrganizers = async (_req: Request, res: Response, next: NextFun
         lastname: true,
         email: true,
         organizationName: true,
+        organizationEmail: true,
+        organizationRegistrationNumber: true,
         organizationDescription: true,
         phone: true,
         profileApprovalStatus: true,
@@ -48,6 +50,9 @@ export const approveOrganizerProfile = async (req: Request, res: Response, next:
           firstname: true,
           lastname: true,
           organizationName: true,
+          organizationEmail: true,
+          organizationRegistrationNumber: true,
+          phone: true,
           profileApprovalStatus: true,
         },
       });
@@ -55,7 +60,10 @@ export const approveOrganizerProfile = async (req: Request, res: Response, next:
       if (
         !organizer.firstname.trim() ||
         !organizer.lastname.trim() ||
-        !organizer.organizationName?.trim()
+        !organizer.organizationName?.trim() ||
+        !organizer.organizationEmail?.trim() ||
+        !organizer.organizationRegistrationNumber?.trim() ||
+        !organizer.phone?.trim()
       ) {
         return { error: 'incomplete' as const };
       }
@@ -304,6 +312,8 @@ export const createOrganizer = async (req: Request, res: Response, next: NextFun
           lastname: true,
           email: true,
           organizationName: true,
+          organizationEmail: true,
+          organizationRegistrationNumber: true,
           organizationDescription: true,
           phone: true,
           profileApprovalStatus: true,

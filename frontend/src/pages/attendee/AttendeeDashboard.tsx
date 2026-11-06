@@ -30,10 +30,11 @@ export default function AttendeeDashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6">
         <DashboardSidebar
           title="Attendee"
           subtitle="My events"
+          appearance="analytics"
           items={[
             { label: 'Overview', to: '/attendee', icon: <OverviewIcon /> },
             { label: 'My bookings', to: '/attendee/bookings', icon: <BookingIcon /> },
@@ -47,17 +48,18 @@ export default function AttendeeDashboard() {
             title="Attendee Dashboard"
             subtitle="Manage your event journey"
             breadcrumbs={[{ label: 'Dashboard', to: '/attendee' }]}
+            appearance="analytics"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Bookings" value={bookings.length} icon={<BookingIcon />} color="brand" />
-            <StatCard label="Upcoming events" value={events.length} icon={<EventIcon />} color="emerald" />
-            <StatCard label="Total spent" value="R1,099" icon={<TicketIcon />} color="purple" />
-            <StatCard label="Saved tickets" value={3} icon={<CheckIcon />} color="amber" />
+            <StatCard label="Bookings" value={bookings.length} icon={<BookingIcon />} color="brand" appearance="analytics" />
+            <StatCard label="Upcoming events" value={events.length} icon={<EventIcon />} color="emerald" appearance="analytics" />
+            <StatCard label="Total spent" value="R1,099" icon={<TicketIcon />} color="purple" appearance="analytics" />
+            <StatCard label="Saved tickets" value={3} icon={<CheckIcon />} color="amber" appearance="analytics" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(420px,1fr)_minmax(360px,0.9fr)] gap-8">
-            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-5">
+            <section className="dashboard-panel p-5">
               <div className="flex items-center justify-between gap-3 mb-5">
                 <div>
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400">My bookings</span>
@@ -88,7 +90,7 @@ export default function AttendeeDashboard() {
               </div>
             </section>
 
-            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-5">
+            <section className="dashboard-panel p-5">
               <div className="flex items-center justify-between gap-3 mb-5">
                 <div>
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400">Events</span>
@@ -116,7 +118,7 @@ export default function AttendeeDashboard() {
             </section>
           </div>
 
-          <section className="mt-8 bg-white rounded-3xl border border-neutral-200 shadow-sm p-5">
+          <section className="dashboard-panel mt-8 p-5">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
                 <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400">Welcome back</span>
