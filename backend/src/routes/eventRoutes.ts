@@ -7,11 +7,12 @@ import {
   getAdminEventAnalytics,
   getPublicEvent,
   getManagedEvent,
+  listVendorApplicationsForEvent,
   listEventsForApproval,
   listMyEvents,
   listPublicEvents,
   rejectEvent,
-  submitEventForApproval,
+  publishEvent,
   updateEvent,
 } from '@/controllers/eventController';
 
@@ -30,18 +31,18 @@ router.get('/:id', getPublicEvent);
 // ── Organizer ─────────────────────────────────────────────────────────────────
 // POST   /api/events                    Create a draft event
 // PUT    /api/events/:id                Edit own event
-// PATCH  /api/events/:id/submit         Submit own event for approval
+// PATCH   /api/events/:id/publish        Publish own event without admin approval
 // PATCH  /api/events/:id/cancel         Cancel own event
 // DELETE /api/events/:id                Delete own draft event
 // GET    /api/events/:id/bookings        View registrations for own event
 // GET    /api/events/:id/vendors         View vendor applications for own event
 router.post('/',                requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, createEvent);
 router.put('/:id',              requireAuth, requireRole('ORGANIZER'), updateEvent);
-router.patch('/:id/submit',     requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, submitEventForApproval);
+router.patch('/:id/publish',    requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, publishEvent);
 router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), cancelEvent);
 router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
 router.get('/:id/bookings',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
-router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
+router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listVendorApplicationsForEvent);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 // PATCH  /api/events/:id/approve        Approve a pending event

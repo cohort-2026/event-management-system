@@ -55,8 +55,10 @@ export default function MyApplications() {
                   <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-600">
                     <tr>
                       <th scope="col" className="px-5 py-3">Event</th>
+                      <th scope="col" className="px-5 py-3">Requested stand</th>
                       <th scope="col" className="px-5 py-3">Submitted</th>
                       <th scope="col" className="px-5 py-3">Status</th>
+                      <th scope="col" className="px-5 py-3">Decision</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
@@ -66,8 +68,19 @@ export default function MyApplications() {
                           <p className="font-semibold text-neutral-900">{application.event?.title ?? 'Event'}</p>
                           {application.event?.venue && <p className="mt-1 text-xs text-neutral-500">{application.event.venue}</p>}
                         </td>
+                        <td className="px-5 py-4">
+                          <p className="font-medium text-neutral-800">{application.requestedStandType} · {application.requestedStandSize}</p>
+                          <p className="mt-1 max-w-xs whitespace-pre-line text-xs text-neutral-500">{application.standDescription}</p>
+                        </td>
                         <td className="whitespace-nowrap px-5 py-4 text-neutral-600">{new Date(application.createdAt).toLocaleDateString()}</td>
                         <td className="px-5 py-4"><Badge variant={statusVariant[application.status]}>{application.status.replace('_', ' ')}</Badge></td>
+                        <td className="px-5 py-4">
+                          {application.assignedStand && <p className="font-medium text-emerald-800">Assigned stand: {application.assignedStand}</p>}
+                          {application.rejectionReason && <p className="max-w-xs whitespace-pre-line text-sm text-rose-700">{application.rejectionReason}</p>}
+                          {application.status === 'REJECTED' && application.event && (
+                            <Link to={`/vendor/events/${application.event.id}/apply`} className="mt-2 inline-flex text-xs font-semibold text-brand-700 underline">Revise and resubmit</Link>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

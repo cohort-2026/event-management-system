@@ -5,7 +5,8 @@ import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
-import type { RegistrationRole, UserRole } from '@/types/user';
+import type { UserRole } from '@/types/user';
+import axios from 'axios';
 
 interface FieldErrors {
   firstname?: string;
@@ -15,14 +16,16 @@ interface FieldErrors {
   confirmPassword?: string;
   role?: string;
   organizationName?: string;
-  phone?: string;
   organizationDescription?: string;
+  phone?: string;
   businessName?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;
   supportingDocuments?: string;
 }
+
+type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
 
 const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
@@ -49,8 +52,8 @@ export default function Register() {
     confirmPassword: '',
     role: '' as UserRole | '',
     organizationName: '',
-    phone: '',
     organizationDescription: '',
+    phone: '',
   });
   const [vendorProfile, setVendorProfile] = useState({
     businessName: '',
@@ -280,13 +283,14 @@ export default function Register() {
               helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
 
             {/* Role selector */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-neutral-700">I am a…</label>
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-sm font-medium text-neutral-700">I am a…</legend>
               <div className="grid grid-cols-2 gap-2">
                 {ROLES.map(r => (
                   <label
                     key={r.value}
-                    className={`block cursor-pointer rounded-lg border px-3 py-2.5 text-center text-xs font-semibold transition-all duration-150
+                    onClick={() => selectRole(r.value)}
+                    className={`px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150 text-center
                       ${form.role === r.value
                         ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-brand-300 hover:text-brand-600'}`}

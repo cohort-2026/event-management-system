@@ -1,11 +1,14 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import AdminNotificationBell from '@/components/layout/AdminNotificationBell';
 
 export interface SidebarItem {
   label: string;
   to: string;
   icon: ReactNode;
+  children?: { label: string; to: string }[];
 }
 
 interface DashboardSidebarProps {
@@ -17,6 +20,8 @@ interface DashboardSidebarProps {
 export default function DashboardSidebar({ title, subtitle, items }: DashboardSidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const handleLogout = async () => {
     await logout();
@@ -60,24 +65,63 @@ export default function DashboardSidebar({ title, subtitle, items }: DashboardSi
             <span className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-700">{subtitle}</span>
           </div>
           <nav className="space-y-1">
-            {items.map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
-                className={({ isActive }) =>
-                  [
-                    'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200',
-                    isActive
-                      ? 'bg-brand-100 text-white shadow-sm'
-                      : 'text-neutral-600 hover:bg-neutral-50 hover:text-brand-700',
-                  ].join(' ')
-                }
-              >
-                <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {items.map(item => {
+              const isExpanded = expandedItems.includes(item.to) ||
+                Boolean(item.children?.some(child => location.pathname === child.to));
+              const itemClass = 'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200';
+              const activeClass = 'bg-brand-100 text-white shadow-sm';
+              const inactiveClass = 'text-neutral-600 hover:bg-neutral-50 hover:text-brand-700';
+
+              return (
+                <div key={item.to}>
+                  {item.children ? (
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      aria-controls={`sidebar-submenu-${item.to.replaceAll('/', '-')}`}
+                      onClick={() => setExpandedItems(current =>
+                        current.includes(item.to)
+                          ? current.filter(path => path !== item.to)
+                          : [...current, item.to],
+                      )}
+                      className={`${itemClass} w-full ${item.children.some(child => location.pathname === child.to) ? activeClass : inactiveClass}`}
+                    >
+                      <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.032l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
+                      className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}
+                    >
+                      <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </NavLink>
+                  )}
+                  {item.children && isExpanded && (
+                    <div id={`sidebar-submenu-${item.to.replaceAll('/', '-')}`} className="mt-1 space-y-1">
+                      {item.children.map(child => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          className={({ isActive }) =>
+                            `ml-8 block rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                              isActive ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-50 hover:text-brand-700'
+                            }`
+                          }
+                        >
+                          {child.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
         </div>
 
@@ -145,12 +189,7 @@ export function DashboardHeader({
         {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
-        <button type="button" className="relative w-11 h-11 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-brand-50 transition-colors flex items-center justify-center text-neutral-600">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
-          </svg>
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 border-2 border-white" />
-        </button>
+        {(user?.role === 'ADMIN' || user?.role === 'PLATFORM_ADMIN') && <AdminNotificationBell />}
         <div className="flex items-center gap-3 pl-3 border-l border-neutral-200">
           <div className="w-11 h-11 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-black shadow-sm ring-4 ring-white">
             {initials}

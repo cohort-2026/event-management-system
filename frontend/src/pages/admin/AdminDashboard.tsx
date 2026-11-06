@@ -92,8 +92,24 @@ export default function AdminDashboard() {
           subtitle="Governance"
           items={[
             { label: 'Overview', to: '/admin', icon: <CalIcon /> },
-            { label: 'Approval queue', to: '/admin/approvals', icon: <ClockIcon /> },
-            { label: 'User management', to: '/admin/users', icon: <UsersIcon /> },
+            {
+              label: 'User management',
+              to: '/admin/users',
+              icon: <UsersIcon />,
+              children: [
+                { label: 'ORGANIZER PROFILE AWAITING APPROVAL', to: '/admin/users/organizers/pending' },
+                { label: 'VENDOR PROFILES AWAITING APPROVAL', to: '/admin/users/vendors/pending' },
+              ],
+            },
+            {
+              label: 'User accounts',
+              to: '/admin/user-accounts',
+              icon: <UsersIcon />,
+              children: [
+                { label: 'ORGANIZER PROFILES', to: '/admin/users/organizers' },
+                { label: 'VENDOR PROFILES', to: '/admin/users/vendors' },
+              ],
+            },
           ]}
         />
 
@@ -110,8 +126,7 @@ export default function AdminDashboard() {
               <p className="text-neutral-500 mt-1">Platform overview and pending actions.</p>
             </div>
             <div className="flex gap-2">
-              <Link to="/admin/approvals"><Button variant="secondary">Approval queue</Button></Link>
-              <Link to="/admin/users"><Button>Manage users</Button></Link>
+              <Link to="/admin/users"><Button>User management</Button></Link>
             </div>
           </div> */}
 
@@ -176,9 +191,13 @@ export default function AdminDashboard() {
               </div>
 
               <div className="mt-6">
-                <Link to="/admin/approvals" className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-black text-white hover:bg-brand-700 transition-colors">
-                  Review approvals
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <Link
+                  to="/admin/approvals"
+                  aria-label="Review pending approvals"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold !text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                >
+                  <span className="text-white">Review approvals</span>
+                  <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                 </Link>

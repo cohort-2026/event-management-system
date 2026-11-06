@@ -1,6 +1,6 @@
 export type UserRole = 'ATTENDEE' | 'VENDOR' | 'ORGANIZER' | 'ADMIN' | 'PLATFORM_ADMIN' | 'MANAGEMENT';
 export type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
-export type ProfileApprovalStatus = 'PENDING_APPROVAL' | 'APPROVED';
+export type ProfileApprovalStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export interface User {
   id: string;
@@ -15,6 +15,7 @@ export interface User {
   organizationDescription?: string | null;
   phone?: string | null;
   profileApprovalStatus?: ProfileApprovalStatus;
+  vendorProfileStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 }
 
 export interface CreateUserDto {

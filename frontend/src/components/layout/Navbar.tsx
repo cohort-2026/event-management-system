@@ -16,7 +16,7 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
   ADMIN: [
     { label: "Events", to: "/events" },
     { label: "Admin", to: "/admin" },
-    { label: "Vendor Reviews", to: "/admin/vendors" },
+    { label: "User management", to: "/admin/users" },
   ],
   PLATFORM_ADMIN: [{ label: "Settings", to: "/platform-admin/settings" }],
   MANAGEMENT: [{ label: "Reports", to: "/management/reports" }],

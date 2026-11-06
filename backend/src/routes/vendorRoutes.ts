@@ -1,11 +1,12 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
-import { requireAuth, requireRole } from '@/middleware/auth';
+import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
 import { config } from '@/config/index';
 import { maxVendorDocuments, parseVendorPdf } from '@/middleware/vendorDocumentUpload';
+import { notifyAdmins } from '@/services/notificationService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -16,12 +17,6 @@ interface VendorDocumentRecord {
 	storageName: string;
 	sizeBytes: number;
 	createdAt: Date;
-}
-
-interface VendorProfileRecord extends VendorProfileInput {
-	id: string;
-	createdAt: Date;
-	updatedAt: Date;
 }
 
 const profileColumns = `
@@ -35,6 +30,7 @@ const profileColumns = `
 	"products_services" AS "productsServices",
 	"supporting_document_urls" AS "supportingDocumentUrls",
 	"status",
+	"rejection_reason" AS "rejectionReason",
 	"created_at" AS "createdAt",
 	"updated_at" AS "updatedAt"
 `;
@@ -49,6 +45,14 @@ type VendorProfileInput = {
 	productsServices: string[];
 	supportingDocumentUrls: string[];
 };
+
+interface VendorProfileRecord extends VendorProfileInput {
+	id: string;
+	status: VendorProfileStatus;
+	rejectionReason: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+}
 
 const routeId = (value: string | string[] | undefined): string => typeof value === 'string' ? value : '';
 
@@ -158,8 +162,14 @@ router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 
 	const { data, errors } = validateProfile(req.body);
 	if (!data) return res.status(400).json({ success: false, message: 'Check the highlighted profile fields', errors });
+	const submitForReview = req.body?.submitForReview === true;
 
-	const [profile] = await prisma.$queryRaw<VendorProfileRecord[]>`
+	const profile = await prisma.$transaction(async transaction => {
+		const current = await transaction.vendorProfile.findUnique({
+			where: { userId },
+			select: { status: true },
+		});
+		const [updatedProfile] = await transaction.$queryRaw<VendorProfileRecord[]>`
 		INSERT INTO "vendor_profiles" (
 			"id", "user_id", "business_name", "business_description", "business_registration_number",
 			"contact_person", "contact_email", "contact_phone", "products_services",
@@ -178,10 +188,38 @@ router.put('/profile', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			"contact_phone" = EXCLUDED."contact_phone",
 			"products_services" = EXCLUDED."products_services",
 			"supporting_document_urls" = EXCLUDED."supporting_document_urls",
+			"status" = CASE
+				WHEN ${submitForReview} AND "vendor_profiles"."status" = 'REJECTED'
+					THEN 'PENDING_REVIEW'::"VendorProfileStatus"
+				ELSE "vendor_profiles"."status"
+			END,
+			"rejection_reason" = CASE
+				WHEN ${submitForReview} AND "vendor_profiles"."status" = 'REJECTED' THEN NULL
+				ELSE "vendor_profiles"."rejection_reason"
+			END,
+			"reviewed_at" = CASE
+				WHEN ${submitForReview} AND "vendor_profiles"."status" = 'REJECTED' THEN NULL
+				ELSE "vendor_profiles"."reviewed_at"
+			END,
 			"updated_at" = NOW()
 		RETURNING ${Prisma.raw(profileColumns)}
-	`;
-	return res.json({ success: true, data: profile });
+		`;
+		if (submitForReview && current?.status === VendorProfileStatus.REJECTED) {
+			await notifyAdmins(transaction, {
+				title: 'Vendor profile resubmitted',
+				message: `${data.businessName} resubmitted its vendor profile for review.`,
+				link: '/admin/users/vendors/pending',
+			});
+		}
+		return updatedProfile;
+	});
+	return res.json({
+		success: true,
+		data: profile,
+		message: profile.status === VendorProfileStatus.PENDING_REVIEW && submitForReview
+			? 'Business profile submitted for review.'
+			: 'Business profile saved.',
+	});
 });
 
 router.post('/documents', requireAuth, requireRole('VENDOR'), parseVendorPdf, async (req, res, next) => {
@@ -243,9 +281,9 @@ router.get('/documents', requireAuth, requireRole('VENDOR'), async (req, res) =>
 	return res.json({ success: true, data: documents });
 });
 
-router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (_req, res) => {
+const listAdminVendorProfiles = (status: VendorProfileStatus) => async (_req: Request, res: Response) => {
 	const profiles = await prisma.vendorProfile.findMany({
-		where: { status: VendorProfileStatus.PENDING_REVIEW },
+		where: { status },
 		include: {
 			user: {
 				select: {
@@ -253,6 +291,7 @@ router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFOR
 					firstname: true,
 					lastname: true,
 					email: true,
+					isActive: true,
 					createdAt: true,
 					vendorDocuments: {
 						orderBy: { createdAt: 'asc' },
@@ -264,6 +303,82 @@ router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFOR
 		orderBy: { createdAt: 'asc' },
 	});
 	return res.json({ success: true, data: profiles });
+};
+
+router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listAdminVendorProfiles(VendorProfileStatus.PENDING_REVIEW));
+router.get('/admin/profiles/approved', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listAdminVendorProfiles(VendorProfileStatus.APPROVED));
+
+router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+	const profileId = routeId(req.params.id);
+	if (!profileId) return res.status(400).json({ success: false, message: 'A valid vendor profile ID is required' });
+
+	const deleted = await prisma.$transaction(async transaction => {
+		const profile = await transaction.vendorProfile.findFirst({
+			where: { id: profileId, status: VendorProfileStatus.APPROVED },
+			select: { id: true, userId: true },
+		});
+		if (!profile) return false;
+
+		const events = await transaction.event.findMany({ where: { organizerId: profile.userId }, select: { id: true } });
+		const eventIds = events.map(event => event.id);
+		const bookings = await transaction.booking.findMany({
+			where: {
+				OR: [
+					{ attendeeId: profile.userId },
+					...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+				],
+			},
+			select: { id: true },
+		});
+		const bookingIds = bookings.map(booking => booking.id);
+		const applications = await transaction.vendorApplication.findMany({
+			where: {
+				OR: [
+					{ vendorId: profile.userId },
+					...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+				],
+			},
+			select: { id: true },
+		});
+		const applicationIds = applications.map(application => application.id);
+
+		await transaction.ticket.deleteMany({
+			where: {
+				OR: [
+					{ holderId: profile.userId },
+					...(bookingIds.length ? [{ bookingId: { in: bookingIds } }] : []),
+					...(eventIds.length ? [{ eventId: { in: eventIds } }] : []),
+				],
+			},
+		});
+		if (bookingIds.length) {
+			await transaction.payment.deleteMany({ where: { bookingId: { in: bookingIds } } });
+			await transaction.booking.deleteMany({ where: { id: { in: bookingIds } } });
+		}
+		if (applicationIds.length) {
+			await transaction.vendorStaffMember.deleteMany({ where: { applicationId: { in: applicationIds } } });
+			await transaction.vendorApplication.deleteMany({ where: { id: { in: applicationIds } } });
+		}
+		if (eventIds.length) {
+			await transaction.event.deleteMany({ where: { id: { in: eventIds } } });
+		}
+		await transaction.auditLog.deleteMany({
+			where: { OR: [{ actorId: profile.userId }, { affectedUserId: profile.userId }] },
+		});
+		await transaction.user.delete({ where: { id: profile.userId } });
+		await transaction.auditLog.create({
+			data: {
+				actorId: req.user!.id,
+				affectedUserId: profile.userId,
+				action: 'VENDOR_ACCOUNT_DELETED',
+				outcome: 'permanently_deleted',
+			},
+		});
+		return true;
+	});
+
+	if (!deleted) return res.status(404).json({ success: false, message: 'Approved vendor profile not found' });
+	return res.json({ success: true, message: 'Vendor account and related records permanently deleted.' });
 });
 
 router.get('/admin/documents/:id/download', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res, next) => {
@@ -281,13 +396,21 @@ const reviewVendorProfile = async (
 	profileId: string,
 	status: 'APPROVED' | 'REJECTED',
 	adminId: string,
+	rejectionReason?: string,
 ): Promise<boolean> => prisma.$transaction(async transaction => {
 	const profile = await transaction.vendorProfile.findFirst({
 		where: { id: profileId, status: VendorProfileStatus.PENDING_REVIEW },
 		select: { id: true, userId: true },
 	});
 	if (!profile) return false;
-	await transaction.vendorProfile.update({ where: { id: profile.id }, data: { status, reviewedAt: new Date() } });
+	await transaction.vendorProfile.update({
+		where: { id: profile.id },
+		data: {
+			status,
+			rejectionReason: status === VendorProfileStatus.REJECTED ? rejectionReason : null,
+			reviewedAt: new Date(),
+		},
+	});
 	await transaction.auditLog.create({
 		data: {
 			actorId: adminId,
@@ -310,7 +433,11 @@ router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN', 'P
 router.patch('/admin/profiles/:id/reject', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
 	const id = routeId(req.params.id);
 	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
-	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.REJECTED, req.user!.id);
+	const rejectionReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+	if (rejectionReason.length < 10 || rejectionReason.length > 2000) {
+		return res.status(400).json({ success: false, message: 'Rejection feedback must be between 10 and 2000 characters.' });
+	}
+	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.REJECTED, req.user!.id, rejectionReason);
 	if (!reviewed) return res.status(404).json({ success: false, message: 'Pending vendor profile not found' });
 	return res.json({ success: true, message: 'Vendor profile rejected.' });
 });
@@ -355,8 +482,24 @@ router.delete('/documents/:id', requireAuth, requireRole('VENDOR'), async (req, 
 router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const userId = req.user?.id;
 	const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim() : '';
+	const requestedStandType = typeof req.body?.requestedStandType === 'string' ? req.body.requestedStandType.trim() : '';
+	const requestedStandSize = typeof req.body?.requestedStandSize === 'string' ? req.body.requestedStandSize.trim() : '';
+	const standDescription = typeof req.body?.standDescription === 'string' ? req.body.standDescription.trim() : '';
+	const supportingInformation = typeof req.body?.supportingInformation === 'string' ? req.body.supportingInformation.trim() : '';
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 	if (!eventId || eventId.length > 64) return res.status(400).json({ success: false, message: 'A valid event is required' });
+	if (requestedStandType.length < 2 || requestedStandType.length > 80) {
+		return res.status(400).json({ success: false, message: 'Stand type must be between 2 and 80 characters' });
+	}
+	if (requestedStandSize.length < 2 || requestedStandSize.length > 80) {
+		return res.status(400).json({ success: false, message: 'Stand size must be between 2 and 80 characters' });
+	}
+	if (standDescription.length < 10 || standDescription.length > 2000) {
+		return res.status(400).json({ success: false, message: 'Stand details must be between 10 and 2000 characters' });
+	}
+	if (supportingInformation.length > 2000) {
+		return res.status(400).json({ success: false, message: 'Supporting information must be no more than 2000 characters' });
+	}
 
 	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true } });
 	if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
@@ -396,6 +539,10 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			companyName: profile.businessName,
 			registrationNumber: profile.businessRegistrationNumber,
 			description: profile.businessDescription || profile.productsServices.join(', ') || profile.businessName,
+			requestedStandType,
+			requestedStandSize,
+			standDescription,
+			supportingInformation: supportingInformation || null,
 		},
 	});
 	return res.status(201).json({ success: true, data: application });
@@ -439,9 +586,92 @@ router.get('/staff', requireAuth, requireRole('VENDOR'), async (req, res) => {
 
 router.post('/:id/staff',       requireAuth, requireRole('VENDOR'), (_req, res) => res.sendStatus(501));
 
-// PATCH /api/vendors/:id/approve      Approve a vendor application (Organizer of that event)
-// PATCH /api/vendors/:id/reject       Reject a vendor application (Organizer of that event)
-router.patch('/:id/approve',    requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
-router.patch('/:id/reject',     requireAuth, requireRole('ORGANIZER'), (_req, res) => res.sendStatus(501));
+type VendorApplicationDecision =
+	| { status: 'APPROVED'; assignedStand: string }
+	| { status: 'REJECTED'; rejectionReason: string };
+
+const decideVendorApplication = async (
+	req: Request,
+	res: Response,
+	decision: VendorApplicationDecision,
+): Promise<Response> => {
+	const userId = req.user?.id;
+	const applicationId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+	if (!applicationId) return res.status(400).json({ success: false, message: 'A valid stand request ID is required' });
+
+	const application = await prisma.vendorApplication.findUnique({
+		where: { id: applicationId },
+		select: {
+			id: true,
+			status: true,
+			event: { select: { title: true, organizerId: true } },
+		},
+	});
+	if (!application) return res.status(404).json({ success: false, message: 'Stand request not found' });
+	if (application.event.organizerId !== userId) {
+		return res.status(403).json({ success: false, message: 'You can only review requests for events you organize' });
+	}
+	if (application.status !== 'PENDING_REVIEW') {
+		return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+	}
+
+	const decidedAt = new Date();
+	try {
+		const updated = await prisma.$transaction(async transaction => {
+			const result = await transaction.vendorApplication.updateMany({
+				where: { id: applicationId, status: 'PENDING_REVIEW' },
+				data: {
+					status: decision.status,
+					assignedStand: decision.status === 'APPROVED' ? decision.assignedStand : null,
+					decidedById: userId,
+					decidedAt,
+					rejectionReason: decision.status === 'REJECTED' ? decision.rejectionReason : null,
+				},
+			});
+			if (result.count !== 1) return false;
+
+			const message = decision.status === 'APPROVED'
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Contact the organizer if you need help preparing for the event.`
+				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
+			await transaction.notification.create({
+				data: {
+					recipientId: (await transaction.vendorApplication.findUniqueOrThrow({
+						where: { id: applicationId },
+						select: { vendorId: true },
+					})).vendorId,
+					title: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request needs changes',
+					message,
+					link: '/vendor/applications',
+				},
+			});
+			return true;
+		});
+
+		if (!updated) return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+		return res.json({ success: true, message: decision.status === 'APPROVED' ? 'Stand request approved' : 'Stand request rejected' });
+	} catch (error) {
+		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+			return res.status(409).json({ success: false, message: 'That stand is already assigned for this event' });
+		}
+		throw error;
+	}
+};
+
+router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
+	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';
+	if (assignedStand.length < 1 || assignedStand.length > 80) {
+		return res.status(400).json({ success: false, message: 'Assigned stand must be between 1 and 80 characters' });
+	}
+	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand });
+});
+
+router.patch('/:id/reject', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
+	const rejectionReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+	if (rejectionReason.length < 5 || rejectionReason.length > 1000) {
+		return res.status(400).json({ success: false, message: 'A rejection reason between 5 and 1000 characters is required' });
+	}
+	return decideVendorApplication(req, res, { status: 'REJECTED', rejectionReason });
+});
 
 export default router;

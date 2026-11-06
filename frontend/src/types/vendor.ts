@@ -11,6 +11,7 @@ export interface VendorProfile {
   productsServices: string[];
   supportingDocumentUrls: string[];
   status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -22,12 +23,13 @@ export interface PendingVendorProfile extends VendorProfile {
     firstname: string;
     lastname: string;
     email: string;
+    isActive: boolean;
     createdAt: string;
     vendorDocuments: VendorDocument[];
   };
 }
 
-export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
+export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'rejectionReason' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
 
 export interface VendorApplication {
   id: string;
@@ -36,9 +38,38 @@ export interface VendorApplication {
   companyName: string;
   registrationNumber: string;
   description: string;
+  requestedStandType: string;
+  requestedStandSize: string;
+  standDescription: string;
+  supportingInformation?: string | null;
+  assignedStand?: string | null;
   status: VendorApplicationStatus;
+  decidedById?: string | null;
+  decidedAt?: string | null;
+  rejectionReason?: string | null;
   invoiceId?: string;
   createdAt: string;
+  vendor?: {
+    id: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+    vendorProfile?: {
+      businessName: string;
+      businessDescription: string;
+      businessRegistrationNumber: string;
+      contactPerson: string;
+      contactEmail: string;
+      contactPhone: string;
+      productsServices: string[];
+      supportingDocumentUrls: string[];
+      logoUrl: string | null;
+    } | null;
+  };
+  decidedBy?: {
+    firstname: string;
+    lastname: string;
+  } | null;
   event?: {
     id: string;
     title: string;
@@ -74,5 +105,8 @@ export interface VendorDocument {
   createdAt: string;
 }
 
-export type CreateVendorApplicationDto = Pick<VendorApplication, 'eventId'>;
+export type CreateVendorApplicationDto = Pick<
+  VendorApplication,
+  'eventId' | 'requestedStandType' | 'requestedStandSize' | 'standDescription' | 'supportingInformation'
+>;
 export type AddStaffMemberDto = Pick<VendorStaffMember, 'name' | 'email'>;

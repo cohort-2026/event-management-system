@@ -84,6 +84,7 @@ enum VendorProfileStatus {
 enum ProfileApprovalStatus {
   PENDING_APPROVAL
   APPROVED
+  REJECTED
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────────
@@ -108,14 +109,17 @@ model User {
   bookings            Booking[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
+  vendorApplicationDecisions VendorApplication[] @relation("VendorApplicationDecider")
   vendorProfile       VendorProfile?
   vendorDocuments     VendorDocument[]
   auditEvents         AuditLog[] @relation("AuditActor")
+  notifications       Notification[] @relation("NotificationRecipient")
   organizationName   String? @map("organization_name")
   organizationDescription String? @map("organization_description")
   organization       String?
   phone              String?
   profileApprovalStatus ProfileApprovalStatus @default(PENDING_APPROVAL) @map("profile_approval_status")
+  profileRejectionReason String? @map("profile_rejection_reason")
 
   @@map("users")
 }
@@ -132,6 +136,20 @@ model AuditLog {
   @@index([createdAt])
   @@index([action])
   @@map("audit_logs")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @map("recipient_id")
+  title       String
+  message     String
+  link        String
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  recipient   User     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
+  @@map("notifications")
 }
 
 model EmailVerification {
@@ -277,7 +295,15 @@ model VendorApplication {
   companyName        String                  @map("company_name")
   registrationNumber String                  @map("registration_number")
   description        String
+  requestedStandType String                  @map("requested_stand_type")
+  requestedStandSize String                  @map("requested_stand_size")
+  standDescription   String                  @map("stand_description")
+  supportingInformation String?               @map("supporting_information")
+  assignedStand      String?                 @map("assigned_stand")
   status             VendorApplicationStatus @default(PENDING_REVIEW)
+  decidedById        String?                 @map("decided_by_id")
+  decidedAt          DateTime?               @map("decided_at")
+  rejectionReason    String?                 @map("rejection_reason")
   invoiceId          String?                 @map("invoice_id")
   createdAt          DateTime                @default(now()) @map("created_at")
 
@@ -286,8 +312,10 @@ model VendorApplication {
   event       Event             @relation(fields: [eventId], references: [id])
   vendorId    String            @map("vendor_id")
   vendor      User              @relation(fields: [vendorId], references: [id])
+  decidedBy   User?             @relation("VendorApplicationDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   staffMembers VendorStaffMember[]
 
+  @@index([eventId, status])
   @@map("vendor_applications")
 }
 
@@ -304,6 +332,7 @@ model VendorProfile {
   logoUrl                  String?  @map("logo_url")
   supportingDocumentUrls   String[] @default([]) @map("supporting_document_urls")
   status                   VendorProfileStatus @default(APPROVED)
+  rejectionReason          String?  @map("rejection_reason")
   reviewedAt               DateTime? @map("reviewed_at")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
