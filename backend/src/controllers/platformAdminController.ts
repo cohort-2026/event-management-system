@@ -43,6 +43,7 @@ export const createAdmin = async (req: Request, res: Response, next: NextFunctio
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
     const created = await prisma.$transaction(async transaction => {
       const admin = await transaction.user.create({
+        
         data: {
           firstname,
           lastname,
