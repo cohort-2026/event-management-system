@@ -11,6 +11,12 @@ const MAX_CAPACITY = 1_000_000;
 const MAX_TICKETS = 20;
 const MAX_PRICE = 99_999_999.99;
 const ALLOWED_EVENT_TYPES: EventType[] = ['IN_PERSON', 'ONLINE', 'HYBRID'];
+const ALLOWED_EVENT_CATEGORIES = ['Networking', 'Workshop', 'Training', 'Campany Activities', 'other'];
+const PUBLISHABLE_EVENT_STATUSES: EventStatus[] = [
+  EventStatus.DRAFT,
+  EventStatus.REJECTED,
+  EventStatus.PENDING_APPROVAL,
+];
 
 interface TicketInput {
   name: string;
@@ -27,6 +33,7 @@ interface EventInput {
   eventType: EventType;
   meetingDetails: string | null;
   bannerImageUrl: string | null;
+  vendorStandsAvailable: number;
   startTime: Date;
   endTime: Date;
   capacity: number;
@@ -54,7 +61,8 @@ const parseEventInput = (body: Record<string, unknown>):
   { value: EventInput; error?: never } | { value?: never; error: string } => {
   const title = text(body.title);
   const description = text(body.description);
-  const category = text(body.category);
+  const categorySelection = text(body.category);
+  const categoryOther = text(body.categoryOther);
   const eventType = body.eventType;
   const venue = text(body.venue);
   const meetingDetails = text(body.meetingDetails);
@@ -62,11 +70,22 @@ const parseEventInput = (body: Record<string, unknown>):
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
   const capacity = body.capacity;
+  const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
   if (description.length < 20 || description.length > 5000) return { error: 'Event description must be between 20 and 5000 characters' };
-  if (category.length < 2 || category.length > 80) return { error: 'Event category must be between 2 and 80 characters' };
+  if (!ALLOWED_EVENT_CATEGORIES.includes(categorySelection)) {
+    return { error: 'Choose a category from the available options' };
+  }
+  if (categorySelection === 'other') {
+    if (typeof body.categoryOther !== 'string' || categoryOther.length < 2 || categoryOther.length > 80) {
+      return { error: 'Enter an other category between 2 and 80 characters' };
+    }
+  } else if (body.categoryOther !== undefined && categoryOther) {
+    return { error: 'Custom category text is only allowed when other is selected' };
+  }
+  const category = categorySelection === 'other' ? categoryOther : categorySelection;
   if (typeof eventType !== 'string' || !ALLOWED_EVENT_TYPES.includes(eventType as EventType)) {
     return { error: 'Choose a valid event type' };
   }
@@ -79,6 +98,10 @@ const parseEventInput = (body: Record<string, unknown>):
   }
   if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { error: `Event capacity must be a whole number between 1 and ${MAX_CAPACITY}` };
+  }
+  if (typeof vendorStandsAvailable !== 'number' || !Number.isInteger(vendorStandsAvailable) ||
+      vendorStandsAvailable < 0 || vendorStandsAvailable > MAX_CAPACITY) {
+    return { error: `Available vendor stands must be a whole number between 0 and ${MAX_CAPACITY}` };
   }
   if (!Array.isArray(ticketTypesInput) || ticketTypesInput.length < 1 || ticketTypesInput.length > MAX_TICKETS) {
     return { error: `Add between 1 and ${MAX_TICKETS} ticket types` };
@@ -157,6 +180,7 @@ const parseEventInput = (body: Record<string, unknown>):
       eventType: normalizedEventType,
       meetingDetails: meetingDetails || null,
       bannerImageUrl,
+      vendorStandsAvailable,
       startTime,
       endTime,
       capacity,
@@ -237,6 +261,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         eventType: data.eventType,
         meetingDetails: data.meetingDetails,
         bannerImageUrl: data.bannerImageUrl,
+        vendorStandsAvailable: data.vendorStandsAvailable,
         capacity: data.capacity,
         availableCapacity: data.capacity,
         isFree: data.isFree,
@@ -322,6 +347,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
           eventType: data.eventType,
           meetingDetails: data.meetingDetails,
           bannerImageUrl: data.bannerImageUrl,
+          vendorStandsAvailable: data.vendorStandsAvailable,
           capacity: data.capacity,
           availableCapacity: data.capacity - activeBookingCount,
           isFree: data.isFree,
@@ -398,7 +424,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
       where: {
         id: eventId,
         organizerId: req.user!.id,
-        status: { in: [EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL] },
+        status: { in: PUBLISHABLE_EVENT_STATUSES },
         startTime: { gt: new Date() },
         endTime: { gt: new Date() },
       },
@@ -411,7 +437,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
       });
       if (!event) {
         res.status(404).json({ success: false, message: 'Event not found' });
-      } else if (![EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL].includes(event.status)) {
+      } else if (!PUBLISHABLE_EVENT_STATUSES.includes(event.status)) {
         res.status(409).json({ success: false, message: 'Only draft or pending events can be published' });
       } else {
         res.status(400).json({ success: false, message: 'Past events cannot be published' });

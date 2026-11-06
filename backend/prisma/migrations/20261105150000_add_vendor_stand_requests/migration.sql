@@ -1,7 +1,7 @@
 ALTER TABLE "vendor_applications"
 ADD COLUMN "requested_stand_type" TEXT NOT NULL DEFAULT 'Standard',
 ADD COLUMN "requested_stand_size" TEXT NOT NULL DEFAULT 'Not specified',
-ADD COLUMN "stand_description" TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS "stand_description" TEXT NOT NULL DEFAULT '',
 ADD COLUMN "supporting_information" TEXT,
 ADD COLUMN "assigned_stand" TEXT,
 ADD COLUMN "decided_by_id" TEXT,

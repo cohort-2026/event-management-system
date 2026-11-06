@@ -19,10 +19,11 @@ export default function VendorDashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6">
         <DashboardSidebar
           title="Vendor"
           subtitle="Operations"
+          appearance="analytics"
           items={[
             { label: 'Overview', to: '/vendor', icon: <DocIcon /> },
             { label: 'Business profile', to: '/vendor/profile', icon: <UsersIcon /> },
@@ -37,6 +38,7 @@ export default function VendorDashboard() {
             title="Vendor Dashboard"
             subtitle="Overview of your event stand activity"
             breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }]}
+            appearance="analytics"
           />
 
           {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -55,12 +57,12 @@ export default function VendorDashboard() {
           </div> */}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <StatCard label="Total applications" value={3}  icon={<DocIcon />}   color="brand"   />
-            <StatCard label="Approved"           value={1}  icon={<CheckIcon />} color="emerald" />
-            <StatCard label="Pending review"     value={1}  icon={<ClockIcon />} color="amber"   />
+            <StatCard label="Total applications" value={3}  icon={<DocIcon />}   color="brand" appearance="analytics" />
+            <StatCard label="Approved"           value={1}  icon={<CheckIcon />} color="emerald" appearance="analytics" />
+            <StatCard label="Pending review"     value={1}  icon={<ClockIcon />} color="amber" appearance="analytics" />
           </div>
 
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+          <div className="dashboard-panel overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
               <h2 className="font-semibold text-neutral-900">My Applications</h2>
               <Link to="/vendor/applications" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>

@@ -1,6 +1,6 @@
 import api from '@/services/api';
 
-export interface AdminNotification {
+export interface AppNotification {
   id: string;
   title: string;
   message: string;
@@ -9,11 +9,11 @@ export interface AdminNotification {
   createdAt: string;
 }
 
-export const getAdminNotifications = () =>
-  api.get<{ success: boolean; data: AdminNotification[]; unreadCount: number }>('/notifications');
+export const getNotifications = () =>
+  api.get<{ success: boolean; data: AppNotification[]; unreadCount: number }>('/notifications');
 
-export const markAdminNotificationRead = (id: string) =>
+export const markNotificationRead = (id: string) =>
   api.patch<{ success: boolean; message: string }>(`/notifications/${encodeURIComponent(id)}/read`);
 
-export const markAllAdminNotificationsRead = () =>
+export const markAllNotificationsRead = () =>
   api.patch<{ success: boolean; message: string }>('/notifications/read-all');

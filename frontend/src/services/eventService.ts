@@ -25,6 +25,13 @@ export const getManagedEvent = (id: string)                          => api.get<
 export const getMyEvents     = ()                                    => api.get<ApiResponse<Event[]>>('/events/mine');
 export const getPendingEvents = ()                                   => api.get<ApiResponse<Event[]>>('/events/admin/approval-queue');
 export const getAdminEventAnalytics = ()                             => api.get<ApiResponse<AdminEventAnalytics>>('/events/admin/analytics');
+export const uploadEventBanner = (file: File) => {
+  const formData = new FormData();
+  formData.append('banner', file);
+  return api.post<ApiResponse<{ url: string }>>('/events/banner-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 export const createEvent     = (data: CreateEventDto)                => api.post<ApiResponse<Event>>('/events', data);
 export const updateEvent     = (id: string, data: UpdateEventDto)    => api.put<ApiResponse<Event>>(`/events/${id}`, data);
 export const deleteEvent     = (id: string)                          => api.delete(`/events/${id}`);
