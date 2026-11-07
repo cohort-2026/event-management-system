@@ -12,6 +12,7 @@ UPDATE "vendor_applications"
 SET "stand_description" = "description";
 
 ALTER TABLE "vendor_applications"
+ALTER COLUMN "stand_description" DROP DEFAULT,
 ALTER COLUMN "requested_stand_type" DROP DEFAULT,
 ALTER COLUMN "requested_stand_size" DROP DEFAULT;
 
