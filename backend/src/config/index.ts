@@ -59,4 +59,5 @@ export const config = {
   platformAdminLastname: process.env.PLATFORM_ADMIN_LASTNAME?.trim() || undefined,
   platformAdminInitialPassword: process.env.PLATFORM_ADMIN_INITIAL_PASSWORD || undefined,
   vendorDocumentsDir: process.env.VENDOR_DOCUMENTS_DIR || path.resolve(__dirname, '../../private_uploads/vendor-documents'),
+  eventBannersDir: process.env.EVENT_BANNERS_DIR || path.resolve(__dirname, '../../public_uploads/event-banners'),
 };

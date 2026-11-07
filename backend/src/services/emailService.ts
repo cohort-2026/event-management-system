@@ -96,3 +96,35 @@ export const sendEventCancellationNotification = async (email: string, eventTitl
     text: `The event "${eventTitle}" has been cancelled by its organizer.`,
   });
 };
+
+export const sendVendorStandInvoice = async (details: {
+  email: string;
+  firstname: string;
+  eventTitle: string;
+  invoiceNumber: string;
+  amount: number;
+  dueAt: Date;
+  assignedStand: string;
+  requestedStandSize: string;
+  areaSqm: number;
+  ratePerSqm: number;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `EventMS stand invoice ${details.invoiceNumber}`,
+    text: [
+      `Hello ${details.firstname},`,
+      '',
+      `Your stand application for "${details.eventTitle}" has been approved.`,
+      `Assigned stand: ${details.assignedStand}`,
+      `Requested size: ${details.requestedStandSize} (${details.areaSqm.toFixed(2)} m²)`,
+      `Rate: ZAR ${details.ratePerSqm.toFixed(2)} per m²`,
+      `Amount due: ZAR ${details.amount.toFixed(2)}`,
+      `Invoice number: ${details.invoiceNumber}`,
+      `Due date: ${details.dueAt.toLocaleDateString('en-ZA')}`,
+      '',
+      'Please contact the event organizer for payment instructions.',
+    ].join('\n'),
+  });
+};

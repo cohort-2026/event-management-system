@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { notifyAdmins } from '@/services/notificationService';
 
 const prisma = new PrismaClient();
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ORGANIZER_PROFILE_SELECT = {
   id: true,
@@ -10,6 +11,8 @@ const ORGANIZER_PROFILE_SELECT = {
   lastname: true,
   email: true,
   organizationName: true,
+  organizationEmail: true,
+  organizationRegistrationNumber: true,
   organizationDescription: true,
   phone: true,
   profileApprovalStatus: true,
@@ -20,8 +23,9 @@ interface OrganizerProfileInput {
   firstname: string;
   lastname: string;
   organizationName: string;
-  organizationDescription: string | null;
-  phone: string | null;
+  organizationEmail: string;
+  organizationRegistrationNumber: string;
+  phone: string;
 }
 
 function validateProfile(body: unknown): { data?: OrganizerProfileInput; errors: Record<string, string> } {
@@ -31,13 +35,17 @@ function validateProfile(body: unknown): { data?: OrganizerProfileInput; errors:
   const firstname = typeof input.firstname === 'string' ? input.firstname.trim() : '';
   const lastname = typeof input.lastname === 'string' ? input.lastname.trim() : '';
   const organizationName = typeof input.organizationName === 'string' ? input.organizationName.trim() : '';
-  const organizationDescription = typeof input.organizationDescription === 'string'
-    ? input.organizationDescription.trim()
+  const organizationEmail = typeof input.organizationEmail === 'string' ? input.organizationEmail.trim().toLowerCase() : '';
+  const organizationRegistrationNumber = typeof input.organizationRegistrationNumber === 'string'
+    ? input.organizationRegistrationNumber
     : '';
   const phone = typeof input.phone === 'string' ? input.phone.trim() : '';
 
-  if (input.organizationDescription !== undefined && typeof input.organizationDescription !== 'string') {
-    errors.organizationDescription = 'Enter a valid description';
+  if (!EMAIL_REGEX.test(organizationEmail) || organizationEmail.length > 254) {
+    errors.organizationEmail = 'Enter a valid organization email address';
+  }
+  if (input.organizationRegistrationNumber !== undefined && typeof input.organizationRegistrationNumber !== 'string') {
+    errors.organizationRegistrationNumber = 'Enter a valid organization registration number';
   }
   if (input.phone !== undefined && typeof input.phone !== 'string') {
     errors.phone = 'Enter a valid phone number';
@@ -47,10 +55,14 @@ function validateProfile(body: unknown): { data?: OrganizerProfileInput; errors:
   if (organizationName.length < 2 || organizationName.length > 120) {
     errors.organizationName = 'Enter an organization name between 2 and 120 characters';
   }
-  if (organizationDescription.length > 500) errors.organizationDescription = 'Use 500 characters or fewer';
+  if (!/^\d{9}$/.test(organizationRegistrationNumber)) {
+    errors.organizationRegistrationNumber = 'Enter exactly 9 digits';
+  }
   if (
+    phone.length < 7 ||
     phone.length > 30 ||
-    (phone && (!/^\+?[0-9\s().-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7))
+    !/^\+?[0-9\s().-]+$/.test(phone) ||
+    phone.replace(/\D/g, '').length < 7
   ) {
     errors.phone = 'Enter a valid phone number with at least 7 digits';
   }
@@ -62,8 +74,9 @@ function validateProfile(body: unknown): { data?: OrganizerProfileInput; errors:
       firstname,
       lastname,
       organizationName,
-      organizationDescription: organizationDescription || null,
-      phone: phone || null,
+      organizationEmail,
+      organizationRegistrationNumber,
+      phone,
     },
   };
 }
@@ -106,7 +119,8 @@ export const updateOrganizerProfile = async (req: Request, res: Response, next: 
           firstname: true,
           lastname: true,
           organizationName: true,
-          organizationDescription: true,
+          organizationEmail: true,
+          organizationRegistrationNumber: true,
           phone: true,
           profileApprovalStatus: true,
         },
@@ -116,7 +130,8 @@ export const updateOrganizerProfile = async (req: Request, res: Response, next: 
       const changed = current.firstname !== data.firstname ||
         current.lastname !== data.lastname ||
         current.organizationName !== data.organizationName ||
-        current.organizationDescription !== data.organizationDescription ||
+        current.organizationEmail !== data.organizationEmail ||
+        current.organizationRegistrationNumber !== data.organizationRegistrationNumber ||
         current.phone !== data.phone;
 
       const profile = await transaction.user.update({
@@ -134,7 +149,10 @@ export const updateOrganizerProfile = async (req: Request, res: Response, next: 
         current.profileApprovalStatus !== 'PENDING_APPROVAL' ||
         !current.firstname.trim() ||
         !current.lastname.trim() ||
-        !current.organizationName?.trim()
+        !current.organizationName?.trim() ||
+        !current.organizationEmail?.trim() ||
+        !current.organizationRegistrationNumber?.trim() ||
+        !current.phone?.trim()
       );
       if (isNewRequest) {
         await notifyAdmins(transaction, {

@@ -65,8 +65,10 @@ export default function VendorApplications() {
     setNotice('');
     setApprovingId(applicationId);
     try {
-      await approveApplication(applicationId, assignedStand);
-      setNotice('Stand request approved and the stand assigned.');
+      const response = await approveApplication(applicationId, assignedStand);
+      setNotice(response.data.invoiceEmailSent === false
+        ? 'Stand approved and invoice issued. Email delivery failed; the vendor can view it in My Applications.'
+        : 'Stand approved, assigned, and invoiced.');
       await refresh();
     } catch (decisionError) {
       setError(responseMessage(decisionError, 'Stand request could not be approved.'));
@@ -166,6 +168,11 @@ export default function VendorApplications() {
                           <div><dt className="inline font-medium text-neutral-600">Type and size: </dt><dd className="inline text-neutral-800">{application.requestedStandType} · {application.requestedStandSize}</dd></div>
                           <div><dt className="font-medium text-neutral-600">Setup and requirements</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{application.standDescription}</dd></div>
                           <div><dt className="font-medium text-neutral-600">Additional information</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{application.supportingInformation || 'None provided'}</dd></div>
+                          <div><dt className="font-medium text-neutral-600">Area and estimated charge</dt><dd className="mt-1 text-neutral-800">{Number(application.standAreaSqm).toFixed(2)} m² × ZAR {Number(application.standRatePerSqm).toFixed(2)} = ZAR {Number(application.quotedAmount).toFixed(2)}</dd></div>
+                          <div>
+                            <dt className="font-medium text-neutral-600">Staff ({application.staffMembers?.length ?? 0})</dt>
+                            <dd className="mt-1 text-neutral-800">{application.staffMembers?.length ? application.staffMembers.map(member => `${member.name} (${member.email})`).join(', ') : 'None listed'}</dd>
+                          </div>
                         </dl>
                       </section>
                     </div>
@@ -177,7 +184,7 @@ export default function VendorApplications() {
                             Assign stand identifier
                             <input required maxLength={80} value={assignedStands[application.id] ?? ''} onChange={event => setAssignedStands(current => ({ ...current, [application.id]: event.target.value }))} placeholder="e.g. A-12" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                           </label>
-                          <Button type="submit" size="sm" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve and assign</Button>
+                          <Button type="submit" size="sm" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve, assign and invoice</Button>
                         </form>
                         <form className="space-y-3" onSubmit={event => void reject(event, application.id)}>
                           <label className="block text-sm font-medium text-neutral-700">

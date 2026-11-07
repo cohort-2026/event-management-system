@@ -11,6 +11,11 @@ const app = express();
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use('/uploads/event-banners', express.static(config.eventBannersDir, {
+  immutable: true,
+  maxAge: '1y',
+  index: false,
+}));
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, message: 'API is healthy' });

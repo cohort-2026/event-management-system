@@ -86,10 +86,11 @@ export default function AdminDashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6">
         <DashboardSidebar
           title="Admin"
           subtitle="Governance"
+          appearance="analytics"
           items={[
             { label: 'Overview', to: '/admin', icon: <CalIcon /> },
             {
@@ -118,6 +119,7 @@ export default function AdminDashboard() {
             title="Admin Dashboard"
             subtitle="Platform overview and pending actions"
             breadcrumbs={[{ label: 'Dashboard', to: '/admin' }]}
+            appearance="analytics"
           />
 
           {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -131,14 +133,14 @@ export default function AdminDashboard() {
           </div> */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total users"          value="1 284" icon={<UsersIcon />}  color="brand"   />
-            <StatCard label="Published events"     value={eventAnalytics?.statusCounts.find(({ status }) => status === 'PUBLISHED')?.count ?? 0} icon={<CalIcon />} color="emerald" />
-            <StatCard label="Pending approval"     value={pendingEvents.length} sub="requires action" icon={<ClockIcon />} color="amber" />
-            <StatCard label="Total registrations"  value="8 741" icon={<TicketIcon />} color="purple"  />
+            <StatCard label="Total users"          value="1 284" icon={<UsersIcon />}  color="brand" appearance="analytics" />
+            <StatCard label="Published events"     value={eventAnalytics?.statusCounts.find(({ status }) => status === 'PUBLISHED')?.count ?? 0} icon={<CalIcon />} color="emerald" appearance="analytics" />
+            <StatCard label="Pending approval"     value={pendingEvents.length} sub="requires action" icon={<ClockIcon />} color="amber" appearance="analytics" />
+            <StatCard label="Total registrations"  value="8 741" icon={<TicketIcon />} color="purple" appearance="analytics" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
+            <section className="dashboard-panel p-6">
               <div className="border-b border-neutral-100 pb-4">
                 <span className="text-[11px] font-black uppercase tracking-[0.22em] text-brand-700">Event overview</span>
                 <h2 className="text-xl font-black text-neutral-900 mt-1">Total events</h2>
@@ -151,7 +153,7 @@ export default function AdminDashboard() {
               )}
             </section>
 
-            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
+            <section className="dashboard-panel p-6">
               <div className="border-b border-neutral-100 pb-4">
                 <span className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">Approval overview</span>
                 <h2 className="text-xl font-black text-neutral-900 mt-1">Approved events</h2>
@@ -166,7 +168,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            <section className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6">
+            <section className="dashboard-panel p-6">
               <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-4">
                 <div>
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-500">Admin workflow</span>
@@ -206,7 +208,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+            <div className="dashboard-panel overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h2 className="font-semibold text-neutral-900">Pending Approvals</h2>
@@ -241,7 +243,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+            <div className="dashboard-panel overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
                 <h2 className="font-semibold text-neutral-900">Recent Registrations</h2>
                 <Link to="/admin/users" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>

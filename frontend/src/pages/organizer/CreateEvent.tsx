@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
-import { createEvent, getManagedEvent, publishEvent, updateEvent } from '@/services/eventService';
+import { createEvent, getManagedEvent, publishEvent, updateEvent, uploadEventBanner } from '@/services/eventService';
 import { getOrganizerProfile } from '@/services/organizerService';
 import type { CreateEventDto, Event, EventType } from '@/types/event';
 import type { ProfileApprovalStatus } from '@/types/user';
@@ -23,27 +23,39 @@ interface EventForm {
   title: string;
   description: string;
   category: string;
+  categoryOther: string;
   eventType: EventType;
   venue: string;
   meetingDetails: string;
   startTime: string;
   endTime: string;
   capacity: string;
+  vendorStandsAvailable: string;
   bannerImageUrl: string;
   ticketTypes: TicketForm[];
 }
 
 const EMPTY_TICKET: TicketForm = { name: 'General admission', description: '', price: '0', quantity: '' };
+const MAX_BANNER_IMAGE_BYTES = 5 * 1024 * 1024;
+const BANNER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const EVENT_CATEGORIES = [
+  'Networking', 'Workshop', 'Training', 'Campany Activities', 'other',
+];
+const TICKET_TYPE_OPTIONS = [
+  'General admission', 'VIP', 'Early bird', 'Student', 'Group or corporate',
+];
 const EMPTY_FORM: EventForm = {
   title: '',
   description: '',
   category: '',
+  categoryOther: '',
   eventType: 'IN_PERSON',
   venue: '',
   meetingDetails: '',
   startTime: '',
   endTime: '',
   capacity: '',
+  vendorStandsAvailable: '0',
   bannerImageUrl: '',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
@@ -59,13 +71,15 @@ const getApiError = (error: unknown, fallback: string): string =>
 const toForm = (event: Event): EventForm => ({
   title: event.title,
   description: event.description,
-  category: event.category,
+  category: EVENT_CATEGORIES.includes(event.category) ? event.category : 'other',
+  categoryOther: EVENT_CATEGORIES.includes(event.category) ? '' : event.category,
   eventType: event.eventType,
   venue: event.eventType === 'ONLINE' && event.venue === 'Online' ? '' : event.venue,
   meetingDetails: event.meetingDetails ?? '',
   startTime: asLocalDateTime(event.startTime),
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
+  vendorStandsAvailable: String(event.vendorStandsAvailable ?? 0),
   bannerImageUrl: event.bannerImageUrl ?? '',
   ticketTypes: event.ticketTypes.map(ticket => ({
     name: ticket.name,
@@ -80,6 +94,8 @@ export default function CreateEvent() {
   const navigate = useNavigate();
   const isEditing = Boolean(id);
   const [form, setForm] = useState<EventForm>(EMPTY_FORM);
+  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState('');
   const [existingEvent, setExistingEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(isEditing);
   const [loadingProfile, setLoadingProfile] = useState(!isEditing);
@@ -90,6 +106,16 @@ export default function CreateEvent() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [completed, setCompleted] = useState(false);
+
+  useEffect(() => {
+    if (!bannerImageFile) {
+      setBannerPreviewUrl('');
+      return;
+    }
+    const previewUrl = URL.createObjectURL(bannerImageFile);
+    setBannerPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [bannerImageFile]);
 
   useEffect(() => {
     if (!id) return;
@@ -141,6 +167,23 @@ export default function CreateEvent() {
     }));
   };
 
+  const handleBannerImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!BANNER_IMAGE_TYPES.includes(file.type)) {
+      setError('Choose a JPG, PNG, or WebP image.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > MAX_BANNER_IMAGE_BYTES) {
+      setError('Event images must be 5 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+    setError('');
+    setBannerImageFile(file);
+  };
+
   const handleSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
     setError('');
@@ -157,6 +200,7 @@ export default function CreateEvent() {
       return;
     }
     const capacity = Number(form.capacity);
+    const vendorStandRatePerSqm = Number(form.vendorStandRatePerSqm);
     const ticketTypes = form.ticketTypes.map(ticket => ({
       name: ticket.name.trim(),
       description: ticket.description.trim(),
@@ -173,11 +217,19 @@ export default function CreateEvent() {
       setError('The total quantity of all ticket types must equal the event capacity.');
       return;
     }
+    if (!Number.isFinite(vendorStandRatePerSqm) || vendorStandRatePerSqm < 0 || vendorStandRatePerSqm > 99_999_999.99 || Math.round(vendorStandRatePerSqm * 100) !== vendorStandRatePerSqm * 100) {
+      setError('Enter a vendor stand rate between R0 and R99,999,999.99 per square metre.');
+      return;
+    }
     if (form.eventType !== 'IN_PERSON' && !form.meetingDetails.trim()) {
       setError('Add online meeting details for online or hybrid events.');
       return;
     }
-    if (form.bannerImageUrl.trim()) {
+    if (form.category === 'other' && !form.categoryOther.trim()) {
+      setError('Enter a category when selecting other.');
+      return;
+    }
+    if (!bannerImageFile && form.bannerImageUrl.trim()) {
       try {
         const bannerUrl = new URL(form.bannerImageUrl.trim());
         if (!['https:', 'http:'].includes(bannerUrl.protocol)) throw new Error('Unsupported protocol');
@@ -189,26 +241,30 @@ export default function CreateEvent() {
 
     const submitter = (formEvent.nativeEvent as SubmitEvent).submitter;
     const publishAfterSave = submitter?.getAttribute('data-submit-action') === 'publish';
-    const payload: CreateEventDto = {
-      title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category.trim(),
-      eventType: form.eventType,
-      venue: form.eventType === 'ONLINE' && !form.venue.trim() ? 'Online' : form.venue.trim(),
-      meetingDetails: form.meetingDetails.trim() || undefined,
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      date: startTime.toISOString(),
-      capacity,
-      isFree: ticketTypes.every(ticket => ticket.price === 0),
-      bannerImageUrl: form.bannerImageUrl.trim() || undefined,
-      ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
-        name, description: description || undefined, price, quantity,
-      })),
-    };
-
     setSaving(true);
     try {
+      const bannerImageUrl = bannerImageFile
+        ? (await uploadEventBanner(bannerImageFile)).data.data.url
+        : form.bannerImageUrl.trim() || undefined;
+      const payload: CreateEventDto = {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        ...(form.category === 'other' ? { categoryOther: form.categoryOther.trim() } : {}),
+        eventType: form.eventType,
+        venue: form.eventType === 'ONLINE' && !form.venue.trim() ? 'Online' : form.venue.trim(),
+        meetingDetails: form.meetingDetails.trim() || undefined,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        date: startTime.toISOString(),
+        capacity,
+        vendorStandsAvailable: Number(form.vendorStandsAvailable),
+        isFree: ticketTypes.every(ticket => ticket.price === 0),
+        bannerImageUrl,
+        ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
+          name, description: description || undefined, price, quantity,
+        })),
+      };
       const saved = isEditing && id
         ? await updateEvent(id, payload)
         : await createEvent(payload);
@@ -217,7 +273,7 @@ export default function CreateEvent() {
         try {
           const published = await publishEvent(event.id);
           event = published.data.data;
-          setNotice(published.data.message ?? 'Event published and is now available to attendees.');
+          setNotice(published.data.message ?? 'Event Published');
         } catch (publishError) {
           setExistingEvent(event);
           setError(`Event was saved as a draft, but could not be published: ${getApiError(publishError, 'Please try again.')}`);
@@ -286,8 +342,9 @@ export default function CreateEvent() {
           subtitle="Operations"
           items={[
             { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
             { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
+            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
+            { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
           ]}
         />
         <section className="flex-1 min-w-0">
@@ -333,7 +390,23 @@ export default function CreateEvent() {
                 <div className="md:col-span-2">
                   <Textarea label="Description" value={form.description} onChange={event => updateForm('description', event.target.value)} minLength={20} maxLength={5000} required helperText="Describe what attendees can expect." />
                 </div>
-                <Input label="Category" value={form.category} onChange={event => updateForm('category', event.target.value)} minLength={2} maxLength={80} required />
+                <Select
+                  label="Category"
+                  value={form.category}
+                  onChange={event => updateForm('category', event.target.value)}
+                  options={EVENT_CATEGORIES.map(category => ({ value: category, label: category }))}
+                  required
+                />
+                {form.category === 'other' && (
+                  <Input
+                    label="Specify category"
+                    value={form.categoryOther}
+                    onChange={event => updateForm('categoryOther', event.target.value)}
+                    minLength={2}
+                    maxLength={80}
+                    required
+                  />
+                )}
                 <Select
                   label="Event type"
                   value={form.eventType}
@@ -355,36 +428,64 @@ export default function CreateEvent() {
                 <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} required />
                 <Input label="End date and time" type="datetime-local" min={form.startTime} value={form.endTime} onChange={event => updateForm('endTime', event.target.value)} required />
                 <Input label="Event capacity" type="number" min={1} max={1_000_000} step={1} value={form.capacity} onChange={event => updateForm('capacity', event.target.value)} required />
-                <Input label="Banner image URL (optional)" type="url" maxLength={2048} value={form.bannerImageUrl} onChange={event => updateForm('bannerImageUrl', event.target.value)} placeholder="https://example.com/banner.jpg" />
+                <Input
+                  label="Vendor stands available"
+                  type="number"
+                  min={0}
+                  max={1_000_000}
+                  step={1}
+                  value={form.vendorStandsAvailable}
+                  onChange={event => updateForm('vendorStandsAvailable', event.target.value)}
+                  helperText="Informational only; this number does not limit vendor applications."
+                  required
+                />
+                <Input
+                  label="Choose banner image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleBannerImageChange}
+                  helperText="JPG, PNG, or WebP; maximum file size 5 MB."
+                />
+                {bannerImageFile && (
+                  <div className="flex items-center gap-3 text-xs text-neutral-500">
+                    <span className="truncate">{bannerImageFile.name}</span>
+                    <button
+                      type="button"
+                      className="shrink-0 font-semibold text-brand-600 hover:text-brand-700"
+                      onClick={() => setBannerImageFile(null)}
+                    >
+                      Remove image
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {form.bannerImageUrl && (
+              {(bannerPreviewUrl || form.bannerImageUrl) && (
                 <div className="mt-4">
                   <p className="mb-2 text-xs font-semibold text-neutral-500">Banner preview</p>
-                  <img src={form.bannerImageUrl} alt="Event banner preview" className="max-h-56 w-full rounded-lg object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />
+                  <img src={bannerPreviewUrl || form.bannerImageUrl} alt="Event banner preview" className="max-h-56 w-full rounded-lg object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />
                 </div>
               )}
 
               <section className="mt-8 border-t border-neutral-100 pt-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-neutral-900">Ticket types</h2>
-                    <p className="mt-1 text-sm text-neutral-500">Ticket quantities must add up to event capacity.</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={form.ticketTypes.length >= 20}
-                    onClick={() => setForm(current => ({ ...current, ticketTypes: [...current.ticketTypes, { ...EMPTY_TICKET, name: '' }] }))}
-                  >
-                    Add ticket type
-                  </Button>
-                </div>
+                <h2 className="text-lg font-bold text-neutral-900">Ticket types</h2>
+                <p className="mt-1 text-sm text-neutral-500">Ticket quantities must add up to event capacity.</p>
                 <div className="mt-4 flex flex-col gap-4">
                   {form.ticketTypes.map((ticket, index) => (
                     <div key={index} className="rounded-xl border border-neutral-200 p-4">
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Input label="Ticket name" value={ticket.name} onChange={event => updateTicket(index, { name: event.target.value })} minLength={2} maxLength={80} required />
+                        <Select
+                          label="Ticket type"
+                          value={ticket.name}
+                          onChange={event => updateTicket(index, { name: event.target.value })}
+                          options={[
+                            ...TICKET_TYPE_OPTIONS.map(name => ({ value: name, label: name })),
+                            ...(ticket.name && !TICKET_TYPE_OPTIONS.includes(ticket.name)
+                              ? [{ value: ticket.name, label: ticket.name }]
+                              : []),
+                          ]}
+                          required
+                        />
                         <Textarea label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
                         <Input label="Price (ZAR, 0 for free)" type="number" min={0} max={99_999_999.99} step={0.01} value={ticket.price} onChange={event => updateTicket(index, { price: event.target.value })} required />
                         <Input label="Quantity" type="number" min={1} max={1_000_000} step={1} value={ticket.quantity} onChange={event => updateTicket(index, { quantity: event.target.value })} required />

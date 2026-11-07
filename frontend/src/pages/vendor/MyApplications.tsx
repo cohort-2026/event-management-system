@@ -71,11 +71,19 @@ export default function MyApplications() {
                         <td className="px-5 py-4">
                           <p className="font-medium text-neutral-800">{application.requestedStandType} · {application.requestedStandSize}</p>
                           <p className="mt-1 max-w-xs whitespace-pre-line text-xs text-neutral-500">{application.standDescription}</p>
+                          <p className="mt-1 text-xs text-neutral-500">{application.staffMembers?.length ?? 0} staff member{application.staffMembers?.length === 1 ? '' : 's'}</p>
                         </td>
                         <td className="whitespace-nowrap px-5 py-4 text-neutral-600">{new Date(application.createdAt).toLocaleDateString()}</td>
                         <td className="px-5 py-4"><Badge variant={statusVariant[application.status]}>{application.status.replace('_', ' ')}</Badge></td>
                         <td className="px-5 py-4">
                           {application.assignedStand && <p className="font-medium text-emerald-800">Assigned stand: {application.assignedStand}</p>}
+                          {application.invoice && (
+                            <div className="mt-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                              <p className="font-semibold text-neutral-900">Invoice {application.invoice.invoiceNumber}</p>
+                              <p className="mt-1 text-sm text-neutral-700">{application.invoice.currency} {Number(application.invoice.amount).toFixed(2)} · due {new Date(application.invoice.dueAt).toLocaleDateString()}</p>
+                              <p className="mt-1 text-xs text-neutral-500">{application.invoice.status}</p>
+                            </div>
+                          )}
                           {application.rejectionReason && <p className="max-w-xs whitespace-pre-line text-sm text-rose-700">{application.rejectionReason}</p>}
                           {application.status === 'REJECTED' && application.event && (
                             <Link to={`/vendor/events/${application.event.id}/apply`} className="mt-2 inline-flex text-xs font-semibold text-brand-700 underline">Revise and resubmit</Link>

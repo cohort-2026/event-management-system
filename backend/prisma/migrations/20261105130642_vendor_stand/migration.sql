@@ -1,2 +1,0 @@
--- The stand_description default is removed after the column is created by
--- 20261105150000_add_vendor_stand_requests.

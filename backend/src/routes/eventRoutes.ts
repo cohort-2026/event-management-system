@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
+import { uploadEventBanner } from '@/controllers/eventBannerController';
+import { parseEventBanner } from '@/middleware/eventBannerUpload';
 import {
   approveEvent,
   cancelEvent,
@@ -29,6 +31,7 @@ router.get('/:id/manage', requireAuth, requireRole('ORGANIZER'), getManagedEvent
 router.get('/:id', getPublicEvent);
 
 // ── Organizer ─────────────────────────────────────────────────────────────────
+router.post('/banner-image', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, parseEventBanner, uploadEventBanner);
 // POST   /api/events                    Create a draft event
 // PUT    /api/events/:id                Edit own event
 // PATCH   /api/events/:id/publish        Publish own event without admin approval
