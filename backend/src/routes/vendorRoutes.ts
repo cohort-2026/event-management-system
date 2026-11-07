@@ -362,9 +362,6 @@ router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN', 'PLATFORM
 		if (eventIds.length) {
 			await transaction.event.deleteMany({ where: { id: { in: eventIds } } });
 		}
-		await transaction.auditLog.deleteMany({
-			where: { OR: [{ actorId: profile.userId }, { affectedUserId: profile.userId }] },
-		});
 		await transaction.user.delete({ where: { id: profile.userId } });
 		await transaction.auditLog.create({
 			data: {
