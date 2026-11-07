@@ -15,7 +15,7 @@ export interface User {
   organizationDescription?: string | null;
   phone?: string | null;
   profileApprovalStatus?: ProfileApprovalStatus;
-  vendorProfileStatus?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  vendorProfileStatus?: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 }
 
 export interface CreateUserDto {
@@ -24,16 +24,6 @@ export interface CreateUserDto {
   email: string;
   password: string;
   role: UserRole;
-  vendorProfile?: {
-    businessName: string;
-    businessDescription: string;
-    businessRegistrationNumber: string;
-    contactPerson: string;
-    contactEmail: string;
-    contactPhone: string;
-    productsServices: string[];
-  };
-  supportingDocuments?: File[];
 }
 
 export interface LoginDto {

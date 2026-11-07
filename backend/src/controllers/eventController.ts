@@ -11,6 +11,12 @@ const MAX_CAPACITY = 1_000_000;
 const MAX_TICKETS = 20;
 const MAX_PRICE = 99_999_999.99;
 const ALLOWED_EVENT_TYPES: EventType[] = ['IN_PERSON', 'ONLINE', 'HYBRID'];
+const ALLOWED_EVENT_CATEGORIES = ['Networking', 'Workshop', 'Training', 'Campany Activities', 'other'];
+const PUBLISHABLE_EVENT_STATUSES: EventStatus[] = [
+  EventStatus.DRAFT,
+  EventStatus.REJECTED,
+  EventStatus.PENDING_APPROVAL,
+];
 
 interface TicketInput {
   name: string;
@@ -27,11 +33,13 @@ interface EventInput {
   eventType: EventType;
   meetingDetails: string | null;
   bannerImageUrl: string | null;
+  vendorStandsAvailable: number;
   startTime: Date;
   endTime: Date;
   capacity: number;
   isFree: boolean;
   price: number | null;
+  vendorStandRatePerSqm: number;
   ticketTypes: TicketInput[];
 }
 
@@ -54,7 +62,8 @@ const parseEventInput = (body: Record<string, unknown>):
   { value: EventInput; error?: never } | { value?: never; error: string } => {
   const title = text(body.title);
   const description = text(body.description);
-  const category = text(body.category);
+  const categorySelection = text(body.category);
+  const categoryOther = text(body.categoryOther);
   const eventType = body.eventType;
   const venue = text(body.venue);
   const meetingDetails = text(body.meetingDetails);
@@ -62,11 +71,23 @@ const parseEventInput = (body: Record<string, unknown>):
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
   const capacity = body.capacity;
+  const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
+  const vendorStandRatePerSqm = body.vendorStandRatePerSqm;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
   if (description.length < 20 || description.length > 5000) return { error: 'Event description must be between 20 and 5000 characters' };
-  if (category.length < 2 || category.length > 80) return { error: 'Event category must be between 2 and 80 characters' };
+  if (!ALLOWED_EVENT_CATEGORIES.includes(categorySelection)) {
+    return { error: 'Choose a category from the available options' };
+  }
+  if (categorySelection === 'other') {
+    if (typeof body.categoryOther !== 'string' || categoryOther.length < 2 || categoryOther.length > 80) {
+      return { error: 'Enter an other category between 2 and 80 characters' };
+    }
+  } else if (body.categoryOther !== undefined && categoryOther) {
+    return { error: 'Custom category text is only allowed when other is selected' };
+  }
+  const category = categorySelection === 'other' ? categoryOther : categorySelection;
   if (typeof eventType !== 'string' || !ALLOWED_EVENT_TYPES.includes(eventType as EventType)) {
     return { error: 'Choose a valid event type' };
   }
@@ -79,6 +100,19 @@ const parseEventInput = (body: Record<string, unknown>):
   }
   if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { error: `Event capacity must be a whole number between 1 and ${MAX_CAPACITY}` };
+  }
+  if (typeof vendorStandsAvailable !== 'number' || !Number.isInteger(vendorStandsAvailable) ||
+      vendorStandsAvailable < 0 || vendorStandsAvailable > MAX_CAPACITY) {
+    return { error: `Available vendor stands must be a whole number between 0 and ${MAX_CAPACITY}` };
+  }
+  if (
+    typeof vendorStandRatePerSqm !== 'number' ||
+    !Number.isFinite(vendorStandRatePerSqm) ||
+    vendorStandRatePerSqm < 0 ||
+    vendorStandRatePerSqm > MAX_PRICE ||
+    Math.abs(vendorStandRatePerSqm - Math.round(vendorStandRatePerSqm * 100) / 100) > 1e-8
+  ) {
+    return { error: 'Vendor stand rate must be between 0 and 99,999,999.99 ZAR per square metre' };
   }
   if (!Array.isArray(ticketTypesInput) || ticketTypesInput.length < 1 || ticketTypesInput.length > MAX_TICKETS) {
     return { error: `Add between 1 and ${MAX_TICKETS} ticket types` };
@@ -157,11 +191,13 @@ const parseEventInput = (body: Record<string, unknown>):
       eventType: normalizedEventType,
       meetingDetails: meetingDetails || null,
       bannerImageUrl,
+      vendorStandsAvailable,
       startTime,
       endTime,
       capacity,
       isFree,
       price,
+      vendorStandRatePerSqm,
       ticketTypes,
     },
   };
@@ -208,9 +244,10 @@ const notifyEventAudience = async (
   return failures.length === 0;
 };
 
-const serializeEvent = <T extends { price: Prisma.Decimal | null; ticketTypes?: Array<{ price: Prisma.Decimal }> }>(event: T) => ({
+const serializeEvent = <T extends { price: Prisma.Decimal | null; vendorStandRatePerSqm: Prisma.Decimal; ticketTypes?: Array<{ price: Prisma.Decimal }> }>(event: T) => ({
   ...event,
   price: event.price === null ? null : Number(event.price),
+  vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
   ...(event.ticketTypes ? {
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
   } : {}),
@@ -237,10 +274,12 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         eventType: data.eventType,
         meetingDetails: data.meetingDetails,
         bannerImageUrl: data.bannerImageUrl,
+        vendorStandsAvailable: data.vendorStandsAvailable,
         capacity: data.capacity,
         availableCapacity: data.capacity,
         isFree: data.isFree,
         price: data.price,
+        vendorStandRatePerSqm: data.vendorStandRatePerSqm,
         status: EventStatus.DRAFT,
         organizerId: req.user!.id,
         ticketTypes: {
@@ -294,6 +333,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         .map(ticket => `${ticket.name.toLocaleLowerCase()}:${ticket.price}`)
         .sort();
       const priceChanged = Number(event.price ?? 0) !== Number(data.price ?? 0) ||
+        Number(event.vendorStandRatePerSqm) !== data.vendorStandRatePerSqm ||
         previousTicketPrices.length !== nextTicketPrices.length ||
         previousTicketPrices.some((price, index) => price !== nextTicketPrices[index]);
       const requiresApproval = event.status === EventStatus.PUBLISHED && (
@@ -322,10 +362,12 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
           eventType: data.eventType,
           meetingDetails: data.meetingDetails,
           bannerImageUrl: data.bannerImageUrl,
+          vendorStandsAvailable: data.vendorStandsAvailable,
           capacity: data.capacity,
           availableCapacity: data.capacity - activeBookingCount,
           isFree: data.isFree,
           price: data.price,
+          vendorStandRatePerSqm: data.vendorStandRatePerSqm,
           status: nextStatus,
           ...(requiresApproval ? { rejectionReason: null } : {}),
         },
@@ -398,7 +440,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
       where: {
         id: eventId,
         organizerId: req.user!.id,
-        status: { in: [EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL] },
+        status: { in: PUBLISHABLE_EVENT_STATUSES },
         startTime: { gt: new Date() },
         endTime: { gt: new Date() },
       },
@@ -411,7 +453,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
       });
       if (!event) {
         res.status(404).json({ success: false, message: 'Event not found' });
-      } else if (![EventStatus.DRAFT, EventStatus.REJECTED, EventStatus.PENDING_APPROVAL].includes(event.status)) {
+      } else if (!PUBLISHABLE_EVENT_STATUSES.includes(event.status)) {
         res.status(409).json({ success: false, message: 'Only draft or pending events can be published' });
       } else {
         res.status(400).json({ success: false, message: 'Past events cannot be published' });
@@ -514,6 +556,8 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
     const applications = await prisma.vendorApplication.findMany({
       where: { eventId },
       include: {
+        staffMembers: true,
+        invoice: true,
         vendor: {
           select: {
             id: true,

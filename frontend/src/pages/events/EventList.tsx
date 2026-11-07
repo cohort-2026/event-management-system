@@ -7,21 +7,27 @@ import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import { useAuth } from '@/context/AuthContext';
 import { getEvents } from '@/services/eventService';
-import type { Event, EventType } from '@/types/event';
+import { getMe } from '@/services/authService';
+import type { Event } from '@/types/event';
 
 export default function EventList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [location, setLocation] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [eventType, setEventType] = useState<'All' | EventType>('All');
   const [applicationStatus, setApplicationStatus] = useState<'All' | 'Open' | 'Closed'>('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user?.role === 'VENDOR') {
+      getMe().then(response => setUser(response.data.data)).catch(() => undefined);
+    }
+  }, [user?.role, setUser]);
 
   useEffect(() => {
     let active = true;
@@ -55,7 +61,7 @@ export default function EventList() {
       (applicationStatus === 'Open' ? date > new Date() : date <= new Date());
     return matchSearch && (category === 'All' || event.category === category) &&
       (!location.trim() || event.venue.toLowerCase().includes(location.trim().toLowerCase())) &&
-      matchesStart && matchesEnd && (eventType === 'All' || event.eventType === eventType) && matchesApplications;
+      matchesStart && matchesEnd && matchesApplications;
   });
 
   return (
@@ -87,11 +93,6 @@ export default function EventList() {
             {categories.map(value => <option key={value} value={value}>{value === 'All' ? 'All categories' : value}</option>)}
           </select>
         </label>
-        <label className="text-sm font-medium text-neutral-700">Event type
-          <select value={eventType} onChange={event => setEventType(event.target.value as 'All' | EventType)} className="mt-1 block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm">
-            <option value="All">All types</option><option value="IN_PERSON">In person</option><option value="ONLINE">Online</option><option value="HYBRID">Hybrid</option>
-          </select>
-        </label>
         <label className="text-sm font-medium text-neutral-700">From date
           <input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} className="mt-1 block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm" />
         </label>
@@ -112,7 +113,7 @@ export default function EventList() {
         <>
           <p className="mb-4 text-sm text-neutral-400">{filtered.length} event{filtered.length !== 1 ? 's' : ''} found</p>
           {filtered.length > 0 ? (
-            <div className="card-grid">{filtered.map(event => <EventCard key={event.id} event={event} vendorView={user?.role === 'VENDOR'} />)}</div>
+            <div className="card-grid">{filtered.map(event => <EventCard key={event.id} event={event} vendorView={user?.role === 'VENDOR'} vendorApproved={user?.vendorProfileStatus === 'APPROVED'} />)}</div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <p className="font-medium text-neutral-700">No approved events found</p>

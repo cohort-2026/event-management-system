@@ -8,6 +8,8 @@ export interface OrganizerProfile {
   lastname: string;
   email: string;
   organizationName: string | null;
+  organizationEmail: string | null;
+  organizationRegistrationNumber: string | null;
   organizationDescription: string | null;
   phone: string | null;
   profileApprovalStatus: ProfileApprovalStatus;
@@ -18,7 +20,8 @@ export interface UpdateOrganizerProfileDto {
   firstname: string;
   lastname: string;
   organizationName: string;
-  organizationDescription: string;
+  organizationEmail: string;
+  organizationRegistrationNumber: string;
   phone: string;
 }
 
@@ -28,6 +31,8 @@ export interface ManagedOrganizer {
   lastname: string;
   email: string;
   organizationName: string | null;
+  organizationEmail: string | null;
+  organizationRegistrationNumber: string | null;
   organizationDescription: string | null;
   phone: string | null;
   profileApprovalStatus: ProfileApprovalStatus;

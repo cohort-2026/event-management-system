@@ -23,7 +23,7 @@ export default function ReportsDashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6">
         <DashboardSidebar
           title="Management"
           subtitle="Analytics"
@@ -43,10 +43,10 @@ export default function ReportsDashboard() {
        
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total events"       value={events.length}    icon={<CalIcon />}    color="brand"   />
-            <StatCard label="Total registrations" value={totalRegistered} icon={<UsersIcon />}  color="purple"  />
-            <StatCard label="Total check-ins"    value={totalCheckedIn}   icon={<CheckIcon />}  color="emerald" />
-            <StatCard label="Avg check-in rate"  value={`${avgCheckinRate}%`} sub="completed events" icon={<ChartIcon />} color="amber" />
+            <StatCard label="Total events"       value={events.length}    icon={<CalIcon />}    color="brand" appearance="analytics" />
+            <StatCard label="Total registrations" value={totalRegistered} icon={<UsersIcon />}  color="purple" appearance="analytics" />
+            <StatCard label="Total check-ins"    value={totalCheckedIn}   icon={<CheckIcon />}  color="emerald" appearance="analytics" />
+            <StatCard label="Avg check-in rate"  value={`${avgCheckinRate}%`} sub="completed events" icon={<ChartIcon />} color="amber" appearance="analytics" />
           </div>
 
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
