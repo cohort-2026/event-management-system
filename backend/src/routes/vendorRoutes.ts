@@ -368,9 +368,6 @@ router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN', 'PLATFORM
 		if (eventIds.length) {
 			await transaction.event.deleteMany({ where: { id: { in: eventIds } } });
 		}
-		await transaction.auditLog.deleteMany({
-			where: { OR: [{ actorId: profile.userId }, { affectedUserId: profile.userId }] },
-		});
 		await transaction.user.delete({ where: { id: profile.userId } });
 		await transaction.auditLog.create({
 			data: {
@@ -530,12 +527,24 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		staffMembers.push({ name, email });
 	}
 
-	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true, startTime: true, vendorStandRatePerSqm: true } });
+	const event = await prisma.event.findUnique({
+		where: { id: eventId },
+		select: {
+			id: true,
+			status: true,
+			startTime: true,
+			vendorStandsAvailable: true,
+			vendorStandRatePerSqm: true,
+			_count: { select: { vendorApplications: { where: { status: 'APPROVED' } } } },
+		},
+	});
 	if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
 	if (event.status !== 'PUBLISHED') return res.status(409).json({ success: false, message: 'Vendor applications are only available for published events' });
 	if (event.startTime <= new Date()) return res.status(409).json({ success: false, message: 'Vendor applications are closed because this event has started' });
+	if (event.vendorStandsAvailable - event._count.vendorApplications <= 0) {
+		return res.status(409).json({ success: false, message: 'No vendor stands are currently available' });
+	}
 	const standRatePerSqm = Number(event.vendorStandRatePerSqm);
-	if (standRatePerSqm <= 0) return res.status(409).json({ success: false, message: 'This event is not accepting stand requests because its organizer has not set a stand rate' });
 
 	const [profile] = await prisma.$queryRaw<Array<{
 		businessName: string;
@@ -656,7 +665,7 @@ const decideVendorApplication = async (
 			standAreaSqm: true,
 			standRatePerSqm: true,
 			quotedAmount: true,
-			event: { select: { title: true, organizerId: true } },
+			event: { select: { id: true, title: true, organizerId: true } },
 			vendor: { select: { email: true, firstname: true } },
 		},
 	});
@@ -673,6 +682,18 @@ const decideVendorApplication = async (
 	const dueAt = new Date(decidedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 	try {
 		const updated = await prisma.$transaction(async transaction => {
+			if (decision.status === 'APPROVED') {
+				await transaction.$queryRaw`SELECT "id" FROM "events" WHERE "id" = ${application.event.id} FOR UPDATE`;
+				const event = await transaction.event.findUnique({
+					where: { id: application.event.id },
+					select: {
+						vendorStandsAvailable: true,
+						_count: { select: { vendorApplications: { where: { status: 'APPROVED' } } } },
+					},
+				});
+				if (!event || event._count.vendorApplications >= event.vendorStandsAvailable) return 'no_stands' as const;
+			}
+
 			const result = await transaction.vendorApplication.updateMany({
 				where: { id: applicationId, status: 'PENDING_REVIEW' },
 				data: {
@@ -683,7 +704,7 @@ const decideVendorApplication = async (
 					rejectionReason: decision.status === 'REJECTED' ? decision.rejectionReason : null,
 				},
 			});
-			if (result.count !== 1) return false;
+			if (result.count !== 1) return 'already_decided' as const;
 
 			if (decision.status === 'APPROVED') {
 				const invoice = await transaction.vendorInvoice.create({
@@ -709,10 +730,15 @@ const decideVendorApplication = async (
 					link: '/vendor/applications',
 				},
 			});
-			return true;
+			return 'updated' as const;
 		});
 
-		if (!updated) return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+		if (updated === 'no_stands') {
+			return res.status(409).json({ success: false, message: 'No vendor stands are available to approve this request' });
+		}
+		if (updated === 'already_decided') {
+			return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+		}
 		let invoiceEmailSent = true;
 		if (decision.status === 'APPROVED') {
 			try {

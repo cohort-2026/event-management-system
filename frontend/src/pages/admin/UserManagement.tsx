@@ -23,6 +23,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [organizerToReject, setOrganizerToReject] = useState<ManagedOrganizer | null>(null);
+  const [organizerToDelete, setOrganizerToDelete] = useState<ManagedOrganizer | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -95,18 +96,15 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
     }
   };
 
-  const handleDeleteAccount = async (person: ManagedOrganizer) => {
-    const confirmed = window.confirm(
-      `Permanently delete ${person.firstname} ${person.lastname}'s account, events, registrations, and related records? This cannot be undone.`,
-    );
-    if (!confirmed) return;
-
+  const handleDeleteAccount = async () => {
+    if (!organizerToDelete) return;
     setError('');
     setNotice('');
-    setDeletingId(person.id);
+    setDeletingId(organizerToDelete.id);
     try {
-      const response = await deleteOrganizerAccount(person.id);
+      const response = await deleteOrganizerAccount(organizerToDelete.id);
       setNotice(response.data.message);
+      setOrganizerToDelete(null);
       const organizersResponse = await getOrganizers();
       setOrganizers(organizersResponse.data.data);
     } catch (err) {
@@ -189,7 +187,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                           size="sm"
                           loading={deletingId === person.id}
                           disabled={Boolean(deletingId)}
-                          onClick={() => void handleDeleteAccount(person)}
+                          onClick={() => setOrganizerToDelete(person)}
                         >
                           DELETE ACCOUNT
                         </Button>
@@ -264,6 +262,41 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
               onClick={() => void handleRejectProfile()}
             >
               Confirm rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={Boolean(organizerToDelete)}
+        onClose={() => {
+          if (!deletingId) setOrganizerToDelete(null);
+        }}
+        title="Confirm account deletion"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-neutral-600">
+            Permanently delete {organizerToDelete?.firstname} {organizerToDelete?.lastname}'s account, events, registrations, and related records? This cannot be undone.
+          </p>
+          {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={Boolean(deletingId)}
+              onClick={() => setOrganizerToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              loading={Boolean(deletingId)}
+              onClick={() => void handleDeleteAccount()}
+            >
+              Permanently delete
             </Button>
           </div>
         </div>

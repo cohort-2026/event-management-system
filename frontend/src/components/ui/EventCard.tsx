@@ -57,7 +57,13 @@ export default function EventCard({ event, vendorView = false, vendorApproved = 
 
           {vendorView && (
             <p className={`text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-500'}`}>
-              {!applicationsOpen ? 'Vendor applications closed' : event.vendorStandRatePerSqm <= 0 ? 'Stand applications unavailable' : vendorApproved ? 'Vendor applications open' : 'Approval required to apply'}
+              {!applicationsOpen
+                ? 'Vendor applications closed'
+                : event.availableVendorStands === 0
+                  ? 'No vendor stands available'
+                  : vendorApproved
+                    ? `${event.availableVendorStands} vendor stand${event.availableVendorStands === 1 ? '' : 's'} available`
+                    : 'Approval required to apply'}
             </p>
           )}
 

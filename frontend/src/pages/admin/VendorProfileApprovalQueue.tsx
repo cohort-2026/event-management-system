@@ -19,6 +19,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 	const [loading, setLoading] = useState(true);
 	const [busyId, setBusyId] = useState<string | null>(null);
 	const [profileToReject, setProfileToReject] = useState<PendingVendorProfile | null>(null);
+	const [profileToDelete, setProfileToDelete] = useState<PendingVendorProfile | null>(null);
 	const [rejectionReason, setRejectionReason] = useState('');
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
@@ -69,17 +70,15 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 		await decide(profileToReject, 'reject', rejectionReason.trim());
 	};
 
-	const deleteAccount = async (profile: PendingVendorProfile) => {
-		const confirmed = window.confirm(
-			`Permanently delete ${profile.user.firstname} ${profile.user.lastname}'s vendor account, applications, documents, and related records? This cannot be undone.`,
-		);
-		if (!confirmed) return;
+	const deleteAccount = async () => {
+		if (!profileToDelete) return;
 		setError('');
 		setNotice('');
-		setBusyId(profile.id);
+		setBusyId(profileToDelete.id);
 		try {
-			const response = await deleteVendorAccount(profile.id);
+			const response = await deleteVendorAccount(profileToDelete.id);
 			setNotice(response.data.message ?? 'Vendor account permanently deleted.');
+			setProfileToDelete(null);
 			await loadProfiles();
 		} catch (deleteError) {
 			setError(axios.isAxiosError(deleteError)
@@ -145,7 +144,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 											<Badge variant={profile.user.isActive ? 'success' : 'danger'}>
 												{profile.user.isActive ? 'ACTIVE' : 'INACTIVE'}
 											</Badge>
-											<Button variant="danger" size="sm" loading={busyId === profile.id} onClick={() => void deleteAccount(profile)}>
+											<Button variant="danger" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToDelete(profile)}>
 												DELETE ACCOUNT
 											</Button>
 										</>
@@ -206,6 +205,29 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 						<Button type="button" variant="secondary" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToReject(null)}>Cancel</Button>
 						<Button type="button" variant="danger" size="sm" loading={Boolean(busyId)} disabled={rejectionReason.trim().length < 10} onClick={() => void rejectProfile()}>
 							Confirm rejection
+						</Button>
+					</div>
+				</div>
+			</Modal>
+			<Modal
+				open={Boolean(profileToDelete)}
+				onClose={() => {
+					if (!busyId) setProfileToDelete(null);
+				}}
+				title="Confirm account deletion"
+				size="sm"
+			>
+				<div className="flex flex-col gap-4">
+					<p className="text-sm text-neutral-600">
+						Permanently delete {profileToDelete?.user.firstname} {profileToDelete?.user.lastname}'s vendor account, applications, documents, and related records? This cannot be undone.
+					</p>
+					{error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+					<div className="flex justify-end gap-2">
+						<Button type="button" variant="secondary" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToDelete(null)}>
+							Cancel
+						</Button>
+						<Button type="button" variant="danger" size="sm" loading={Boolean(busyId)} onClick={() => void deleteAccount()}>
+							Permanently delete
 						</Button>
 					</div>
 				</div>

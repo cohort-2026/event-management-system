@@ -13,7 +13,8 @@ SET "stand_description" = "description";
 
 ALTER TABLE "vendor_applications"
 ALTER COLUMN "requested_stand_type" DROP DEFAULT,
-ALTER COLUMN "requested_stand_size" DROP DEFAULT;
+ALTER COLUMN "requested_stand_size" DROP DEFAULT,
+ALTER COLUMN "stand_description" DROP DEFAULT;
 
 ALTER TABLE "vendor_applications"
 ADD CONSTRAINT "vendor_applications_decided_by_id_fkey"

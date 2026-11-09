@@ -239,9 +239,6 @@ export const deleteOrganizerAccount = async (req: Request, res: Response, next: 
         await transaction.event.deleteMany({ where: { id: { in: eventIds } } });
       }
 
-      await transaction.auditLog.deleteMany({
-        where: { OR: [{ actorId: organizerId }, { affectedUserId: organizerId }] },
-      });
       await transaction.user.delete({ where: { id: organizerId } });
       await transaction.auditLog.create({
         data: {
