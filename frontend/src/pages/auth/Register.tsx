@@ -203,7 +203,7 @@ export default function Register() {
             {/* Role selector */}
             <fieldset className="flex flex-col gap-1.5">
               <legend className="text-sm font-medium text-neutral-700">I am a…</legend>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {ROLES.map(r => (
                   <label
                     key={r.value}

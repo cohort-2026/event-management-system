@@ -23,6 +23,7 @@ export interface Event {
   meetingDetails?: string | null;
   bannerImageUrl?: string | null;
   vendorStandsAvailable: number;
+  availableVendorStands: number;
   capacity: number;
   availableCapacity: number;
   isFree: boolean;

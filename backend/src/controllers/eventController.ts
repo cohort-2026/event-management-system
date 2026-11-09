@@ -72,7 +72,7 @@ const parseEventInput = (body: Record<string, unknown>):
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
   const capacity = body.capacity;
   const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
-  const vendorStandRatePerSqm = body.vendorStandRatePerSqm;
+  const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined ? 0 : body.vendorStandRatePerSqm;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
@@ -205,6 +205,11 @@ const parseEventInput = (body: Record<string, unknown>):
 
 const eventInclude = {
   ticketTypes: { orderBy: { price: 'asc' as const } },
+  _count: {
+    select: {
+      vendorApplications: { where: { status: 'APPROVED' as const } },
+    },
+  },
 };
 
 const notifyEventAudience = async (
@@ -244,14 +249,16 @@ const notifyEventAudience = async (
   return failures.length === 0;
 };
 
-const serializeEvent = <T extends { price: Prisma.Decimal | null; vendorStandRatePerSqm: Prisma.Decimal; ticketTypes?: Array<{ price: Prisma.Decimal }> }>(event: T) => ({
-  ...event,
-  price: event.price === null ? null : Number(event.price),
-  vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
-  ...(event.ticketTypes ? {
+const serializeEvent = (event: Prisma.EventGetPayload<{ include: typeof eventInclude }>) => {
+  const { _count, ...eventData } = event;
+  return {
+    ...eventData,
+    price: event.price === null ? null : Number(event.price),
+    vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+    availableVendorStands: Math.max(0, event.vendorStandsAvailable - _count.vendorApplications),
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
-  } : {}),
-});
+  };
+};
 
 export const createEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

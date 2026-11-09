@@ -4,7 +4,9 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
+import { getEventById } from '@/services/eventService';
 import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
+import type { Event } from '@/types/event';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
 interface ApplicationStaffMember {
@@ -24,6 +26,7 @@ export default function ApplyForStand() {
   const { id: eventId } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [applications, setApplications] = useState<VendorApplication[]>([]);
+  const [event, setEvent] = useState<Event | null>(null);
   const [requestedStandType, setRequestedStandType] = useState('Standard');
   const [requestedStandSize, setRequestedStandSize] = useState('');
   const [standDescription, setStandDescription] = useState('');
@@ -35,14 +38,15 @@ export default function ApplyForStand() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([getVendorProfile(), getMyApplications()])
-      .then(([profileResponse, applicationsResponse]) => {
+    Promise.all([getVendorProfile(), getMyApplications(), eventId ? getEventById(eventId) : Promise.reject(new Error('Event ID is missing'))])
+      .then(([profileResponse, applicationsResponse, eventResponse]) => {
         setProfile(profileResponse.data.data);
         setApplications(applicationsResponse.data.data);
+        setEvent(eventResponse.data.data);
       })
-      .catch(() => setError('Unable to load your business profile.'))
+      .catch(() => setError('Unable to load this event and your business profile.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [eventId]);
 
   const activeApplication = useMemo(() => applications.find(application =>
     application.eventId === eventId && application.status !== 'REJECTED',
@@ -121,11 +125,20 @@ export default function ApplyForStand() {
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Business email</dt><dd className="mt-1 break-all text-sm text-neutral-800">{profile.contactEmail || 'Not provided'}</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Phone</dt><dd className="mt-1 text-sm text-neutral-800">{profile.contactPhone || 'Not provided'}</dd></div>
               </dl>
+              {event && (
+                <p className="mt-4 rounded-lg bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                  <span className="font-semibold">{event.availableVendorStands}</span> vendor stand{event.availableVendorStands === 1 ? '' : 's'} available for {event.title}.
+                </p>
+              )}
               {activeApplication ? (
                 <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
                   <h3 className="font-semibold text-amber-950">You already have a {activeApplication.status.toLowerCase().replace('_', ' ')} request for this event.</h3>
                   {activeApplication.assignedStand && <p className="mt-1 text-sm text-amber-900">Assigned stand: {activeApplication.assignedStand}</p>}
                   <Link to="/vendor/applications" className="mt-2 inline-flex text-sm font-semibold text-brand-700 underline">View your requests</Link>
+                </div>
+              ) : event?.availableVendorStands === 0 ? (
+                <div className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+                  All vendor stands for this event have been allocated.
                 </div>
               ) : (
                 <form className="mt-6 space-y-4 border-t border-neutral-100 pt-5" onSubmit={submitApplication}>
