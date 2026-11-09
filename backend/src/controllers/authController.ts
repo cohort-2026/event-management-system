@@ -20,8 +20,8 @@ const REGISTRATION_ROLES = ['ATTENDEE', 'VENDOR', 'ORGANIZER'] as const;
 
 const cookieOptions = {
   httpOnly: true,
-  secure: config.nodeEnv === 'production',
-  sameSite: 'lax' as const,
+  secure: true, // always required with sameSite: 'none'
+  sameSite: 'none' as const, // cross-origin: frontend and backend are on different domains
   maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day in ms
 };
 

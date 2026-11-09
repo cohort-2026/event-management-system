@@ -34,9 +34,10 @@ export const uploadEventBanner = async (req: Request, res: Response, next: NextF
     await fs.mkdir(config.eventBannersDir, { recursive: true });
     const filename = `${randomUUID()}${extension}`;
     await fs.writeFile(path.join(config.eventBannersDir, filename), file.buffer, { flag: 'wx' });
+    const baseUrl = config.baseUrl || `${req.protocol}://${req.get('host')}`;
     res.status(201).json({
       success: true,
-      data: { url: `${req.protocol}://${req.get('host')}/uploads/event-banners/${filename}` },
+      data: { url: `${baseUrl}/uploads/event-banners/${filename}` },
       message: 'Event image uploaded.',
     });
   } catch (error) {

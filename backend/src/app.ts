@@ -7,6 +7,7 @@ import { errorHandler } from '@/middleware/errorHandler';
 
 const app = express();
 
+app.set('trust proxy', 1); // trust first proxy (Vercel / reverse proxies)
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
