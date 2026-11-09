@@ -7,3 +7,4 @@ build/
 coverage/
 backend/private_uploads/
 .DS_Store
+.vercel
