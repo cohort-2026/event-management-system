@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient, Role } from '@prisma/client';
-import { config } from '@/config/index';
+import { config } from '../config/index';
 
 const prisma = new PrismaClient();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

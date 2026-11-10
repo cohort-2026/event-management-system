@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createAdmin, listAdmins, listAuditHistory, updateAdminStatus } from '@/controllers/platformAdminController';
-import { requireAuth, requireRole } from '@/middleware/auth';
+import { createAdmin, listAdmins, listAuditHistory, updateAdminStatus } from '../controllers/platformAdminController';
+import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
 router.use(requireAuth, requireRole('PLATFORM_ADMIN'));

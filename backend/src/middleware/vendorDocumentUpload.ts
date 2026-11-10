@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import multer from 'multer';
-import { config } from '@/config/index';
+import { config } from '../config/index';
 
 export const maxVendorDocumentBytes = 10 * 1024 * 1024;
 export const maxVendorDocuments = 10;

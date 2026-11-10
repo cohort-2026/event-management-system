@@ -10,8 +10,8 @@ import {
   resetPassword,
   changePassword,
   completeOrganizerPasswordSetup,
-} from '@/controllers/authController';
-import { requireAuth } from '@/middleware/auth';
+} from '../controllers/authController';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 

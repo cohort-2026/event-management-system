@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Prisma, PrismaClient, Role } from '@prisma/client';
-import { sendAdminInvitation } from '@/services/emailService';
+import { sendAdminInvitation } from '../services/emailService';
 
 const prisma = new PrismaClient();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

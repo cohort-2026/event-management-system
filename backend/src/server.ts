@@ -1,6 +1,6 @@
 import app from './app';
-import { config } from '@/config/index';
-import { provisionInitialPlatformAdmin } from '@/services/platformAdminProvisioning';
+import { config } from './config/index';
+import { provisionInitialPlatformAdmin } from './services/platformAdminProvisioning';
 
 async function startServer(): Promise<void> {
   await provisionInitialPlatformAdmin();

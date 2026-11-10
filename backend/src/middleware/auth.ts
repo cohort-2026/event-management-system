@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, ProfileApprovalStatus, VendorProfileStatus } from '@prisma/client';
-import { config } from '@/config/index';
-import type { UserRole } from '@/types/user';
+import { config } from '../config/index';
+import type { UserRole } from '../types/user';
 
 const prisma = new PrismaClient();
 
