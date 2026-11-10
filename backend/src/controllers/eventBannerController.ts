@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { config } from '@/config/index';
+import { config } from '../config/index';
 
 const getImageExtension = (buffer: Buffer): string | null => {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return '.jpg';

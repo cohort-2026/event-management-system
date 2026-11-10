@@ -4,7 +4,7 @@ import {
   sendEventCancellationNotification,
   sendEventChangeNotification,
   sendEventStatusNotification,
-} from '@/services/emailService';
+} from '../services/emailService';
 
 const prisma = new PrismaClient();
 const MAX_CAPACITY = 1_000_000;

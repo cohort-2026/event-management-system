@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { config } from '@/config/index';
-import routes from '@/routes/index';
-import { errorHandler } from '@/middleware/errorHandler';
+import { config } from './config/index';
+import routes from './routes/index';
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 

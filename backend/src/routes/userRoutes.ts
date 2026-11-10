@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { requireAuth, requireRole } from '@/middleware/auth';
-import { approveOrganizerProfile, createOrganizer, deleteOrganizerAccount, listOrganizers, rejectOrganizerProfile } from '@/controllers/organizerController';
+import { requireAuth, requireRole } from '../middleware/auth';
+import { approveOrganizerProfile, createOrganizer, deleteOrganizerAccount, listOrganizers, rejectOrganizerProfile } from '../controllers/organizerController';
 
 const router = Router();
 

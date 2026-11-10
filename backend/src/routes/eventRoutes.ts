@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '@/middleware/auth';
-import { uploadEventBanner } from '@/controllers/eventBannerController';
-import { parseEventBanner } from '@/middleware/eventBannerUpload';
+import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '../middleware/auth';
+import { uploadEventBanner } from '../controllers/eventBannerController';
+import { parseEventBanner } from '../middleware/eventBannerUpload';
 import {
   approveEvent,
   cancelEvent,
@@ -16,7 +16,7 @@ import {
   rejectEvent,
   publishEvent,
   updateEvent,
-} from '@/controllers/eventController';
+} from '../controllers/eventController';
 
 const router = Router();
 

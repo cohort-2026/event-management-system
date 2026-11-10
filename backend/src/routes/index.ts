@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import authRoutes         from '@/routes/authRoutes';
-import eventRoutes        from '@/routes/eventRoutes';
-import bookingRoutes      from '@/routes/bookingRoutes';
-import vendorRoutes       from '@/routes/vendorRoutes';
-import ticketRoutes       from '@/routes/ticketRoutes';
-import userRoutes         from '@/routes/userRoutes';
-import organizerRoutes    from '@/routes/organizerRoutes';
-import reportRoutes       from '@/routes/reportRoutes';
-import platformAdminRoutes from '@/routes/platformAdminRoutes';
-import notificationRoutes from '@/routes/notificationRoutes';
+import authRoutes         from './authRoutes';
+import eventRoutes        from './eventRoutes';
+import bookingRoutes      from './bookingRoutes';
+import vendorRoutes       from './vendorRoutes';
+import ticketRoutes       from './ticketRoutes';
+import userRoutes         from './userRoutes';
+import organizerRoutes    from './organizerRoutes';
+import reportRoutes       from './reportRoutes';
+import platformAdminRoutes from './platformAdminRoutes';
+import notificationRoutes from './notificationRoutes';
 
 const router = Router();
 

@@ -3,9 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
-import { config } from '@/config/index';
-import { sendPasswordResetCode, sendVerificationCode } from '@/services/emailService';
-import { notifyAdmins } from '@/services/notificationService';
+import { config } from '../config/index';
+import { sendPasswordResetCode, sendVerificationCode } from '../services/emailService';
+import { notifyAdmins } from '../services/notificationService';
 
 const prisma = new PrismaClient();
 
