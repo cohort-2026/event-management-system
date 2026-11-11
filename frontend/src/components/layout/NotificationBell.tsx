@@ -83,13 +83,13 @@ export default function NotificationBell() {
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
         onClick={() => setOpen(current => !current)}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-600 transition-colors hover:bg-brand-50"
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-600 transition-colors hover:bg-brand-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+          <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-amber-500 px-1 text-[10px] font-bold leading-none text-white dark:border-[#151621]">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -98,39 +98,39 @@ export default function NotificationBell() {
       {open && (
         <section
           aria-label="Notifications"
-          className="absolute right-0 z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl"
+          className="absolute right-0 z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#20212e]"
         >
-          <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-            <h2 className="text-sm font-bold text-neutral-900">Notifications</h2>
+          <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-white/10">
+            <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Notifications</h2>
             {unreadCount > 0 && (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void markAllRead()}
-                className="text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50"
+                className="text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50 dark:text-violet-300 dark:hover:text-violet-200"
               >
                 Mark all as read
               </button>
             )}
           </div>
-          {error && <p role="alert" className="px-4 py-2 text-xs text-rose-700">{error}</p>}
+          {error && <p role="alert" className="px-4 py-2 text-xs text-rose-700 dark:text-rose-300">{error}</p>}
           {notifications.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-neutral-500">You’re all caught up.</p>
+            <p className="px-4 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">You’re all caught up.</p>
           ) : (
-            <ul className="max-h-96 divide-y divide-neutral-100 overflow-y-auto">
+            <ul className="max-h-96 divide-y divide-neutral-100 overflow-y-auto dark:divide-white/10">
               {notifications.map(notification => (
                 <li key={notification.id}>
                   <button
                     type="button"
                     onClick={() => void openNotification(notification)}
-                    className={`w-full px-4 py-3 text-left transition-colors hover:bg-neutral-50 ${notification.readAt ? '' : 'bg-brand-50/60'}`}
+                    className={`w-full px-4 py-3 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-white/5 ${notification.readAt ? '' : 'bg-brand-50/60 dark:bg-violet-500/10'}`}
                   >
                     <span className="flex items-start gap-3">
                       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.readAt ? 'bg-transparent' : 'bg-amber-500'}`} />
                       <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-neutral-900">{notification.title}</span>
-                        <span className="mt-1 block text-sm text-neutral-600">{notification.message}</span>
-                        <span className="mt-1 block text-xs text-neutral-400">
+                        <span className="block text-sm font-semibold text-neutral-900 dark:text-white">{notification.title}</span>
+                        <span className="mt-1 block text-sm text-neutral-600 dark:text-neutral-300">{notification.message}</span>
+                        <span className="mt-1 block text-xs text-neutral-400 dark:text-neutral-500">
                           {new Date(notification.createdAt).toLocaleString()}
                         </span>
                       </span>

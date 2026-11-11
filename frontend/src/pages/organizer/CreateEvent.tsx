@@ -1,8 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerPageLayout from '@/components/organizer/OrganizerPageLayout';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -26,12 +25,15 @@ interface EventForm {
   categoryOther: string;
   eventType: EventType;
   venue: string;
+  city: string;
+  address: string;
   meetingDetails: string;
   startTime: string;
   endTime: string;
   capacity: string;
   vendorStandsAvailable: string;
   bannerImageUrl: string;
+  pricingMode: 'FREE' | 'PAID';
   ticketTypes: TicketForm[];
 }
 
@@ -51,12 +53,15 @@ const EMPTY_FORM: EventForm = {
   categoryOther: '',
   eventType: 'IN_PERSON',
   venue: '',
+  city: '',
+  address: '',
   meetingDetails: '',
   startTime: '',
   endTime: '',
   capacity: '',
   vendorStandsAvailable: '0',
   bannerImageUrl: '',
+  pricingMode: 'PAID',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
 
@@ -75,12 +80,15 @@ const toForm = (event: Event): EventForm => ({
   categoryOther: EVENT_CATEGORIES.includes(event.category) ? '' : event.category,
   eventType: event.eventType,
   venue: event.eventType === 'ONLINE' && event.venue === 'Online' ? '' : event.venue,
+  city: '',
+  address: '',
   meetingDetails: event.meetingDetails ?? '',
   startTime: asLocalDateTime(event.startTime),
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
   vendorStandsAvailable: String(event.vendorStandsAvailable ?? 0),
   bannerImageUrl: event.bannerImageUrl ?? '',
+  pricingMode: event.isFree ? 'FREE' : 'PAID',
   ticketTypes: event.ticketTypes.map(ticket => ({
     name: ticket.name,
     description: ticket.description ?? '',
@@ -107,15 +115,9 @@ export default function CreateEvent() {
   const [notice, setNotice] = useState('');
   const [completed, setCompleted] = useState(false);
 
-  useEffect(() => {
-    if (!bannerImageFile) {
-      setBannerPreviewUrl('');
-      return;
-    }
-    const previewUrl = URL.createObjectURL(bannerImageFile);
-    setBannerPreviewUrl(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [bannerImageFile]);
+  useEffect(() => () => {
+    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+  }, [bannerPreviewUrl]);
 
   useEffect(() => {
     if (!id) return;
@@ -181,7 +183,15 @@ export default function CreateEvent() {
       return;
     }
     setError('');
+    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+    setBannerPreviewUrl(URL.createObjectURL(file));
     setBannerImageFile(file);
+  };
+
+  const removeBannerImage = () => {
+    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+    setBannerPreviewUrl('');
+    setBannerImageFile(null);
   };
 
   const handleSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
@@ -216,12 +226,21 @@ export default function CreateEvent() {
       setError('The total quantity of all ticket types must equal the event capacity.');
       return;
     }
+    if (form.pricingMode === 'PAID' && !ticketTypes.some(ticket => ticket.price > 0)) {
+      setError('Add a price greater than zero for at least one ticket type, or select a free event.');
+      return;
+    }
     if (form.eventType !== 'IN_PERSON' && !form.meetingDetails.trim()) {
       setError('Add online meeting details for online or hybrid events.');
       return;
     }
     if (form.category === 'other' && !form.categoryOther.trim()) {
       setError('Enter a category when selecting other.');
+      return;
+    }
+    const venue = [form.venue.trim(), form.address.trim(), form.city.trim()].filter(Boolean).join(' · ');
+    if (venue.length > 250) {
+      setError('Venue, address, and city must fit within 250 characters combined.');
       return;
     }
     if (!bannerImageFile && form.bannerImageUrl.trim()) {
@@ -247,17 +266,17 @@ export default function CreateEvent() {
         category: form.category,
         ...(form.category === 'other' ? { categoryOther: form.categoryOther.trim() } : {}),
         eventType: form.eventType,
-        venue: form.eventType === 'ONLINE' && !form.venue.trim() ? 'Online' : form.venue.trim(),
+        venue: form.eventType === 'ONLINE' && !venue ? 'Online' : venue,
         meetingDetails: form.meetingDetails.trim() || undefined,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         date: startTime.toISOString(),
         capacity,
         vendorStandsAvailable: Number(form.vendorStandsAvailable),
-        isFree: ticketTypes.every(ticket => ticket.price === 0),
+        isFree: form.pricingMode === 'FREE',
         bannerImageUrl,
         ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
-          name, description: description || undefined, price, quantity,
+          name, description: description || undefined, price: form.pricingMode === 'FREE' ? 0 : price, quantity,
         })),
       };
       const saved = isEditing && id
@@ -288,14 +307,14 @@ export default function CreateEvent() {
   };
 
   if (loadingEvent) {
-    return <PageWrapper><p className="py-16 text-center text-neutral-500">Loading event…</p></PageWrapper>;
+    return <OrganizerPageLayout title="Edit event"><p role="status" className="py-16 text-center text-neutral-500">Loading event…</p></OrganizerPageLayout>;
   }
   if (loadingProfile) {
-    return <PageWrapper><p role="status" className="py-16 text-center text-neutral-500">Checking your organizer profile…</p></PageWrapper>;
+    return <OrganizerPageLayout title="Create an event"><p role="status" className="py-16 text-center text-neutral-500">Checking your organizer profile…</p></OrganizerPageLayout>;
   }
   if (!isEditing && (profileCheckError || profileApprovalStatus !== 'APPROVED')) {
     return (
-      <PageWrapper>
+      <OrganizerPageLayout title="Create an event">
         <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h1 className="text-xl font-bold text-neutral-900">Event creation unavailable</h1>
           <p role={profileCheckError ? 'alert' : 'status'} className="mt-3 text-sm text-amber-900">
@@ -310,48 +329,34 @@ export default function CreateEvent() {
               <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{profileRejectionReason}</p>
             </section>
           )}
-          <Link to="/organizer/profile" className="mt-5 inline-flex">
+          <Link to="/organizer/settings" className="mt-5 inline-flex">
             <Button type="button">Complete your profile</Button>
           </Link>
         </div>
-      </PageWrapper>
+      </OrganizerPageLayout>
     );
   }
   if (isEditing && error && !existingEvent) {
-    return <PageWrapper><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></PageWrapper>;
+    return <OrganizerPageLayout title="Edit event"><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></OrganizerPageLayout>;
   }
   if (isEditing && existingEvent && !['DRAFT', 'REJECTED', 'PENDING_APPROVAL', 'PUBLISHED'].includes(existingEvent.status)) {
     return (
-      <PageWrapper>
+      <OrganizerPageLayout title="Edit event">
         <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-800">This event can no longer be edited.</p>
         <Link to="/organizer" className="mt-4 inline-block text-brand-700">Back to dashboard</Link>
-      </PageWrapper>
+      </OrganizerPageLayout>
     );
   }
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
-        <DashboardSidebar
-          title="Organizer"
-          subtitle="Operations"
-          items={[
-            { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-            { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
-            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-            { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
-          ]}
-        />
-        <section className="flex-1 min-w-0">
-          <DashboardHeader
-            title={isEditing ? 'Edit event' : 'Create an event'}
-            subtitle="Complete the event details, ticket tiers, and venue information."
-            breadcrumbs={[
-              { label: 'Dashboard', to: '/organizer' },
-              { label: isEditing ? 'Edit event' : 'Create event', to: '/organizer/events/new' },
-            ]}
-          />
-
+    <OrganizerPageLayout
+      title={isEditing ? 'Edit event' : 'Create an event'}
+      subtitle="Complete the event details, ticket tiers, and venue information."
+      breadcrumbs={[
+        { label: 'My events', to: '/organizer/events' },
+        { label: isEditing ? 'Edit event' : 'Create event' },
+      ]}
+    >
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {(existingEvent?.status === 'DRAFT' || existingEvent?.status === 'REJECTED') && existingEvent.rejectionReason && (
             <section className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
@@ -413,7 +418,11 @@ export default function CreateEvent() {
                   ]}
                 />
                 {form.eventType !== 'ONLINE' && (
-                  <Input label="Venue" value={form.venue} onChange={event => updateForm('venue', event.target.value)} maxLength={250} required />
+                  <>
+                    <Input label="Venue name" value={form.venue} onChange={event => updateForm('venue', event.target.value)} maxLength={250} required helperText="Add the city and street address below to complete the event location." />
+                    <Input label="City" value={form.city} onChange={event => updateForm('city', event.target.value)} maxLength={100} />
+                    <Input label="Street address" value={form.address} onChange={event => updateForm('address', event.target.value)} maxLength={180} />
+                  </>
                 )}
                 {form.eventType !== 'IN_PERSON' && (
                   <div className="md:col-span-2">
@@ -447,7 +456,7 @@ export default function CreateEvent() {
                     <button
                       type="button"
                       className="shrink-0 font-semibold text-brand-600 hover:text-brand-700"
-                      onClick={() => setBannerImageFile(null)}
+                      onClick={removeBannerImage}
                     >
                       Remove image
                     </button>
@@ -465,6 +474,27 @@ export default function CreateEvent() {
               <section className="mt-8 border-t border-neutral-100 pt-6">
                 <h2 className="text-lg font-bold text-neutral-900">Ticket types</h2>
                 <p className="mt-1 text-sm text-neutral-500">Ticket quantities must add up to event capacity.</p>
+                <div className="mt-4 max-w-sm">
+                  <Select
+                    label="Admission"
+                    value={form.pricingMode}
+                    onChange={event => {
+                      const pricingMode = event.target.value as EventForm['pricingMode'];
+                      setForm(current => ({
+                        ...current,
+                        pricingMode,
+                        ticketTypes: current.ticketTypes.map((ticket, index) => ({
+                          ...ticket,
+                          price: pricingMode === 'FREE' ? '0' : ticket.price === '0' && index === 0 ? '1' : ticket.price,
+                        })),
+                      }));
+                    }}
+                    options={[
+                      { value: 'FREE', label: 'Free event' },
+                      { value: 'PAID', label: 'Paid event' },
+                    ]}
+                  />
+                </div>
                 <div className="mt-4 flex flex-col gap-4">
                   {form.ticketTypes.map((ticket, index) => (
                     <div key={index} className="rounded-xl border border-neutral-200 p-4">
@@ -482,7 +512,7 @@ export default function CreateEvent() {
                           required
                         />
                         <Textarea label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
-                        <Input label="Price (ZAR, 0 for free)" type="number" min={0} max={99_999_999.99} step={0.01} value={ticket.price} onChange={event => updateTicket(index, { price: event.target.value })} required />
+                        <Input label="Price (ZAR)" type="number" min={form.pricingMode === 'PAID' ? 0.01 : 0} max={99_999_999.99} step={0.01} value={form.pricingMode === 'FREE' ? '0' : ticket.price} onChange={event => updateTicket(index, { price: event.target.value })} disabled={form.pricingMode === 'FREE'} required />
                         <Input label="Quantity" type="number" min={1} max={1_000_000} step={1} value={ticket.quantity} onChange={event => updateTicket(index, { quantity: event.target.value })} required />
                       </div>
                       {form.ticketTypes.length > 1 && (
@@ -493,11 +523,30 @@ export default function CreateEvent() {
                     </div>
                   ))}
                 </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => setForm(current => ({
+                    ...current,
+                    ticketTypes: [...current.ticketTypes, { ...EMPTY_TICKET, price: current.pricingMode === 'FREE' ? '0' : '1' }],
+                  }))}
+                >
+                  Add ticket type
+                </Button>
                 <p className="mt-3 text-sm text-neutral-600">
                   Total ticket quantity: {form.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0)}
                   {form.capacity && Number(form.capacity) !== form.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0) && (
                     <span className="ml-2 text-rose-700">Must equal capacity ({form.capacity}).</span>
                   )}
+                </p>
+              </section>
+
+              <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <h2 className="text-sm font-bold text-amber-950">Booking windows and event terms</h2>
+                <p className="mt-1 text-sm leading-6 text-amber-900">
+                  Booking opening/closing dates and event terms cannot be saved yet because the current event API has no fields for them. They are intentionally not collected here.
                 </p>
               </section>
 
@@ -514,8 +563,6 @@ export default function CreateEvent() {
               </div>
             </form>
           )}
-        </section>
-      </div>
-    </PageWrapper>
+    </OrganizerPageLayout>
   );
 }

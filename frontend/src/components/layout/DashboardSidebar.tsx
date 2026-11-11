@@ -2,6 +2,13 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import {
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+} from 'lucide-react';
+import { organizerNavigation } from '@/components/organizer/organizerNavigation';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
 
 export interface SidebarItem {
@@ -18,6 +25,12 @@ interface DashboardSidebarProps {
   appearance?: 'default' | 'analytics';
 }
 
+const organizerItems: SidebarItem[] = organizerNavigation.map(({ label, to, icon: Icon }) => ({
+  label,
+  to,
+  icon: <Icon size={18} />,
+}));
+
 export default function DashboardSidebar({ title, subtitle, items, appearance = 'analytics' }: DashboardSidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +40,8 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
   const navigation = useDashboardNavigation();
   const collapsed = navigation?.collapsed ?? false;
   const mobileOpen = navigation?.mobileOpen ?? false;
+  const visibleItems = title === 'Organizer' ? organizerItems : items;
+  const isOrganizer = title === 'Organizer';
 
   const handleLogout = async () => {
     await logout();
@@ -35,6 +50,16 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
 
   return (
     <>
+      {isOrganizer && !mobileOpen && (
+        <button
+          type="button"
+          onClick={navigation?.toggle}
+          aria-label="Open organizer navigation"
+          className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
+        >
+          <Menu size={18} />
+        </button>
+      )}
       {mobileOpen && (
         <button
           type="button"
@@ -48,7 +73,9 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
         className={`shrink-0 self-start transition-[width,transform] duration-200 ${
           mobileOpen
             ? 'fixed inset-y-3 left-3 z-50 w-[min(290px,calc(100vw-1.5rem))] overflow-y-auto lg:sticky lg:inset-auto lg:top-20 lg:z-auto lg:w-[290px] lg:overflow-visible'
-            : 'block w-full lg:sticky lg:top-20 lg:block'
+            : isOrganizer
+              ? 'hidden w-full lg:sticky lg:top-20 lg:block'
+              : 'block w-full lg:sticky lg:top-20 lg:block'
         } ${!mobileOpen && (collapsed ? 'lg:w-[76px]' : 'lg:w-[290px]')}`}
       >
         <div className={`min-h-full overflow-hidden rounded-[1.5rem] border shadow-xl ${
@@ -66,10 +93,31 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            {(!collapsed || mobileOpen) && <div>
+            {(!collapsed || mobileOpen) && <div className="min-w-0 flex-1">
               <p className={`text-[11px] font-black uppercase tracking-[0.22em] ${analyticsAppearance ? 'text-cyan-300' : 'text-brand-100'}`}>EventMS</p>
               <p className="text-base font-black text-white mt-1">{title}</p>
             </div>}
+            {isOrganizer && navigation?.isDesktop && (
+              <button
+                type="button"
+                onClick={navigation.toggle}
+                aria-label={collapsed ? 'Expand organizer navigation' : 'Collapse organizer navigation'}
+                title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+                className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white lg:flex"
+              >
+                {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+              </button>
+            )}
+            {isOrganizer && mobileOpen && (
+              <button
+                type="button"
+                onClick={navigation?.closeMobile}
+                aria-label="Close organizer navigation"
+                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
 
         <div className={`min-h-[calc(100%-92px)] ${collapsed && !mobileOpen ? 'px-2 py-5' : 'px-4 py-5'}`}>
@@ -77,7 +125,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
             <span className={`px-3 text-[10px] font-black uppercase tracking-[0.2em] ${analyticsAppearance ? 'text-slate-400' : 'text-brand-700'}`}>{subtitle}</span>
           </div>}
           <nav className="space-y-1">
-            {items.map(item => {
+            {visibleItems.map(item => {
               const isExpanded = expandedItems.includes(item.to) ||
                 Boolean(item.children?.some(child => location.pathname === child.to));
               const itemClass = `flex items-center gap-3 rounded-lg py-3 text-sm font-semibold transition-all duration-200 ${
@@ -119,7 +167,34 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                       end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
                       onClick={navigation?.closeMobile}
                       title={collapsed && !mobileOpen ? item.label : undefined}
-                      className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}
+                      className={({ isActive }) => {
+                        const organizerActive = title === 'Organizer' && (
+                          (item.to === '/organizer/dashboard' && ['/organizer', '/organizer/dashboard'].includes(location.pathname)) ||
+                          (item.to === '/organizer/events' && (
+                            location.pathname === item.to ||
+                            /^\/organizer\/events\/[^/]+\/edit$/.test(location.pathname)
+                          )) ||
+                          (item.to === '/organizer/events/create' && ['/organizer/events/create', '/organizer/events/new'].includes(location.pathname)) ||
+                          (item.to === '/organizer/vendor-applications' && (
+                            location.pathname === item.to ||
+                            (/^\/organizer\/events\/[^/]+\/vendors$/.test(location.pathname))
+                          )) ||
+                          (item.to === '/organizer/attendees' && (
+                            location.pathname === item.to ||
+                            /^\/organizer\/events\/[^/]+\/registrations$/.test(location.pathname)
+                          )) ||
+                          (item.to === '/organizer/tickets' && (
+                            location.pathname === item.to ||
+                            /^\/organizer\/events\/[^/]+\/check-in$/.test(location.pathname)
+                          )) ||
+                          (item.to !== '/organizer/dashboard' && item.to !== '/organizer/events' &&
+                            item.to !== '/organizer/events/create' && item.to !== '/organizer/vendor-applications' &&
+                            item.to !== '/organizer/attendees' && item.to !== '/organizer/tickets' &&
+                            (location.pathname === item.to ||
+                              (item.to === '/organizer/settings' && location.pathname === '/organizer/profile')))
+                        );
+                        return `${itemClass} ${organizerActive || isActive ? activeClass : inactiveClass}`;
+                      }}
                     >
                       <span className="w-5 h-5 shrink-0 flex items-center justify-center">{item.icon}</span>
                       {(!collapsed || mobileOpen) && <span>{item.label}</span>}

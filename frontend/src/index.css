@@ -477,3 +477,55 @@ main.dashboard-shell {
 .dashboard-content .hover\:bg-neutral-100:hover {
   background-color: #242b41 !important;
 }
+
+.organizer-page.dark .dashboard-panel,
+.organizer-page.dark .bg-white {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background-color: #171823 !important;
+}
+
+.organizer-page.dark .bg-slate-50,
+.organizer-page.dark .bg-neutral-50 {
+  background-color: #10111a !important;
+}
+
+.organizer-page.dark .text-slate-950,
+.organizer-page.dark .text-slate-900,
+.organizer-page.dark .text-neutral-900,
+.organizer-page.dark .text-neutral-800,
+.organizer-page.dark .text-neutral-700 {
+  color: #edf2fb !important;
+}
+
+.organizer-page.dark .text-slate-800,
+.organizer-page.dark .text-slate-700,
+.organizer-page.dark .text-slate-600,
+.organizer-page.dark .text-neutral-600,
+.organizer-page.dark .text-neutral-500 {
+  color: #a7b0c5 !important;
+}
+
+.organizer-page.dark .border-slate-200,
+.organizer-page.dark .border-slate-100,
+.organizer-page.dark .border-neutral-200,
+.organizer-page.dark .border-neutral-100 {
+  border-color: rgb(255 255 255 / 0.1) !important;
+}
+
+.organizer-page.dark input,
+.organizer-page.dark select,
+.organizer-page.dark textarea {
+  border-color: #343c55 !important;
+  background-color: #111729 !important;
+  color: #e2e8f0 !important;
+}
+
+.organizer-page.dark input::placeholder,
+.organizer-page.dark textarea::placeholder {
+  color: #78849f;
+}
+
+.organizer-page.dark .hover\:bg-neutral-50:hover,
+.organizer-page.dark .hover\:bg-slate-50:hover {
+  background-color: #242b41 !important;
+}

@@ -10,7 +10,7 @@ interface Props {
 }
 
 const dashboardPath: Record<UserRole, string> = {
-  ORGANIZER:     '/organizer',
+  ORGANIZER:     '/organizer/dashboard',
   VENDOR:        '/vendor',
   ADMIN:         '/admin',
   PLATFORM_ADMIN:'/platform-admin/settings',

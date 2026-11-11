@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import Spinner from '@/components/ui/Spinner';
 
 const dashboardPath: Record<string, string> = {
-  ORGANIZER:     '/organizer',
+  ORGANIZER:     '/organizer/dashboard',
   VENDOR:        '/vendor',
   ADMIN:         '/admin',
   PLATFORM_ADMIN:'/platform-admin/settings',

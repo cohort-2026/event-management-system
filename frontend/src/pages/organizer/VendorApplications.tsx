@@ -1,10 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { Link, useParams } from 'react-router-dom';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerPageLayout from '@/components/organizer/OrganizerPageLayout';
 import Badge, { type BadgeVariant } from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import { getMyEvents } from '@/services/eventService';
 import { approveApplication, getEventApplications, rejectApplication } from '@/services/vendorService';
 import type { VendorApplication } from '@/types/vendor';
 
@@ -27,6 +27,23 @@ const safeDocumentUrl = (value: string): string | null => {
   }
 };
 
+async function loadApplications(eventId?: string): Promise<VendorApplication[]> {
+  if (eventId) {
+    const response = await getEventApplications(eventId);
+    return response.data.data;
+  }
+
+  const eventsResponse = await getMyEvents();
+  const applicationGroups = await Promise.all(eventsResponse.data.data.map(async event => {
+    const response = await getEventApplications(event.id);
+    return response.data.data.map(application => ({
+      ...application,
+      event: { id: event.id, title: event.title, date: event.startTime, venue: event.venue },
+    }));
+  }));
+  return applicationGroups.flat();
+}
+
 export default function VendorApplications() {
   const { id: eventId } = useParams<{ id: string }>();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
@@ -37,26 +54,67 @@ export default function VendorApplications() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<VendorApplication['status'] | 'ALL'>('ALL');
+  const [eventFilter, setEventFilter] = useState('ALL');
 
-  const refresh = async () => {
-    if (!eventId) {
-      setError('A valid event is required.');
-      setLoading(false);
-      return;
-    }
+  const refresh = useCallback(async () => {
     try {
-      const response = await getEventApplications(eventId);
-      setApplications(response.data.data);
+      setApplications(await loadApplications(eventId));
+      setError('');
     } catch (loadError) {
-      setError(responseMessage(loadError, 'Stand requests could not be loaded.'));
-    } finally {
-      setLoading(false);
+      setError(responseMessage(
+        loadError,
+        eventId ? 'Stand requests could not be loaded.' : 'Vendor applications could not be loaded.',
+      ));
     }
-  };
+  }, [eventId]);
 
   useEffect(() => {
-    void refresh();
+    let active = true;
+    loadApplications(eventId)
+      .then(data => {
+        if (active) setApplications(data);
+      })
+      .catch(loadError => {
+        if (active) {
+          setError(responseMessage(
+            loadError,
+            eventId ? 'Stand requests could not be loaded.' : 'Vendor applications could not be loaded.',
+          ));
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [eventId]);
+
+  const eventOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    applications.forEach(application => {
+      if (application.event) options.set(application.event.id, application.event.title);
+    });
+    return [...options.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [applications]);
+
+  const filteredApplications = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return applications.filter(application => {
+      if (statusFilter !== 'ALL' && application.status !== statusFilter) return false;
+      if (eventFilter !== 'ALL' && application.eventId !== eventFilter) return false;
+      if (!query) return true;
+      const profile = application.vendor?.vendorProfile;
+      return [
+        profile?.businessName,
+        application.companyName,
+        application.vendor?.firstname,
+        application.vendor?.lastname,
+        application.vendor?.email,
+        application.event?.title,
+      ].some(value => value?.toLocaleLowerCase().includes(query));
+    });
+  }, [applications, eventFilter, search, statusFilter]);
 
   const approve = async (event: FormEvent<HTMLFormElement>, applicationId: string) => {
     event.preventDefault();
@@ -95,37 +153,50 @@ export default function VendorApplications() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar
-          title="Organizer"
-          subtitle="Operations"
-          items={[
-            { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-            { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
-            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-            { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
-          ]}
-        />
-        <section className="min-w-0 flex-1">
-          <DashboardHeader
-            title="Stand requests"
-            subtitle="Review vendor profiles, requested setups, and supporting information."
-            breadcrumbs={[{ label: 'My events', to: '/organizer/events' }, { label: 'Stand requests' }]}
-          />
+    <OrganizerPageLayout
+      title={eventId ? 'Stand requests' : 'Vendor applications'}
+      subtitle="Review vendor profiles, requested setups, and supporting information."
+      breadcrumbs={eventId
+        ? [{ label: 'My events', to: '/organizer/events' }, { label: 'Stand requests' }]
+        : [{ label: 'Vendor applications' }]}
+    >
+          {!eventId && (
+            <section className="mb-5 grid gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:grid-cols-3">
+              <label className="text-xs font-semibold text-neutral-600">
+                Search applications
+                <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Vendor, contact, or event" className="mt-1.5 w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm font-normal text-neutral-800 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
+              </label>
+              <label className="text-xs font-semibold text-neutral-600">
+                Event
+                <select value={eventFilter} onChange={event => setEventFilter(event.target.value)} className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm font-normal text-neutral-800 outline-none focus:border-violet-400">
+                  <option value="ALL">All events</option>
+                  {eventOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-neutral-600">
+                Status
+                <select value={statusFilter} onChange={event => setStatusFilter(event.target.value as VendorApplication['status'] | 'ALL')} className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm font-normal text-neutral-800 outline-none focus:border-violet-400">
+                  <option value="ALL">All statuses</option>
+                  <option value="PENDING_REVIEW">Pending review</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+              </label>
+            </section>
+          )}
           {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
           {loading ? (
             <p role="status" className="py-10 text-center text-neutral-500">Loading stand requests…</p>
-          ) : applications.length === 0 ? (
+          ) : filteredApplications.length === 0 ? (
             <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
-              <h2 className="font-bold text-neutral-900">No stand requests yet</h2>
-              <p className="mt-2 text-sm text-neutral-600">Requests for this event will appear here.</p>
+              <h2 className="font-bold text-neutral-900">{applications.length === 0 ? 'No vendor applications yet' : 'No matching applications'}</h2>
+              <p className="mt-2 text-sm text-neutral-600">{applications.length === 0 ? 'Applications for your events will appear here.' : 'Try changing your search or filters.'}</p>
               <Link to="/organizer/events" className="mt-4 inline-flex text-sm font-semibold text-brand-700 underline">Back to events</Link>
             </div>
           ) : (
             <div className="space-y-5">
-              {applications.map(application => {
+              {filteredApplications.map(application => {
                 const profile = application.vendor?.vendorProfile;
                 const documentLinks = (profile?.supportingDocumentUrls ?? [])
                   .map(url => ({ url, safeUrl: safeDocumentUrl(url) }))
@@ -144,6 +215,13 @@ export default function VendorApplications() {
                     </div>
 
                     <div className="mt-5 grid gap-5 border-t border-neutral-100 pt-5 md:grid-cols-2">
+                      {!eventId && application.event && (
+                        <div className="md:col-span-2">
+                          <Link to={`/organizer/events/${application.event.id}/vendors`} className="text-sm font-semibold text-violet-700 hover:text-violet-900">
+                            {application.event.title} · {new Date(application.event.date).toLocaleDateString()} · {application.event.venue}
+                          </Link>
+                        </div>
+                      )}
                       <section>
                         <h3 className="text-sm font-bold text-neutral-900">Vendor profile</h3>
                         <dl className="mt-2 space-y-2 text-sm">
@@ -209,8 +287,6 @@ export default function VendorApplications() {
               })}
             </div>
           )}
-        </section>
-      </div>
-    </PageWrapper>
+    </OrganizerPageLayout>
   );
 }

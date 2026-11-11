@@ -27,6 +27,7 @@ import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
 import VendorApplications from '@/pages/organizer/VendorApplications';
 import CheckIn from '@/pages/organizer/CheckIn';
+import OrganizerSectionPage from '@/pages/organizer/OrganizerSectionPage';
 
 // Attendee
 import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
@@ -90,9 +91,21 @@ export default function App() {
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
+            <Route path="/organizer/dashboard"                   element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/events/"                     element={<OrganizerDashboard />} />
+            <Route path="/organizer/analytics"                   element={<OrganizerDashboard />} />
             <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
+            <Route path="/organizer/settings"                     element={<OrganizerProfile />} />
+            <Route path="/organizer/events/create"                element={<CreateEvent />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
+            <Route path="/organizer/attendees"                    element={<OrganizerSectionPage section="attendees" />} />
+            <Route path="/organizer/bookings"                     element={<OrganizerSectionPage section="bookings" />} />
+            <Route path="/organizer/tickets"                      element={<OrganizerSectionPage section="tickets" />} />
+            <Route path="/organizer/vendor-applications"          element={<VendorApplications />} />
+            <Route path="/organizer/reports"                      element={<OrganizerSectionPage section="reports" />} />
+            <Route path="/organizer/notifications"                element={<OrganizerSectionPage section="notifications" />} />
+            <Route path="/organizer/help"                         element={<OrganizerSectionPage section="help" />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />
             <Route path="/organizer/events/:id/registrations"     element={<EventRegistrations />} />
             <Route path="/organizer/events/:id/vendors"           element={<VendorApplications />} />
@@ -159,7 +172,7 @@ function RootRedirect() {
 
   if (user) {
     const dashboardPath: Record<string, string> = {
-      ORGANIZER: '/organizer',
+      ORGANIZER: '/organizer/dashboard',
       VENDOR: user.vendorProfileStatus === 'APPROVED' ? '/vendor' : '/vendor/profile',
       ADMIN: '/admin',
       PLATFORM_ADMIN: '/platform-admin',

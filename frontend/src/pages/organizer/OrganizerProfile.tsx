@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerPageLayout from '@/components/organizer/OrganizerPageLayout';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import type { ApiError } from '@/types/api';
@@ -60,13 +59,6 @@ const phoneCountryCodes = [
   { country: 'South Korea', code: '+82' },
   { country: 'Turkey', code: '+90' },
 ].sort((a, b) => a.country.localeCompare(b.country));
-
-const sidebarItems = [
-  { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-  { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
-  { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-  { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
-];
 
 function toFormValues(profile: OrganizerProfileData): UpdateOrganizerProfileDto {
   return {
@@ -177,15 +169,11 @@ export default function OrganizerProfile() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Organizer" subtitle="Operations" items={sidebarItems} />
-        <section className="min-w-0 flex-1">
-          <DashboardHeader
-            title="Organizer profile"
-            subtitle="Manage the contact and organization details shown with your events."
-            breadcrumbs={[{ label: 'Dashboard', to: '/organizer' }, { label: 'My profile' }]}
-          />
+    <OrganizerPageLayout
+      title="Profile settings"
+      subtitle="Manage the contact and organization details shown with your events."
+      breadcrumbs={[{ label: 'Profile settings' }]}
+    >
 
           {profileApprovalStatus && (
             <div
@@ -209,6 +197,10 @@ export default function OrganizerProfile() {
               <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{profileRejectionReason}</p>
             </section>
           )}
+
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+            Profile image uploads and notification preferences are not supported by the current organizer profile API. Your existing profile and contact details remain editable below.
+          </div>
 
           {loading ? (
             <p role="status" className="py-12 text-center text-sm text-neutral-500">Loading your profile…</p>
@@ -338,8 +330,6 @@ export default function OrganizerProfile() {
               </div>
             </form>
           )}
-        </section>
-      </div>
-    </PageWrapper>
+    </OrganizerPageLayout>
   );
 }
