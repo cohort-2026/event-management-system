@@ -1,12 +1,12 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Badge from '@/components/ui/Badge';
+import VendorPortalLayout from '@/components/vendor/VendorPortalLayout';
 import { useAuth } from '@/context/AuthContext';
 import {
   deleteVendorDocument,
@@ -38,16 +38,9 @@ const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rej
   rejectionReason: null,
 };
 
-const sidebarItems = [
-  { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
-  { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
-  { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
-  { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
-  { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
-];
-
 export default function VendorProfilePage() {
   const { user, setUser } = useAuth();
+  const location = useLocation();
   const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'>>(emptyProfile);
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>('ZA');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -65,7 +58,8 @@ export default function VendorProfilePage() {
   const isApproved = profile.status === 'APPROVED';
   const isDraft = profile.status === 'DRAFT';
   const isRejected = profile.status === 'REJECTED';
-  const visibleSidebarItems = isApproved ? sidebarItems : sidebarItems.filter(item => item.to === '/vendor/profile' || item.to === '/vendor/events');
+  const title = location.pathname === '/vendor/settings' ? 'Profile settings' : 'Business profile';
+  const businessName = profile.businessName || (user?.firstname ? `${user.firstname} ${user.lastname ?? ''}`.trim() : 'Vendor');
 
   useEffect(() => {
     getVendorProfile()
@@ -87,6 +81,14 @@ export default function VendorProfilePage() {
       .then(response => setDocuments(response.data.data))
       .catch(() => setDocumentError('Unable to load your uploaded documents.'));
   }, []);
+
+  useEffect(() => {
+    if (loading || location.hash !== '#services') return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('services')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, location.hash]);
 
   const updateField = <K extends keyof UpdateVendorProfileDto>(key: K, value: UpdateVendorProfileDto[K]) => {
     setProfile(current => ({ ...current, [key]: value }));
@@ -226,30 +228,26 @@ export default function VendorProfilePage() {
 
   if (loading) {
     return (
-      <PageWrapper>
+      <VendorPortalLayout businessName={businessName} title={title} subtitle="Manage your vendor business details.">
         <div className="flex items-center justify-center py-24" role="status">Loading business profile…</div>
-      </PageWrapper>
+      </VendorPortalLayout>
     );
   }
 
   if (loadError) {
     return (
-      <PageWrapper>
+      <VendorPortalLayout businessName={businessName} title={title} subtitle="Manage your vendor business details.">
         <p role="alert" className="text-sm font-medium text-rose-700">{loadError}</p>
-      </PageWrapper>
+      </VendorPortalLayout>
     );
   }
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Vendor" subtitle="Operations" items={visibleSidebarItems} />
-        <section className="min-w-0 flex-1">
-          <DashboardHeader
-            title="Business profile"
-            subtitle={isApproved ? 'Your approved business profile' : 'Manage the details used on your vendor applications'}
-            breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Business profile' }]}
-          />
+    <VendorPortalLayout businessName={businessName} title={title} subtitle={isApproved ? 'Your approved business profile' : 'Manage the details used on your vendor applications.'}>
+          <section>
+          <p className="mb-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-5 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+            The current profile API supports business name, description, registration number, contact details, service-name list, and supporting PDFs. Business logo upload, business address, category, website, and social links are not supported.
+          </p>
 
           {isApproved && (
             <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
@@ -289,7 +287,7 @@ export default function VendorProfilePage() {
                 <div className="md:col-span-2">
                   <Textarea label="Business description" value={profile.businessDescription} onChange={event => updateField('businessDescription', event.target.value)} maxLength={2000} helperText={`${profile.businessDescription.length}/2000 characters`} error={fieldErrors.businessDescription} disabled={isApproved} />
                 </div>
-                <div className="md:col-span-2" role="group" aria-labelledby="products-services-heading">
+                <div id="services" className="md:col-span-2 scroll-mt-24" role="group" aria-labelledby="products-services-heading">
                   <h3 id="products-services-heading" className="mb-1.5 text-sm font-medium text-neutral-700">Products or services offered</h3>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                     <div className="flex-1">
@@ -404,9 +402,8 @@ export default function VendorProfilePage() {
               {saveMessage && <p role={Object.values(fieldErrors).some(Boolean) ? 'alert' : 'status'} className={`text-sm font-medium ${Object.values(fieldErrors).some(Boolean) ? 'text-rose-700' : 'text-emerald-700'}`}>{saveMessage}</p>}
             </div>}
           </form>
-        </section>
-      </div>
-    </PageWrapper>
+          </section>
+    </VendorPortalLayout>
   );
 }
 
@@ -414,20 +411,4 @@ function formatFileSize(sizeBytes: number): string {
   return sizeBytes < 1024 * 1024
     ? `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
     : `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function DocumentIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-}
-
-function ProfileIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 12a4 4 0 100-8 4 4 0 000 8zm7 9a7 7 0 00-14 0" /></svg>;
-}
-
-function PlusIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M10 11a4 4 0 100-8 4 4 0 000 8zm7-7.87a4 4 0 010 7.75" /></svg>;
 }

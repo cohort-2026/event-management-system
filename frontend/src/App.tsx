@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
@@ -38,6 +39,14 @@ import VendorProfilePage from '@/pages/vendor/VendorProfile';
 import ApplyForStand from '@/pages/vendor/ApplyForStand';
 import MyApplications from '@/pages/vendor/MyApplications';
 import StaffManagement from '@/pages/vendor/StaffManagement';
+import VendorEvents from '@/pages/vendor/VendorEvents';
+import VendorEventDetail from '@/pages/vendor/VendorEventDetail';
+import VendorMyEvents from '@/pages/vendor/VendorMyEvents';
+import VendorServices from '@/pages/vendor/VendorServices';
+import VendorInvoices from '@/pages/vendor/VendorInvoices';
+import VendorNotifications from '@/pages/vendor/VendorNotifications';
+
+const VendorAnalytics = lazy(() => import('@/pages/vendor/VendorAnalytics'));
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -114,13 +123,21 @@ export default function App() {
 
           {/* ── Vendor ── */}
           <Route element={<ProtectedRoute roles={['VENDOR']} />}>
-            <Route path="/vendor"                          element={<VendorDashboard />} />
-            <Route path="/vendor/events"                   element={<EventList />} />
-            <Route path="/vendor/profile"                  element={<VendorProfilePage />} />
-            <Route path="/vendor/staff"                    element={<StaffManagement />} />
-            <Route path="/vendor/events/:id/apply"         element={<ApplyForStand />} />
-            <Route path="/vendor/applications"             element={<MyApplications />} />
-            <Route path="/vendor/applications/:id/staff"   element={<StaffManagement />} />
+            <Route path="/vendor"                              element={<VendorDashboard />} />
+            <Route path="/vendor/dashboard"                    element={<VendorDashboard />} />
+            <Route path="/vendor/events"                       element={<VendorEvents />} />
+            <Route path="/vendor/events/:id"                   element={<VendorEventDetail />} />
+            <Route path="/vendor/profile"                      element={<VendorProfilePage />} />
+            <Route path="/vendor/services"                     element={<VendorServices />} />
+            <Route path="/vendor/settings"                     element={<VendorProfilePage />} />
+            <Route path="/vendor/staff"                        element={<StaffManagement />} />
+            <Route path="/vendor/events/:id/apply"              element={<ApplyForStand />} />
+            <Route path="/vendor/applications"                 element={<MyApplications />} />
+            <Route path="/vendor/applications/:id/staff"       element={<StaffManagement />} />
+            <Route path="/vendor/my-events"                    element={<VendorMyEvents />} />
+            <Route path="/vendor/invoices"                     element={<VendorInvoices />} />
+            <Route path="/vendor/analytics"                    element={<Suspense fallback={<div className="flex min-h-40 items-center justify-center"><Spinner size="lg" /></div>}><VendorAnalytics /></Suspense>} />
+            <Route path="/vendor/notifications"                element={<VendorNotifications />} />
           </Route>
 
           {/* ── Admin ── */}
@@ -173,7 +190,7 @@ function RootRedirect() {
   if (user) {
     const dashboardPath: Record<string, string> = {
       ORGANIZER: '/organizer/dashboard',
-      VENDOR: user.vendorProfileStatus === 'APPROVED' ? '/vendor' : '/vendor/profile',
+      VENDOR: user.vendorProfileStatus === 'APPROVED' ? '/vendor/dashboard' : '/vendor/profile',
       ADMIN: '/admin',
       PLATFORM_ADMIN: '/platform-admin',
       MANAGEMENT: '/management/reports',

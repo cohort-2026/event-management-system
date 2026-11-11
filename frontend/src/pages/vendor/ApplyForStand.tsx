@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/ui/Button';
+import VendorPortalLayout from '@/components/vendor/VendorPortalLayout';
 import { getEventById } from '@/services/eventService';
 import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
 import type { Event } from '@/types/event';
@@ -13,14 +12,6 @@ interface ApplicationStaffMember {
   name: string;
   email: string;
 }
-
-const sidebarItems = [
-  { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
-  { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
-  { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
-  { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
-  { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
-];
 
 export default function ApplyForStand() {
   const { id: eventId } = useParams<{ id: string }>();
@@ -36,13 +27,25 @@ export default function ApplyForStand() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([getVendorProfile(), getMyApplications(), eventId ? getEventById(eventId) : Promise.reject(new Error('Event ID is missing'))])
       .then(([profileResponse, applicationsResponse, eventResponse]) => {
+        setCurrentTime(Date.now());
         setProfile(profileResponse.data.data);
         setApplications(applicationsResponse.data.data);
         setEvent(eventResponse.data.data);
+        const latestRejected = applicationsResponse.data.data
+          .filter(application => application.eventId === eventId && application.status === 'REJECTED')
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
+        if (latestRejected) {
+          setRequestedStandType(latestRejected.requestedStandType);
+          setRequestedStandSize(latestRejected.requestedStandSize);
+          setStandDescription(latestRejected.standDescription);
+          setSupportingInformation(latestRejected.supportingInformation ?? '');
+          setStaffMembers(latestRejected.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        }
       })
       .catch(() => setError('Unable to load this event and your business profile.'))
       .finally(() => setLoading(false));
@@ -55,16 +58,11 @@ export default function ApplyForStand() {
     .filter(application => application.eventId === eventId && application.status === 'REJECTED')
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0],
   [applications, eventId]);
-
-  useEffect(() => {
-    if (!activeApplication && rejectedApplication) {
-      setRequestedStandType(rejectedApplication.requestedStandType);
-      setRequestedStandSize(rejectedApplication.requestedStandSize);
-      setStandDescription(rejectedApplication.standDescription);
-      setSupportingInformation(rejectedApplication.supportingInformation ?? '');
-      setStaffMembers(rejectedApplication.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
-    }
-  }, [activeApplication, rejectedApplication]);
+  const applicationsOpen = Boolean(event
+    && event.status === 'PUBLISHED'
+    && currentTime !== null
+    && new Date(event.startTime || event.date).getTime() > currentTime
+    && event.availableVendorStands > 0);
 
   const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -96,19 +94,24 @@ export default function ApplyForStand() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Vendor" subtitle="Operations" items={sidebarItems} />
-        <section className="min-w-0 flex-1">
-          <DashboardHeader title="Apply for a stand" subtitle="Tell the organizer what you need for your event stand." breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Apply for a stand' }]} />
+    <VendorPortalLayout businessName={profile?.businessName ?? 'Vendor'} title="Apply for a stand" subtitle={event ? `Submit an application to participate in ${event.title}.` : 'Tell the organizer what you need for your event stand.'}>
+        <section className="mx-auto w-full max-w-4xl">
 
           {loading ? (
             <p role="status" className="py-10 text-center text-neutral-500">Loading your business profile…</p>
+          ) : error && !profile ? (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</p>
           ) : !profile?.businessName ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
               <h2 className="font-bold text-neutral-900">Complete your business profile first</h2>
               <p className="mt-2 text-sm text-neutral-700">Your business name is required and your saved details are included with the request.</p>
               <Link to="/vendor/profile" className="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:text-brand-900">Open business profile</Link>
+            </div>
+          ) : !applicationsOpen ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#171823]">
+              <h2 className="font-bold text-slate-900 dark:text-white">Applications are closed</h2>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">This event is not published, has started, or has no vendor spaces available. Applications can only be submitted for published future events with available stands.</p>
+              <Link to="/vendor/events" className="mt-4 inline-flex text-sm font-semibold text-violet-700 dark:text-violet-300">Back to events</Link>
             </div>
           ) : (
             <div className="max-w-2xl rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -198,23 +201,6 @@ export default function ApplyForStand() {
             </div>
           )}
         </section>
-      </div>
-    </PageWrapper>
+    </VendorPortalLayout>
   );
-}
-
-function DocumentIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-}
-
-function ProfileIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 12a4 4 0 100-8 4 4 0 000 8zm7 9a7 7 0 00-14 0" /></svg>;
-}
-
-function PlusIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M10 11a4 4 0 100-8 4 4 0 000 8zm7-7.87a4 4 0 010 7.75" /></svg>;
 }

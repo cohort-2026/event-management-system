@@ -11,7 +11,7 @@ interface Props {
 
 const dashboardPath: Record<UserRole, string> = {
   ORGANIZER:     '/organizer/dashboard',
-  VENDOR:        '/vendor',
+  VENDOR:        '/vendor/dashboard',
   ADMIN:         '/admin',
   PLATFORM_ADMIN:'/platform-admin/settings',
   MANAGEMENT:    '/management/reports',
@@ -48,6 +48,7 @@ export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Prop
     user.vendorProfileStatus !== 'APPROVED' &&
     location.pathname !== '/vendor/profile' &&
     location.pathname !== '/vendor/events' &&
+    !/^\/vendor\/events\/[^/]+$/.test(location.pathname) &&
     location.pathname !== '/change-password'
   ) {
     return <Navigate to="/vendor/profile" replace />;

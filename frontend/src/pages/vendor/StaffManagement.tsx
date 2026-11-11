@@ -1,91 +1,71 @@
 import { useEffect, useState } from 'react';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import axios from 'axios';
+import { Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import Spinner from '@/components/ui/Spinner';
+import VendorPortalLayout from '@/components/vendor/VendorPortalLayout';
+import { useAuth } from '@/context/AuthContext';
 import { getMyStaffMembers } from '@/services/vendorService';
 import type { VendorStaffWithEvent } from '@/types/vendor';
 
-const sidebarItems = [
-  { label: 'Overview', to: '/vendor', icon: <DocumentIcon /> },
-  { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
-  { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
-  { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
-  { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
-];
-
 export default function StaffManagement() {
+  const { user } = useAuth();
   const [staffMembers, setStaffMembers] = useState<VendorStaffWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const businessName = user?.firstname ? `${user.firstname} ${user.lastname ?? ''}`.trim() : 'Vendor';
 
   useEffect(() => {
+    let active = true;
     getMyStaffMembers()
-      .then(response => setStaffMembers(response.data.data))
-      .catch(() => setError('Unable to load staff members. Please try again.'))
-      .finally(() => setLoading(false));
+      .then(response => { if (active) setStaffMembers(response.data.data); })
+      .catch(loadError => {
+        if (!active) return;
+        setError(axios.isAxiosError<{ message?: string }>(loadError)
+          ? loadError.response?.data.message ?? 'Staff members could not be loaded.'
+          : 'Staff members could not be loaded.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Vendor" subtitle="Operations" items={sidebarItems} />
-        <section className="min-w-0 flex-1">
-          <DashboardHeader title="Staff management" subtitle="Staff members listed on your approved stand applications" breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }, { label: 'Staff management' }]} />
-
-          {error && <p role="alert" className="mb-4 text-sm font-medium text-rose-700">{error}</p>}
-          {loading ? (
-            <p role="status" className="py-10 text-center text-neutral-500">Loading staff members…</p>
-          ) : staffMembers.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
-              <h2 className="font-bold text-neutral-900">No staff members yet</h2>
-              <p className="mt-2 text-sm text-neutral-600">Staff added to your stand applications will appear here with their contact email.</p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-neutral-200 text-sm">
-                  <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-600">
-                    <tr>
-                      <th scope="col" className="px-5 py-3">Staff member</th>
-                      <th scope="col" className="px-5 py-3">Contact email</th>
-                      <th scope="col" className="px-5 py-3">Event</th>
-                      <th scope="col" className="px-5 py-3">Entry pass</th>
+    <VendorPortalLayout businessName={businessName} title="Staff management" subtitle="Staff members listed on your approved event applications.">
+      <div className="space-y-5">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+          The current API supports viewing staff on approved applications and adding staff while submitting a new application. Adding staff to an existing application, editing, removing, deactivating, phone numbers, staff roles, and status management are not available.
+        </div>
+        {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</p>}
+        {loading ? <div className="flex justify-center py-16"><Spinner /></div> : error && staffMembers.length === 0 ? null : staffMembers.length ? (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#171823]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[690px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                  <tr>{['Staff member', 'Email', 'Approved event', 'Event date', 'Entry pass'].map(column => <th key={column} scope="col" className="px-5 py-3">{column}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/[0.07]">
+                  {staffMembers.map(member => (
+                    <tr key={member.id}>
+                      <td className="px-5 py-4 font-semibold text-slate-900 dark:text-slate-100">{member.name}</td>
+                      <td className="px-5 py-4"><a href={`mailto:${member.email}`} className="break-all text-violet-700 dark:text-violet-300">{member.email}</a></td>
+                      <td className="px-5 py-4 text-slate-700 dark:text-slate-300">{member.application.event.title}</td>
+                      <td className="whitespace-nowrap px-5 py-4 text-slate-600 dark:text-slate-300">{new Date(member.application.event.date).toLocaleDateString('en-ZA')}</td>
+                      <td className="px-5 py-4 font-mono text-xs text-slate-600 dark:text-slate-300">{member.entryPassId}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {staffMembers.map(member => (
-                      <tr key={member.id}>
-                        <td className="whitespace-nowrap px-5 py-4 font-semibold text-neutral-900">{member.name}</td>
-                        <td className="px-5 py-4"><a href={`mailto:${member.email}`} className="break-all font-medium text-brand-700 hover:text-brand-900">{member.email}</a></td>
-                        <td className="px-5 py-4">
-                          <p className="font-medium text-neutral-900">{member.application.event.title}</p>
-                          <p className="mt-1 text-xs text-neutral-500">{member.application.event.venue} · {new Date(member.application.event.date).toLocaleDateString()}</p>
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-4 font-mono text-xs text-neutral-600">{member.entryPassId}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </section>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-white/10 dark:bg-[#171823]">
+            <Users size={28} className="mx-auto text-slate-400" />
+            <h2 className="mt-3 font-semibold text-slate-900 dark:text-white">No staff members listed</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Staff included in approved stand applications will appear here.</p>
+            <Link to="/vendor/applications" className="mt-4 inline-flex text-sm font-semibold text-violet-700 dark:text-violet-300">View applications →</Link>
+          </div>
+        )}
       </div>
-    </PageWrapper>
+    </VendorPortalLayout>
   );
-}
-
-function DocumentIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z" /></svg>;
-}
-
-function ProfileIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 12a4 4 0 100-8 4 4 0 000 8zm7 9a7 7 0 00-14 0" /></svg>;
-}
-
-function PlusIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M10 11a4 4 0 100-8 4 4 0 000 8zm7-7.87a4 4 0 010 7.75" /></svg>;
 }
