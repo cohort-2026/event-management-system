@@ -4,7 +4,7 @@ import DashboardSidebar, { DashboardHeader } from '@/components/layout/Dashboard
 import Badge from '@/components/ui/Badge';
 import StatCard from '@/components/ui/StatCard';
 import Button from '@/components/ui/Button';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
 const bookings = [

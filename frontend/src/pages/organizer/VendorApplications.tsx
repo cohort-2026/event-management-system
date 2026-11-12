@@ -55,7 +55,17 @@ export default function VendorApplications() {
   };
 
   useEffect(() => {
-    void refresh();
+    let active = true;
+    const request = eventId
+      ? getEventApplications(eventId)
+      : Promise.reject(new Error('A valid event is required.'));
+    request
+      .then(response => { if (active) setApplications(response.data.data); })
+      .catch(loadError => {
+        if (active) setError(eventId ? responseMessage(loadError, 'Stand requests could not be loaded.') : 'A valid event is required.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [eventId]);
 
   const approve = async (event: FormEvent<HTMLFormElement>, applicationId: string) => {

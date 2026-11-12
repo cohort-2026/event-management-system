@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';

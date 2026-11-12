@@ -9,7 +9,7 @@ export function useBookings() {
 
   useEffect(() => {
     getMyBookings()
-      .then(r => setBookings(r.data))
+      .then(r => setBookings(r.data.data))
       .catch(() => setError('Failed to load bookings'))
       .finally(() => setLoading(false));
   }, []);

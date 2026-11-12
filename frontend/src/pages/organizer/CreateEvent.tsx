@@ -108,14 +108,9 @@ export default function CreateEvent() {
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    if (!bannerImageFile) {
-      setBannerPreviewUrl('');
-      return;
-    }
-    const previewUrl = URL.createObjectURL(bannerImageFile);
-    setBannerPreviewUrl(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [bannerImageFile]);
+    if (!bannerPreviewUrl.startsWith('blob:')) return;
+    return () => URL.revokeObjectURL(bannerPreviewUrl);
+  }, [bannerPreviewUrl]);
 
   useEffect(() => {
     if (!id) return;
@@ -182,6 +177,7 @@ export default function CreateEvent() {
     }
     setError('');
     setBannerImageFile(file);
+    setBannerPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
