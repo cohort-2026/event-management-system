@@ -43,6 +43,7 @@ export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 
   meetingDetails?: string;
   bannerImageUrl?: string;
   vendorStandsAvailable: number;
+  vendorStandRatePerSqm: number;
   ticketTypes: EventTicketTypeInput[];
 };
 export type UpdateEventDto = Partial<CreateEventDto>;

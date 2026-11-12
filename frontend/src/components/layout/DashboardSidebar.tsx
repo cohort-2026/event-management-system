@@ -53,12 +53,12 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
       >
         <div className={`min-h-full overflow-hidden rounded-[1.5rem] border shadow-xl ${
           analyticsAppearance
-            ? 'border-slate-800 bg-[#062747] shadow-slate-950/15'
+            ? 'border-[#17334f] bg-[#102a43] shadow-slate-950/10'
             : 'bg-white border-neutral-200 shadow-neutral-900/5'
         }`}>
           <div className={`flex min-h-[92px] items-center border-b ${
             analyticsAppearance
-              ? 'border-white/10 bg-[#05213b]'
+              ? 'border-white/10 bg-[#0c233a]'
               : 'border-neutral-100 bg-brand-900'
           } ${collapsed && !mobileOpen ? 'justify-center px-2 py-5' : 'gap-3 px-6 py-5'}`}>
             <div className="w-11 h-11 rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center">
@@ -84,7 +84,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                 collapsed && !mobileOpen ? 'justify-center px-3' : 'px-4'
               }`;
               const activeClass = analyticsAppearance
-                ? 'border-l-4 border-fuchsia-400 bg-[#493766] text-white shadow-md shadow-slate-950/20'
+                ? 'border-l-4 border-teal-300 bg-white/10 text-white shadow-sm shadow-slate-950/10'
                 : 'bg-brand-100 text-white shadow-sm';
               const inactiveClass = analyticsAppearance
                 ? 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -151,7 +151,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
           </nav>
         </div>
 
-        <div className={`border-t ${analyticsAppearance ? 'border-white/10 bg-[#05213b]' : 'border-neutral-100 bg-white'} ${collapsed && !mobileOpen ? 'px-2 py-4' : 'px-5 py-4'}`}>
+        <div className={`border-t ${analyticsAppearance ? 'border-white/10 bg-[#0c233a]' : 'border-neutral-100 bg-white'} ${collapsed && !mobileOpen ? 'px-2 py-4' : 'px-5 py-4'}`}>
           <div className={`flex items-center gap-3 ${collapsed && !mobileOpen ? 'justify-center' : 'justify-between'}`}>
             <button
               type="button"

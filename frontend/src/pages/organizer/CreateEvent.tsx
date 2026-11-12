@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -31,6 +31,7 @@ interface EventForm {
   endTime: string;
   capacity: string;
   vendorStandsAvailable: string;
+  vendorStandRatePerSqm: string;
   bannerImageUrl: string;
   ticketTypes: TicketForm[];
 }
@@ -44,6 +45,7 @@ const EVENT_CATEGORIES = [
 const TICKET_TYPE_OPTIONS = [
   'General admission', 'VIP', 'Early bird', 'Student', 'Group or corporate',
 ];
+const MAX_TICKET_TYPES = 20;
 const EMPTY_FORM: EventForm = {
   title: '',
   description: '',
@@ -56,6 +58,7 @@ const EMPTY_FORM: EventForm = {
   endTime: '',
   capacity: '',
   vendorStandsAvailable: '0',
+  vendorStandRatePerSqm: '0',
   bannerImageUrl: '',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
@@ -80,6 +83,7 @@ const toForm = (event: Event): EventForm => ({
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
   vendorStandsAvailable: String(event.vendorStandsAvailable ?? 0),
+  vendorStandRatePerSqm: String(event.vendorStandRatePerSqm ?? 0),
   bannerImageUrl: event.bannerImageUrl ?? '',
   ticketTypes: event.ticketTypes.map(ticket => ({
     name: ticket.name,
@@ -96,6 +100,7 @@ export default function CreateEvent() {
   const [form, setForm] = useState<EventForm>(EMPTY_FORM);
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState('');
+  const bannerPreviewUrlRef = useRef<string | null>(null);
   const [existingEvent, setExistingEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(isEditing);
   const [loadingProfile, setLoadingProfile] = useState(!isEditing);
@@ -107,15 +112,9 @@ export default function CreateEvent() {
   const [notice, setNotice] = useState('');
   const [completed, setCompleted] = useState(false);
 
-  useEffect(() => {
-    if (!bannerImageFile) {
-      setBannerPreviewUrl('');
-      return;
-    }
-    const previewUrl = URL.createObjectURL(bannerImageFile);
-    setBannerPreviewUrl(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [bannerImageFile]);
+  useEffect(() => () => {
+    if (bannerPreviewUrlRef.current) URL.revokeObjectURL(bannerPreviewUrlRef.current);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -167,6 +166,25 @@ export default function CreateEvent() {
     }));
   };
 
+  const addTicketType = () => {
+    setForm(current => {
+      if (current.ticketTypes.length >= MAX_TICKET_TYPES) return current;
+
+      const existingNames = new Set(current.ticketTypes.map(ticket => ticket.name.toLocaleLowerCase()));
+      const nextOption = TICKET_TYPE_OPTIONS.find(option => !existingNames.has(option.toLocaleLowerCase()));
+      let name = nextOption ?? `Ticket type ${current.ticketTypes.length + 1}`;
+      let fallbackNumber = current.ticketTypes.length + 1;
+      while (existingNames.has(name.toLocaleLowerCase())) {
+        name = `Ticket type ${++fallbackNumber}`;
+      }
+
+      return {
+        ...current,
+        ticketTypes: [...current.ticketTypes, { ...EMPTY_TICKET, name }],
+      };
+    });
+  };
+
   const handleBannerImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -181,6 +199,9 @@ export default function CreateEvent() {
       return;
     }
     setError('');
+    if (bannerPreviewUrlRef.current) URL.revokeObjectURL(bannerPreviewUrlRef.current);
+    bannerPreviewUrlRef.current = URL.createObjectURL(file);
+    setBannerPreviewUrl(bannerPreviewUrlRef.current);
     setBannerImageFile(file);
   };
 
@@ -259,6 +280,7 @@ export default function CreateEvent() {
         date: startTime.toISOString(),
         capacity,
         vendorStandsAvailable: Number(form.vendorStandsAvailable),
+        vendorStandRatePerSqm,
         isFree: ticketTypes.every(ticket => ticket.price === 0),
         bannerImageUrl,
         ticketTypes: ticketTypes.map(({ name, description, price, quantity }) => ({
@@ -397,6 +419,17 @@ export default function CreateEvent() {
                   options={EVENT_CATEGORIES.map(category => ({ value: category, label: category }))}
                   required
                 />
+                <Input
+                  label="Vendor stand rate (ZAR per m²)"
+                  type="number"
+                  min={0}
+                  max={99_999_999.99}
+                  step={0.01}
+                  value={form.vendorStandRatePerSqm}
+                  onChange={event => updateForm('vendorStandRatePerSqm', event.target.value)}
+                  helperText="Enter 0 if vendor stands are free or not offered."
+                  required
+                />
                 {form.category === 'other' && (
                   <Input
                     label="Specify category"
@@ -452,7 +485,12 @@ export default function CreateEvent() {
                     <button
                       type="button"
                       className="shrink-0 font-semibold text-brand-600 hover:text-brand-700"
-                      onClick={() => setBannerImageFile(null)}
+                      onClick={() => {
+                        if (bannerPreviewUrlRef.current) URL.revokeObjectURL(bannerPreviewUrlRef.current);
+                        bannerPreviewUrlRef.current = null;
+                        setBannerPreviewUrl('');
+                        setBannerImageFile(null);
+                      }}
                     >
                       Remove image
                     </button>
@@ -468,8 +506,24 @@ export default function CreateEvent() {
               )}
 
               <section className="mt-8 border-t border-neutral-100 pt-6">
-                <h2 className="text-lg font-bold text-neutral-900">Ticket types</h2>
-                <p className="mt-1 text-sm text-neutral-500">Ticket quantities must add up to event capacity.</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-neutral-900">Ticket types</h2>
+                    <p className="mt-1 text-sm text-neutral-500">Ticket quantities must add up to event capacity.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={addTicketType}
+                    disabled={form.ticketTypes.length >= MAX_TICKET_TYPES}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path d="M12 5v14m7-7H5" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    Add ticket type
+                  </Button>
+                </div>
                 <div className="mt-4 flex flex-col gap-4">
                   {form.ticketTypes.map((ticket, index) => (
                     <div key={index} className="rounded-xl border border-neutral-200 p-4">
@@ -499,7 +553,7 @@ export default function CreateEvent() {
                   ))}
                 </div>
                 <p className="mt-3 text-sm text-neutral-600">
-                  Total ticket quantity: {form.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0)}
+                  {form.ticketTypes.length} of {MAX_TICKET_TYPES} ticket types · Total ticket quantity: {form.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0)}
                   {form.capacity && Number(form.capacity) !== form.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0) && (
                     <span className="ml-2 text-rose-700">Must equal capacity ({form.capacity}).</span>
                   )}

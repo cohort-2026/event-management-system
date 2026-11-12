@@ -91,10 +91,10 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-200 px-6 py-12">
-      <div className="w-full max-w-sm rounded-xl bg-white border border-neutral-200 shadow-sm p-8">
-        <Link to="/" className="flex items-center gap-2 mb-10">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb] px-5 py-10 sm:px-8">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/[0.06] sm:p-9">
+        <Link to="/" className="mb-8 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 shadow-sm">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -102,8 +102,9 @@ export default function VerifyEmail() {
           <span className="font-extrabold text-neutral-900 text-lg tracking-tight">EventMS</span>
         </Link>
 
-        <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Verify your email</h1>
-        <p className="text-sm text-neutral-500 mt-2 mb-7">
+        <span className="mb-3 block text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Email verification</span>
+        <h1 className="text-3xl font-black tracking-tight text-slate-950">Verify your email</h1>
+        <p className="mt-2 mb-7 text-sm leading-6 text-neutral-500">
           We sent a six-digit code to your email address.
         </p>
 

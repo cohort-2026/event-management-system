@@ -56,11 +56,19 @@ export default function SetupPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
-      <section className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <Link to="/" className="text-sm font-bold text-brand-700">EventMS</Link>
-        <h1 className="mt-6 text-2xl font-black text-neutral-900">Set your organizer password</h1>
-        <p className="mt-2 text-sm text-neutral-600">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb] px-5 py-10 sm:px-8">
+      <section className="w-full max-w-lg rounded-3xl border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/[0.06] sm:p-9">
+        <Link to="/" className="mb-8 flex items-center gap-2.5 text-sm font-bold text-neutral-900">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </span>
+          EventMS
+        </Link>
+        <span className="mb-3 block text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Finish setting up</span>
+        <h1 className="text-3xl font-black tracking-tight text-slate-950">Set your organizer password</h1>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">
           {email ? `Create a permanent password for ${email}.` : 'Use the setup link from your invitation email.'}
         </p>
 

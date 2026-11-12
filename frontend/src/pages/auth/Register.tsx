@@ -150,6 +150,9 @@ export default function Register() {
         password: form.password,
         role: form.role as UserRole,
       });
+      navigate("/login", {
+        state: { email: form.email, registrationSuccess: true },
+      });
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
@@ -169,7 +172,7 @@ export default function Register() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[45%] bg-[linear-gradient(145deg,#102a43_0%,#153b59_55%,#164e63_100%)] flex-col justify-between p-12 xl:p-16 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
@@ -225,8 +228,8 @@ export default function Register() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
+      <div className="flex-1 flex items-center justify-center bg-[#f5f7fb] px-5 py-10 sm:px-8">
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/[0.06] sm:p-9">
           <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
             <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
               <svg
@@ -248,7 +251,8 @@ export default function Register() {
             </span>
           </Link>
 
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
+          <span className="mb-3 block text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Join EventMS</span>
+          <h1 className="text-3xl font-black text-slate-950 tracking-tight">
             Create your account
           </h1>
           <p className="text-sm text-neutral-500 mt-1 mb-7">
@@ -359,7 +363,6 @@ export default function Register() {
                           ? "bg-brand-600 text-white border-brand-600 shadow-sm"
                           : "bg-white text-neutral-600 border-neutral-200 hover:border-brand-300 hover:text-brand-600"
                       }`}
-                    onClick={() => selectRole(r.value)}
                   >
                     <input
                       type="radio"

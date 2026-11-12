@@ -79,8 +79,8 @@ export default function Navbar() {
   );
 
   return (
-    <header className="bg-white border-b border-neutral-200 sticky top-0 z-40 shadow-xs dark:bg-neutral-950 dark:border-neutral-800">
-      <div className="page-container flex items-center justify-between h-16">
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 shadow-xs backdrop-blur-xl dark:border-neutral-800 dark:bg-neutral-950/95">
+      <div className="page-container flex h-[4.5rem] items-center justify-between">
         {/* Logo */}
         <Link
           to="/"
@@ -163,9 +163,9 @@ export default function Navbar() {
               </Link>
               <Link
                 to="/register"
-                className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors px-3 py-2 dark:!text-neutral-300 dark:hover:!text-white"
+                className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
-                Sign up
+                Get started
               </Link>
             </>
           )}
@@ -265,9 +265,9 @@ export default function Navbar() {
                 <Link
                   to="/register"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-2.5 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
+                  className="rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-700"
                 >
-                  Sign up
+                  Get started
                 </Link>
               </>
             )}

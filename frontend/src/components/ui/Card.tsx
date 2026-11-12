@@ -11,7 +11,7 @@ interface CardFooterProps { children: React.ReactNode; className?: string; }
 function Card({ children, className = '', onClick }: CardProps) {
   return (
     <div
-      className={`bg-white rounded-2xl border border-neutral-200 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300' : 'shadow-sm'} ${className}`}
+      className={`bg-white rounded-2xl border border-neutral-200 shadow-xs ${onClick ? 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus-within:ring-2 focus-within:ring-brand-200' : ''} ${className}`}
       onClick={onClick}
     >
       {children}

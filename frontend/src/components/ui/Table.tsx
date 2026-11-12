@@ -13,12 +13,12 @@ interface TableProps<T extends { id: string }> {
 
 export default function Table<T extends { id: string }>({ columns, data, emptyMessage = 'No records found.', loading = false }: TableProps<T>) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200">
+    <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-xs">
       <table className="min-w-full divide-y divide-neutral-200 text-sm">
         <thead className="bg-neutral-50">
           <tr>
             {columns.map(col => (
-              <th key={col.key} className="px-4 py-3 text-left font-medium text-neutral-600 whitespace-nowrap">
+              <th key={col.key} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 whitespace-nowrap">
                 {col.header}
               </th>
             ))}

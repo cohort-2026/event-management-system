@@ -15,7 +15,7 @@ export default function PageWrapper({ children }: PageWrapperProps) {
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
 
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top_left,#554271_0%,#302d46_36%,#252a3d_100%)]">
+    <div className="min-h-screen flex flex-col bg-[#f5f7fb]">
       <main className={`flex-1 page-container section-gap ${isDashboardRoute ? 'dashboard-shell' : ''}`}>
         {isDashboardRoute ? (
           <DashboardNavigationProvider key={pathname.split('/')[1]}>
