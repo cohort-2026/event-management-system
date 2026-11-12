@@ -140,7 +140,7 @@ export const requireApprovedOrganizerProfile = async (
 
 // ─── requireOwnership ────────────────────────────────────────────────────────
 // Checks that req.user.id matches the owner id resolved by the provided getter.
-// Privileged roles (ADMIN, PLATFORM_ADMIN) bypass the ownership check.
+// Privileged roles (ADMIN) bypass the ownership check.
 // Returns 403 when the authenticated user does not own the resource.
 
 export const requireOwnership = (
@@ -148,7 +148,7 @@ export const requireOwnership = (
 ) =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const privileged: UserRole[] = ['ADMIN', 'PLATFORM_ADMIN'];
+      const privileged: UserRole[] = ['ADMIN'];
       if (req.user && privileged.includes(req.user.role)) {
         next();
         return;

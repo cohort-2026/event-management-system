@@ -1,4 +1,4 @@
-export type UserRole = 'ATTENDEE' | 'VENDOR' | 'ORGANIZER' | 'ADMIN' | 'PLATFORM_ADMIN' | 'MANAGEMENT';
+export type UserRole = 'ATTENDEE' | 'VENDOR' | 'ORGANIZER' | 'ADMIN';
 export type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
 export type ProfileApprovalStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 

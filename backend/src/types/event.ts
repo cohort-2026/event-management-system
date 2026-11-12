@@ -1,4 +1,4 @@
-export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
+export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
 export type EventType = 'IN_PERSON' | 'ONLINE' | 'HYBRID';
 
 export interface EventTicketType {
@@ -28,7 +28,6 @@ export interface Event {
   price?: number;
   status: EventStatus;
   organizerId: string;
-  rejectionReason?: string;
   organizer?: { firstname: string; lastname: string; email: string };
   ticketTypes: EventTicketType[];
   createdAt: Date;

@@ -10,12 +10,10 @@ interface Props {
 }
 
 const dashboardPath: Record<UserRole, string> = {
-  ORGANIZER:     '/organizer',
-  VENDOR:        '/vendor',
-  ADMIN:         '/admin',
-  PLATFORM_ADMIN:'/platform-admin/settings',
-  MANAGEMENT:    '/management/reports',
-  ATTENDEE:      '/attendee',
+  ORGANIZER:  '/organizer',
+  VENDOR:     '/vendor',
+  ADMIN:      '/admin',
+  ATTENDEE:   '/attendee',
 };
 
 export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Props) {

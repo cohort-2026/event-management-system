@@ -3,7 +3,7 @@ import { createAdmin, listAdmins, listAuditHistory, updateAdminStatus } from '..
 import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
-router.use(requireAuth, requireRole('PLATFORM_ADMIN'));
+router.use(requireAuth, requireRole('ADMIN'));
 router.get('/admins', listAdmins);
 router.post('/admins', createAdmin);
 router.patch('/admins/:id/status', updateAdminStatus);

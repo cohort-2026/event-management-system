@@ -341,7 +341,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
       return;
     }
 
-    if (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN') {
+    if (user.role === 'ADMIN') {
       await prisma.auditLog.create({
         data: {
           actorId: user.id,
@@ -448,7 +448,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
         where: { id: resetCode.userId },
         data: { passwordHash, mustChangePassword: false },
       });
-      if (user && (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN')) {
+      if (user && user.role === 'ADMIN') {
         await transaction.auditLog.create({
           data: {
             actorId: user.id,
@@ -505,7 +505,7 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
         data: { passwordHash, mustChangePassword: false },
         select: USER_SELECT,
       });
-      if (user.role === 'ADMIN' || user.role === 'PLATFORM_ADMIN') {
+      if (user.role === 'ADMIN') {
         await transaction.auditLog.create({
           data: {
             actorId: user.id,

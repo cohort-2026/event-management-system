@@ -14,7 +14,7 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
   ];
 
   if (values.every(value => value === undefined)) {
-    console.info('Initial Platform Admin provisioning is not configured.');
+    console.info('Initial Admin provisioning is not configured.');
     return;
   }
 
@@ -25,7 +25,7 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
   const { platformAdminEmail: email, platformAdminFirstname: firstname,
     platformAdminLastname: lastname, platformAdminInitialPassword: password } = config;
   if (!email || !firstname || !lastname || !password || !emailPattern.test(email) || password.length < 12) {
-    throw new Error('Initial Platform Admin configuration is invalid; use a valid email and a password of at least 12 characters.');
+    throw new Error('Initial Admin configuration is invalid; use a valid email and a password of at least 12 characters.');
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -34,14 +34,14 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
 
     const existing = await transaction.user.findUnique({ where: { email } });
     if (existing) {
-      if (existing.role !== Role.PLATFORM_ADMIN) {
-        throw new Error('PLATFORM_ADMIN_EMAIL is already registered to a non-Platform Admin account.');
+      if (existing.role !== Role.ADMIN) {
+        throw new Error('PLATFORM_ADMIN_EMAIL is already registered to a non-Admin account.');
       }
       return 'configured_account_exists';
     }
 
-    const platformAdminExists = await transaction.user.findFirst({ where: { role: Role.PLATFORM_ADMIN } });
-    if (platformAdminExists) return 'another_account_exists';
+    const adminExists = await transaction.user.findFirst({ where: { role: Role.ADMIN } });
+    if (adminExists) return 'another_account_exists';
 
     const created = await transaction.user.create({
       data: {
@@ -49,7 +49,7 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
         lastname,
         email,
         passwordHash,
-        role: Role.PLATFORM_ADMIN,
+        role: Role.ADMIN,
         emailVerified: true,
         mustChangePassword: false,
       },
@@ -58,7 +58,7 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
       data: {
         actorId: created.id,
         affectedUserId: created.id,
-        action: 'PLATFORM_ADMIN_BOOTSTRAPPED',
+        action: 'ADMIN_BOOTSTRAPPED',
         outcome: 'created_from_deployment_configuration',
       },
     });
@@ -66,10 +66,10 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
   });
 
   if (result === 'configured_account_exists') {
-    console.info('Configured Platform Admin account already exists; leaving its credentials unchanged.');
+    console.info('Configured Admin account already exists; leaving its credentials unchanged.');
   } else if (result === 'another_account_exists') {
-    console.info('A Platform Admin account already exists; initial provisioning was skipped.');
+    console.info('An Admin account already exists; initial provisioning was skipped.');
   } else {
-    console.info('Initial Platform Admin account provisioned. Change its configured password after first sign-in.');
+    console.info('Initial Admin account provisioned. Change its configured password after first sign-in.');
   }
 }

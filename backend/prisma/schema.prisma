@@ -14,15 +14,11 @@ enum Role {
   VENDOR
   ORGANIZER
   ADMIN
-  PLATFORM_ADMIN
-  MANAGEMENT
 }
 
 enum EventStatus {
   DRAFT
-  PENDING_APPROVAL
   PUBLISHED
-  REJECTED
   CANCELLED
   COMPLETED
 }
@@ -218,7 +214,6 @@ model Event {
   price             Decimal?    @db.Decimal(10, 2)
   vendorStandRatePerSqm Decimal @default(0) @map("vendor_stand_rate_per_sqm") @db.Decimal(10, 2)
   status            EventStatus @default(DRAFT)
-  rejectionReason   String?     @map("rejection_reason")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 

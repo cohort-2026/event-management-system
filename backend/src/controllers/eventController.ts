@@ -14,8 +14,6 @@ const ALLOWED_EVENT_TYPES: EventType[] = ['IN_PERSON', 'ONLINE', 'HYBRID'];
 const ALLOWED_EVENT_CATEGORIES = ['Networking', 'Workshop', 'Training', 'Campany Activities', 'other'];
 const PUBLISHABLE_EVENT_STATUSES: EventStatus[] = [
   EventStatus.DRAFT,
-  EventStatus.REJECTED,
-  EventStatus.PENDING_APPROVAL,
 ];
 
 interface TicketInput {
@@ -333,29 +331,6 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       if (data.capacity < activeBookingCount) {
         return { error: 'capacity_too_low' as const };
       }
-      const previousTicketPrices = event.ticketTypes
-        .map(ticket => `${ticket.name.toLocaleLowerCase()}:${Number(ticket.price)}`)
-        .sort();
-      const nextTicketPrices = data.ticketTypes
-        .map(ticket => `${ticket.name.toLocaleLowerCase()}:${ticket.price}`)
-        .sort();
-      const priceChanged = Number(event.price ?? 0) !== Number(data.price ?? 0) ||
-        Number(event.vendorStandRatePerSqm) !== data.vendorStandRatePerSqm ||
-        previousTicketPrices.length !== nextTicketPrices.length ||
-        previousTicketPrices.some((price, index) => price !== nextTicketPrices[index]);
-      const requiresApproval = event.status === EventStatus.PUBLISHED && (
-        event.startTime.getTime() !== data.startTime.getTime() ||
-        event.endTime.getTime() !== data.endTime.getTime() ||
-        event.venue !== data.venue ||
-        event.capacity !== data.capacity ||
-        priceChanged
-      );
-      const nextStatus = requiresApproval
-        ? EventStatus.PENDING_APPROVAL
-        : event.status === EventStatus.REJECTED
-          ? EventStatus.DRAFT
-          : event.status;
-      const previousTicketTypes = new Map(event.ticketTypes.map(ticket => [ticket.name.toLocaleLowerCase(), ticket]));
       const updated = await transaction.event.update({
         where: { id: event.id },
         data: {
@@ -375,8 +350,6 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
           isFree: data.isFree,
           price: data.price,
           vendorStandRatePerSqm: data.vendorStandRatePerSqm,
-          status: nextStatus,
-          ...(requiresApproval ? { rejectionReason: null } : {}),
         },
         include: eventInclude,
       });
@@ -384,10 +357,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       await transaction.eventTicketType.createMany({
         data: data.ticketTypes.map(ticket => ({
           ...ticket,
-          availableQuantity: Math.min(
-            ticket.quantity,
-            previousTicketTypes.get(ticket.name.toLocaleLowerCase())?.availableQuantity ?? ticket.quantity,
-          ),
+          availableQuantity: ticket.quantity,
           eventId: event.id,
         })),
       });
@@ -420,15 +390,12 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         notificationSent = false;
       }
     }
-    const message = result.event.status === EventStatus.PENDING_APPROVAL && result.notifyAudience
-      ? 'Critical event changes were saved. Publish the event when ready.'
-      : 'Event changes saved.';
     res.json({
       success: true,
       data: serializeEvent(result.event),
       message: notificationSent
-        ? message
-        : `${message} Some attendee or vendor notifications could not be sent.`,
+        ? 'Event changes saved.'
+        : 'Event changes saved. Some attendee or vendor notifications could not be sent.',
       notificationSent,
     });
   } catch (err) {
@@ -451,7 +418,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
         startTime: { gt: new Date() },
         endTime: { gt: new Date() },
       },
-      data: { status: EventStatus.PUBLISHED, rejectionReason: null },
+      data: { status: EventStatus.PUBLISHED },
     });
     if (result.count !== 1) {
       const event = await prisma.event.findFirst({
@@ -461,7 +428,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
       if (!event) {
         res.status(404).json({ success: false, message: 'Event not found' });
       } else if (!PUBLISHABLE_EVENT_STATUSES.includes(event.status)) {
-        res.status(409).json({ success: false, message: 'Only draft or pending events can be published' });
+        res.status(409).json({ success: false, message: 'Only draft events can be published' });
       } else {
         res.status(400).json({ success: false, message: 'Past events cannot be published' });
       }
@@ -600,7 +567,7 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
 export const listEventsForApproval = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const events = await prisma.event.findMany({
-      where: { status: EventStatus.PENDING_APPROVAL },
+      where: { status: EventStatus.DRAFT },
       include: {
         ...eventInclude,
         organizer: { select: { firstname: true, lastname: true, email: true } },
@@ -668,11 +635,11 @@ export const approveEvent = async (req: Request, res: Response, next: NextFuncti
       return;
     }
     const updated = await prisma.event.updateMany({
-      where: { id: eventId, status: EventStatus.PENDING_APPROVAL },
-      data: { status: EventStatus.PUBLISHED, rejectionReason: null },
+      where: { id: eventId, status: EventStatus.DRAFT },
+      data: { status: EventStatus.PUBLISHED },
     });
     if (!updated.count) {
-      res.status(404).json({ success: false, message: 'Pending event not found' });
+      res.status(404).json({ success: false, message: 'Draft event not found' });
       return;
     }
 
@@ -709,11 +676,11 @@ export const rejectEvent = async (req: Request, res: Response, next: NextFunctio
     }
 
     const updated = await prisma.event.updateMany({
-      where: { id: eventId, status: EventStatus.PENDING_APPROVAL },
-      data: { status: EventStatus.DRAFT, rejectionReason: reason },
+      where: { id: eventId, status: EventStatus.DRAFT },
+      data: { status: EventStatus.DRAFT },
     });
     if (!updated.count) {
-      res.status(404).json({ success: false, message: 'Pending event not found' });
+      res.status(404).json({ success: false, message: 'Draft event not found' });
       return;
     }
 

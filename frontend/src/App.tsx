@@ -49,10 +49,6 @@ import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue
 import PlatformSettings from '@/pages/platform-admin/PlatformSettings';
 import PlatformAuditHistory from '@/pages/platform-admin/PlatformAuditHistory';
 
-// Management
-import ReportsDashboard from '@/pages/management/ReportsDashboard';
-import EventReport from '@/pages/management/EventReport';
-
 export default function App() {
   return (
     <AuthProvider>
@@ -121,19 +117,9 @@ export default function App() {
             <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
             <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
             <Route path="/admin/user-accounts" element={<UserAccounts />} />
-          </Route>
-
-          {/* ── Platform Admin ── */}
-          <Route element={<ProtectedRoute roles={['PLATFORM_ADMIN']} />}>
             <Route path="/platform-admin"                    element={<PlatformSettings />} />
             <Route path="/platform-admin/admins"             element={<PlatformSettings />} />
             <Route path="/platform-admin/audit"              element={<PlatformAuditHistory />} />
-          </Route>
-
-          {/* ── Management ── */}
-          <Route element={<ProtectedRoute roles={['MANAGEMENT']} />}>
-            <Route path="/management/reports"     element={<ReportsDashboard />} />
-            <Route path="/management/reports/:id" element={<EventReport />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
@@ -162,8 +148,6 @@ function RootRedirect() {
       ORGANIZER: '/organizer',
       VENDOR: user.vendorProfileStatus === 'APPROVED' ? '/vendor' : '/vendor/profile',
       ADMIN: '/admin',
-      PLATFORM_ADMIN: '/platform-admin',
-      MANAGEMENT: '/management/reports',
       ATTENDEE: '/attendee',
     };
 
