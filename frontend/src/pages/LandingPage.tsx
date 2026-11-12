@@ -26,12 +26,12 @@ const features = [
   {
     icon: "📊",
     title: "Reports & Insights",
-    desc: "Management gets a clear view of attendance rates, check-in data and vendor fill-rates across all events.",
+    desc: "Administrators can review event analytics and publishing activity across the platform.",
   },
   {
     icon: "🔐",
     title: "Role-Based Access",
-    desc: "Attendees, organisers, vendors, admins and management each see only what is relevant to their role.",
+    desc: "Attendees, organisers, vendors and administrators each see tools relevant to their role.",
   },
 ];
 
@@ -62,16 +62,7 @@ export default function LandingPage() {
   const { user } = useAuth();
 
   if (user) {
-    const dashboardPath: Record<string, string> = {
-      ORGANIZER: "/organizer",
-      VENDOR: "/vendor",
-      ADMIN: "/admin",
-      PLATFORM_ADMIN: "/platform-admin/settings",
-      MANAGEMENT: "/management/reports",
-      ATTENDEE: "/attendee",
-    };
-
-    return <Navigate to={dashboardPath[user.role] ?? "/events"} replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -169,7 +160,7 @@ export default function LandingPage() {
                 Everything you need
               </h2>
               <p className="text-base text-neutral-600 mt-4 max-w-xl mx-auto dark:!text-neutral-300">
-                Built for organisers, attendees, vendors and management — all in
+                Built for organisers, attendees, vendors and administrators — all in
                 one place.
               </p>
             </div>

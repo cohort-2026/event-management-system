@@ -1,2 +1,2 @@
-// Admin pages: AdminDashboard, ApprovalQueue, UserManagement
+// Admin pages: dashboards, profile review, administrator accounts, and audit history.
 export {};

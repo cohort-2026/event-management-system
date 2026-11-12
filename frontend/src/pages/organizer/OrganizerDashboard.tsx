@@ -129,7 +129,9 @@ export default function OrganizerDashboard() {
         <section className="flex-1 min-w-0">
           <DashboardHeader
             title={isMyEventsPage ? 'My events' : 'Organizer Dashboard'}
-            subtitle={isMyEventsPage ? 'Create, publish, and manage your events.' : 'Track your event activity and publishing status.'}
+            subtitle={isMyEventsPage
+              ? 'Create, publish, and manage your events. Approved organizers can publish without admin event approval.'
+              : 'Track your event activity and publishing status. Approved organizers can publish without admin event approval.'}
             breadcrumbs={isMyEventsPage
               ? [{ label: 'Dashboard', to: '/organizer' }, { label: 'My events' }]
               : [{ label: 'Dashboard', to: '/organizer' }]}
@@ -138,9 +140,9 @@ export default function OrganizerDashboard() {
 
           {!isMyEventsPage && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" appearance="analytics" />
-              <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" appearance="analytics" />
-              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT').length} icon={<span aria-hidden="true">✎</span>} color="purple" appearance="analytics" />
+              <StatCard label="Total events" value={loading ? '—' : events.length} icon={<span aria-hidden="true">▦</span>} color="brand" appearance="analytics" />
+              <StatCard label="Published" value={loading ? '—' : events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" appearance="analytics" />
+              <StatCard label="Drafts" value={loading ? '—' : events.filter(event => event.status === 'DRAFT').length} icon={<span aria-hidden="true">✎</span>} color="purple" appearance="analytics" />
             </div>
           )}
 

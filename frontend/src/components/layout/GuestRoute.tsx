@@ -1,14 +1,13 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Spinner from '@/components/ui/Spinner';
+import type { UserRole } from '@/types/user';
 
-const dashboardPath: Record<string, string> = {
-  ORGANIZER:     '/organizer',
-  VENDOR:        '/vendor',
-  ADMIN:         '/admin',
-  PLATFORM_ADMIN:'/platform-admin/settings',
-  MANAGEMENT:    '/management/reports',
-  ATTENDEE:      '/attendee',
+const dashboardPath: Record<UserRole, string> = {
+  ORGANIZER: '/organizer',
+  VENDOR: '/vendor',
+  ADMIN: '/admin',
+  ATTENDEE: '/attendee',
 };
 
 export default function GuestRoute() {
@@ -23,7 +22,7 @@ export default function GuestRoute() {
   }
 
   // Already logged in → send to their dashboard
-  if (user) return <Navigate to={user.mustChangePassword ? '/change-password' : (dashboardPath[user.role] ?? '/events')} replace />;
+  if (user) return <Navigate to={user.mustChangePassword ? '/change-password' : dashboardPath[user.role]} replace />;
 
   return <Outlet />;
 }

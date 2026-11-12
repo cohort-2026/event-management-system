@@ -299,10 +299,10 @@ export default function CreateEvent() {
         <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h1 className="text-xl font-bold text-neutral-900">Event creation unavailable</h1>
           <p role={profileCheckError ? 'alert' : 'status'} className="mt-3 text-sm text-amber-900">
-            {profileCheckError || 'Please complete the profile and try again. Your profile must be approved by an admin before creating events.'}
+            {profileCheckError || 'Please complete your organizer profile and wait for its approval before creating events.'}
           </p>
           {!profileCheckError && profileApprovalStatus === 'PENDING_APPROVAL' && (
-            <p className="mt-2 text-sm text-amber-900">Your profile is awaiting admin review. You can create events after it is approved.</p>
+            <p className="mt-2 text-sm text-amber-900">Your profile is awaiting review. You can create and publish events after it is approved.</p>
           )}
           {!profileCheckError && profileApprovalStatus === 'REJECTED' && profileRejectionReason && (
             <section className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
@@ -367,7 +367,7 @@ export default function CreateEvent() {
               <div>
                 <h2 className="text-lg font-bold text-neutral-900">Event details</h2>
                 <p className="mt-1 text-sm text-neutral-500">
-                  Required fields must be complete before saving. Changes to a published event’s date, time, venue, capacity, or ticket prices require admin approval.
+                  Approved organizers can publish events directly. Changes to a published event are saved immediately.
                 </p>
               </div>
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">

@@ -11,7 +11,7 @@ export default function PageWrapper({ children }: PageWrapperProps) {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
-  const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee', '/management', '/platform-admin']
+  const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
 
   return (

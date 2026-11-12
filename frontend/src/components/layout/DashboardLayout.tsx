@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import type { UserRole } from '@/types/user';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 /* ── per-role nav items ─────────────────────────────────────────────────── */
 const roleNav: Record<UserRole, { label: string; to: string; icon: React.ReactNode }[]> = {
@@ -22,6 +23,9 @@ const roleNav: Record<UserRole, { label: string; to: string; icon: React.ReactNo
   ADMIN: [
     { label: 'Overview',         to: '/admin',            icon: <HomeIcon /> },
     { label: 'User management',  to: '/admin/users',      icon: <UsersIcon /> },
+    { label: 'Approved profiles', to: '/admin/user-accounts', icon: <UsersIcon /> },
+    { label: 'Administrator accounts', to: '/admin/accounts', icon: <UsersIcon /> },
+    { label: 'Audit history', to: '/admin/audit', icon: <DocIcon /> },
   ],
   ATTENDEE: [
     { label: 'Browse Events', to: '/events', icon: <CalIcon /> },
@@ -33,12 +37,6 @@ const roleLabel: Record<UserRole, string> = {
   ATTENDEE: 'Attendee',
 };
 
-const MOCK_NOTIFICATIONS = [
-  { id: '1', text: 'Your event "Tech Summit" was approved.',  time: '2 min ago',  unread: true  },
-  { id: '2', text: 'New vendor application received.',        time: '1 hour ago', unread: true  },
-  { id: '3', text: 'Registration confirmed for Leadership Workshop.', time: '3 hours ago', unread: false },
-];
-
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -47,13 +45,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen]   = useState(false);
-  const [notifOpen, setNotifOpen]       = useState(false);
   const [avatarOpen, setAvatarOpen]     = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
 
   const navItems = user ? (roleNav[user.role] ?? []) : [];
-  const unreadCount = MOCK_NOTIFICATIONS.filter(n => n.unread).length;
   const initials = user ? `${user.firstname.charAt(0)}${user.lastname.charAt(0)}` : '?';
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
@@ -61,7 +56,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   /* close dropdowns on outside click */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
       if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) setAvatarOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -178,50 +172,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Right actions */}
           <div className="flex items-center gap-2">
 
-            {/* Notifications */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => { setNotifOpen(o => !o); setAvatarOpen(false); }}
-                className="relative w-9 h-9 flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
-                )}
-              </button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-11 w-80 bg-white rounded-xl border border-neutral-200 shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-neutral-900">Notifications</p>
-                    {unreadCount > 0 && (
-                      <span className="text-xs font-semibold bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{unreadCount} new</span>
-                    )}
-                  </div>
-                  <div className="divide-y divide-neutral-50 max-h-72 overflow-y-auto">
-                    {MOCK_NOTIFICATIONS.map(n => (
-                      <div key={n.id} className={`px-4 py-3 flex gap-3 hover:bg-neutral-50 transition-colors cursor-pointer ${n.unread ? 'bg-brand-50/40' : ''}`}>
-                        <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-brand-500' : 'bg-neutral-300'}`} />
-                        <div className="min-w-0">
-                          <p className="text-sm text-neutral-700 leading-snug">{n.text}</p>
-                          <p className="text-xs text-neutral-400 mt-1">{n.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-neutral-100">
-                    <button className="text-xs font-semibold text-brand-600 hover:text-brand-700">Mark all as read</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {user?.role === 'ADMIN' && <NotificationBell />}
 
             {/* Avatar dropdown */}
             <div className="relative" ref={avatarRef}>
               <button
-                onClick={() => { setAvatarOpen(o => !o); setNotifOpen(false); }}
+                onClick={() => setAvatarOpen(o => !o)}
                 className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-neutral-100 transition-colors"
               >
                 <div className="w-7 h-7 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center justify-center">
