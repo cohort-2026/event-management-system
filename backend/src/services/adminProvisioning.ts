@@ -5,12 +5,12 @@ import { config } from '../config/index';
 const prisma = new PrismaClient();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function provisionInitialPlatformAdmin(): Promise<void> {
+export async function provisionInitialAdmin(): Promise<void> {
   const values = [
-    config.platformAdminEmail,
-    config.platformAdminFirstname,
-    config.platformAdminLastname,
-    config.platformAdminInitialPassword,
+    config.adminEmail,
+    config.adminFirstname,
+    config.adminLastname,
+    config.adminInitialPassword,
   ];
 
   if (values.every(value => value === undefined)) {
@@ -19,23 +19,30 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
   }
 
   if (values.some(value => !value)) {
-    throw new Error('Set PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_FIRSTNAME, PLATFORM_ADMIN_LASTNAME and PLATFORM_ADMIN_INITIAL_PASSWORD together.');
+    throw new Error(
+      'Set ADMIN_EMAIL, ADMIN_FIRSTNAME, ADMIN_LASTNAME and ADMIN_INITIAL_PASSWORD together.',
+    );
   }
 
-  const { platformAdminEmail: email, platformAdminFirstname: firstname,
-    platformAdminLastname: lastname, platformAdminInitialPassword: password } = config;
+  const { adminEmail: email, adminFirstname: firstname,
+    adminLastname: lastname, adminInitialPassword: password } = config;
+
   if (!email || !firstname || !lastname || !password || !emailPattern.test(email) || password.length < 12) {
-    throw new Error('Initial Admin configuration is invalid; use a valid email and a password of at least 12 characters.');
+    throw new Error(
+      'Initial Admin configuration is invalid; use a valid email and a password of at least 12 characters.',
+    );
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+
   const result = await prisma.$transaction(async transaction => {
+    // Advisory lock prevents a race condition on simultaneous startup
     await transaction.$executeRaw`SELECT pg_advisory_xact_lock(637149201)`;
 
     const existing = await transaction.user.findUnique({ where: { email } });
     if (existing) {
       if (existing.role !== Role.ADMIN) {
-        throw new Error('PLATFORM_ADMIN_EMAIL is already registered to a non-Admin account.');
+        throw new Error('ADMIN_EMAIL is already registered to a non-Admin account.');
       }
       return 'configured_account_exists';
     }
@@ -51,9 +58,10 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
         passwordHash,
         role: Role.ADMIN,
         emailVerified: true,
-        mustChangePassword: false,
+        mustChangePassword: true,
       },
     });
+
     await transaction.auditLog.create({
       data: {
         actorId: created.id,
@@ -62,6 +70,7 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
         outcome: 'created_from_deployment_configuration',
       },
     });
+
     return 'created';
   });
 
@@ -70,6 +79,6 @@ export async function provisionInitialPlatformAdmin(): Promise<void> {
   } else if (result === 'another_account_exists') {
     console.info('An Admin account already exists; initial provisioning was skipped.');
   } else {
-    console.info('Initial Admin account provisioned. Change its configured password after first sign-in.');
+    console.info('Initial Admin account provisioned. The Admin must change the temporary password on first sign-in.');
   }
 }

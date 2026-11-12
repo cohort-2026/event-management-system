@@ -311,10 +311,10 @@ const listAdminVendorProfiles = (status: VendorProfileStatus) => async (_req: Re
 	return res.json({ success: true, data: profiles });
 };
 
-router.get('/admin/profiles/pending', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listAdminVendorProfiles(VendorProfileStatus.PENDING_REVIEW));
-router.get('/admin/profiles/approved', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), listAdminVendorProfiles(VendorProfileStatus.APPROVED));
+router.get('/admin/profiles/pending',  requireAuth, requireRole('ADMIN'), listAdminVendorProfiles(VendorProfileStatus.PENDING_REVIEW));
+router.get('/admin/profiles/approved', requireAuth, requireRole('ADMIN'), listAdminVendorProfiles(VendorProfileStatus.APPROVED));
 
-router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
 	const profileId = routeId(req.params.id);
 	if (!profileId) return res.status(400).json({ success: false, message: 'A valid vendor profile ID is required' });
 
@@ -384,7 +384,7 @@ router.delete('/admin/profiles/:id', requireAuth, requireRole('ADMIN', 'PLATFORM
 	return res.json({ success: true, message: 'Vendor account and related records permanently deleted.' });
 });
 
-router.get('/admin/documents/:id/download', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res, next) => {
+router.get('/admin/documents/:id/download', requireAuth, requireRole('ADMIN'), async (req, res, next) => {
 	const id = routeId(req.params.id);
 	if (!id) return res.status(400).json({ success: false, message: 'A valid document ID is required' });
 	const document = await prisma.vendorDocument.findUnique({ where: { id } });
@@ -425,7 +425,7 @@ const reviewVendorProfile = async (
 	return true;
 });
 
-router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN'), async (req, res) => {
 	const id = routeId(req.params.id);
 	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
 	const reviewed = await reviewVendorProfile(id, VendorProfileStatus.APPROVED, req.user!.id);
@@ -433,7 +433,7 @@ router.patch('/admin/profiles/:id/approve', requireAuth, requireRole('ADMIN', 'P
 	return res.json({ success: true, message: 'Vendor profile approved. The vendor can now apply for stands.' });
 });
 
-router.patch('/admin/profiles/:id/reject', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.patch('/admin/profiles/:id/reject', requireAuth, requireRole('ADMIN'), async (req, res) => {
 	const id = routeId(req.params.id);
 	if (!id) return res.status(400).json({ success: false, message: 'A valid profile ID is required' });
 	const rejectionReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';

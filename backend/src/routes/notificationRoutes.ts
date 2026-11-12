@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 const router = Router();
 const prisma = new PrismaClient();
 
-router.get('/', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.get('/',           requireAuth, requireRole('ADMIN'), async (req, res) => {
   const recipientId = req.user!.id;
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
@@ -18,7 +18,7 @@ router.get('/', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req,
   res.json({ success: true, data: notifications, unreadCount });
 });
 
-router.patch('/read-all', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.patch('/read-all', requireAuth, requireRole('ADMIN'), async (req, res) => {
   await prisma.notification.updateMany({
     where: { recipientId: req.user!.id, readAt: null },
     data: { readAt: new Date() },
@@ -26,7 +26,7 @@ router.patch('/read-all', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), a
   res.json({ success: true, message: 'Notifications marked as read.' });
 });
 
-router.patch('/:id/read', requireAuth, requireRole('ADMIN', 'PLATFORM_ADMIN'), async (req, res) => {
+router.patch('/:id/read', requireAuth, requireRole('ADMIN'), async (req, res) => {
   const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
   if (!id) {
     res.status(400).json({ success: false, message: 'A valid notification ID is required.' });
