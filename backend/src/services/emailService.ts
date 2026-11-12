@@ -61,24 +61,6 @@ export const sendOrganizerSetupLink = async (email: string, firstname: string, t
   });
 };
 
-export const sendEventStatusNotification = async (
-  email: string,
-  firstname: string,
-  eventTitle: string,
-  status: 'APPROVED' | 'REJECTED',
-  rejectionReason?: string,
-): Promise<void> => {
-  const approved = status === 'APPROVED';
-  await transporter.sendMail({
-    from: config.mailFrom,
-    to: email,
-    subject: `Your EventMS event was ${approved ? 'approved' : 'rejected'}`,
-    text: approved
-      ? `Hello ${firstname},\n\nYour event "${eventTitle}" has been approved and is now published on EventMS.`
-      : `Hello ${firstname},\n\nYour event "${eventTitle}" was not approved.\n\nAdmin feedback:\n${rejectionReason ?? 'Please review and update your event.'}\n\nYou can edit the event and publish it when ready from your organizer dashboard.`,
-  });
-};
-
 export const sendEventChangeNotification = async (email: string, eventTitle: string): Promise<void> => {
   await transporter.sendMail({
     from: config.mailFrom,

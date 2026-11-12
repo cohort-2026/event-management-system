@@ -40,7 +40,6 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
-import ApprovalQueue from '@/pages/admin/ApprovalQueue';
 import UserManagement from '@/pages/admin/UserManagement';
 import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
@@ -109,7 +108,6 @@ export default function App() {
           {/* ── Admin ── */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/admin"            element={<AdminDashboard />} />
-            <Route path="/admin/approvals"  element={<ApprovalQueue />} />
             <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
             <Route path="/admin/users"      element={<Navigate to="/admin/users/organizers/pending" replace />} />
             <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />

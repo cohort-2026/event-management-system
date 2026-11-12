@@ -7,15 +7,13 @@ import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { cancelEvent, getMyEvents, publishEvent } from '@/services/eventService';
+import { cancelEvent, completeEvent, getMyEvents, publishEvent } from '@/services/eventService';
 import type { Event, EventStatus } from '@/types/event';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
 const statusVariant: Record<EventStatus, BadgeVariant> = {
   PUBLISHED: 'success',
   DRAFT: 'default',
-  PENDING_APPROVAL: 'warning',
-  REJECTED: 'danger',
   CANCELLED: 'danger',
   COMPLETED: 'info',
 };
@@ -38,6 +36,7 @@ export default function OrganizerDashboard() {
   const [notice, setNotice] = useState('');
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +94,24 @@ export default function OrganizerDashboard() {
     }
   };
 
+  const complete = async (event: Event) => {
+    setError('');
+    setNotice('');
+    setCompletingId(event.id);
+    try {
+      const response = await completeEvent(event.id);
+      setNotice(response.data.message ?? 'Event marked as completed.');
+      const refreshed = await getMyEvents();
+      setEvents(refreshed.data.data);
+    } catch (completeError) {
+      setError(axios.isAxiosError(completeError)
+        ? (completeError.response?.data?.message ?? 'Event could not be completed.')
+        : 'Event could not be completed.');
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row gap-6">
@@ -112,7 +129,7 @@ export default function OrganizerDashboard() {
         <section className="flex-1 min-w-0">
           <DashboardHeader
             title={isMyEventsPage ? 'My events' : 'Organizer Dashboard'}
-            subtitle={isMyEventsPage ? 'Manage your events and track approval decisions.' : 'Track your event activity and approval decisions.'}
+            subtitle={isMyEventsPage ? 'Create, publish, and manage your events.' : 'Track your event activity and publishing status.'}
             breadcrumbs={isMyEventsPage
               ? [{ label: 'Dashboard', to: '/organizer' }, { label: 'My events' }]
               : [{ label: 'Dashboard', to: '/organizer' }]}
@@ -120,11 +137,10 @@ export default function OrganizerDashboard() {
           />
 
           {!isMyEventsPage && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               <StatCard label="Total events" value={events.length} icon={<span aria-hidden="true">▦</span>} color="brand" appearance="analytics" />
               <StatCard label="Published" value={events.filter(event => event.status === 'PUBLISHED').length} icon={<span aria-hidden="true">✓</span>} color="emerald" appearance="analytics" />
-              <StatCard label="Pending approval" value={events.filter(event => event.status === 'PENDING_APPROVAL').length} icon={<span aria-hidden="true">◷</span>} color="amber" appearance="analytics" />
-              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT' || event.status === 'REJECTED').length} icon={<span aria-hidden="true">✎</span>} color="purple" appearance="analytics" />
+              <StatCard label="Drafts" value={events.filter(event => event.status === 'DRAFT').length} icon={<span aria-hidden="true">✎</span>} color="purple" appearance="analytics" />
             </div>
           )}
 
@@ -157,31 +173,30 @@ export default function OrganizerDashboard() {
                         <p className="mt-1 text-xs text-neutral-400">{event.capacity - event.availableCapacity} / {event.capacity} places booked</p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
+                        <Link to={`/organizer/events/${event.id}/registrations`}>
+                          <Button variant="secondary" size="sm">Registrations</Button>
+                        </Link>
                         <Link to={`/organizer/events/${event.id}/vendors`}>
                           <Button variant="secondary" size="sm">Stand requests</Button>
                         </Link>
-                        {(['DRAFT', 'REJECTED', 'PENDING_APPROVAL', 'PUBLISHED'].includes(event.status)) && (
+                        {(['DRAFT', 'PUBLISHED'].includes(event.status)) && (
                           <Link to={`/organizer/events/${event.id}/edit`}>
                             <Button variant="secondary" size="sm">
-                              {event.status === 'PUBLISHED' ? 'Edit published event' : event.status === 'PENDING_APPROVAL' ? 'Edit pending event' : event.status === 'REJECTED' ? 'Correct event' : 'Edit draft'}
+                              {event.status === 'PUBLISHED' ? 'Edit published event' : 'Edit draft'}
                             </Button>
                           </Link>
                         )}
-                        {(['DRAFT', 'REJECTED', 'PENDING_APPROVAL'].includes(event.status)) && (
+                        {event.status === 'DRAFT' && (
                           <Button size="sm" loading={submittingId === event.id} onClick={() => void publish(event.id)}>Publish event</Button>
                         )}
                         {event.status === 'PUBLISHED' && (
-                          <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => void cancel(event)}>Cancel event</Button>
+                          <>
+                            {new Date(event.endTime) <= new Date() && <Button size="sm" loading={completingId === event.id} onClick={() => void complete(event)}>Complete event</Button>}
+                            <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => void cancel(event)}>Cancel event</Button>
+                          </>
                         )}
                       </div>
                     </div>
-                    {(event.status === 'DRAFT' || event.status === 'REJECTED') && event.rejectionReason && (
-                      <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
-                        <h4 className="text-sm font-bold text-rose-900">Admin feedback</h4>
-                        <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{event.rejectionReason}</p>
-                        <p className="mt-2 text-xs text-rose-700">Correct the event details and publish it when ready.</p>
-                      </div>
-                    )}
                   </article>
                 ))}
               </div>

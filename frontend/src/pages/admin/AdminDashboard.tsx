@@ -5,10 +5,9 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { getAdminEventAnalytics, getPendingEvents, type AdminEventAnalytics } from '@/services/eventService';
-import type { Event, EventStatus } from '@/types/event';
+import { getAdminEventAnalytics, type AdminEventAnalytics } from '@/services/eventService';
+import type { EventStatus } from '@/types/event';
 
 const recentUsers = [
   { id: 'u1', name: 'Sipho Mahlangu',  email: 'sipho@example.com',  role: 'ORGANIZER', joined: '1 hour ago'  },
@@ -22,48 +21,22 @@ const roleVariant: Record<string, 'info' | 'success' | 'purple'> = {
 
 const eventStatusLabels: Record<EventStatus, string> = {
   DRAFT: 'Draft',
-  PENDING_APPROVAL: 'Pending approval',
-  PUBLISHED: 'Approved',
-  REJECTED: 'Rejected',
+  PUBLISHED: 'Published',
   CANCELLED: 'Cancelled',
   COMPLETED: 'Completed',
 };
 
 const eventStatusColors: Record<EventStatus, string> = {
   DRAFT: '#6366f1',
-  PENDING_APPROVAL: '#f59e0b',
   PUBLISHED: '#10b981',
-  REJECTED: '#f43f5e',
   CANCELLED: '#94a3b8',
   COMPLETED: '#8b5cf6',
 };
 
 export default function AdminDashboard() {
-  const [pendingEvents, setPendingEvents] = useState<Event[]>([]);
-  const [loadingPendingEvents, setLoadingPendingEvents] = useState(true);
-  const [pendingEventsError, setPendingEventsError] = useState('');
   const [eventAnalytics, setEventAnalytics] = useState<AdminEventAnalytics | null>(null);
   const [loadingEventAnalytics, setLoadingEventAnalytics] = useState(true);
   const [eventAnalyticsError, setEventAnalyticsError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    getPendingEvents()
-      .then(response => {
-        if (active) setPendingEvents(response.data.data);
-      })
-      .catch(err => {
-        if (active) {
-          setPendingEventsError(axios.isAxiosError(err)
-            ? (err.response?.data?.message ?? 'Pending events could not be loaded.')
-            : 'Pending events could not be loaded.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoadingPendingEvents(false);
-      });
-    return () => { active = false; };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -135,7 +108,6 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard label="Total users"          value="1 284" icon={<UsersIcon />}  color="brand" appearance="analytics" />
             <StatCard label="Published events"     value={eventAnalytics?.statusCounts.find(({ status }) => status === 'PUBLISHED')?.count ?? 0} icon={<CalIcon />} color="emerald" appearance="analytics" />
-            <StatCard label="Pending approval"     value={pendingEvents.length} sub="requires action" icon={<ClockIcon />} color="amber" appearance="analytics" />
             <StatCard label="Total registrations"  value="8 741" icon={<TicketIcon />} color="purple" appearance="analytics" />
           </div>
 
@@ -155,14 +127,14 @@ export default function AdminDashboard() {
 
             <section className="dashboard-panel p-6">
               <div className="border-b border-neutral-100 pb-4">
-                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">Approval overview</span>
-                <h2 className="text-xl font-black text-neutral-900 mt-1">Approved events</h2>
+                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">Publishing overview</span>
+                <h2 className="text-xl font-black text-neutral-900 mt-1">Published events</h2>
               </div>
               {eventAnalyticsError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{eventAnalyticsError}</p>}
               {loadingEventAnalytics ? (
                 <div className="flex justify-center py-10"><Spinner /></div>
               ) : eventAnalytics && (
-                <ApprovedEventsBarChart approvedByCategory={eventAnalytics.approvedByCategory} />
+                <PublishedEventsBarChart publishedByCategory={eventAnalytics.publishedByCategory} />
               )}
             </section>
           </div>
@@ -179,10 +151,6 @@ export default function AdminDashboard() {
 
               <div className="space-y-4 mt-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-neutral-600">Pending event approvals</span>
-                  <span className="text-sm font-black text-neutral-900">{loadingPendingEvents ? '…' : pendingEvents.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-neutral-600">New user requests</span>
                   <span className="text-sm font-black text-neutral-900">08</span>
                 </div>
@@ -192,57 +160,10 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <Link
-                  to="/admin/approvals"
-                  aria-label="Review pending approvals"
-                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold !text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
-                >
-                  <span className="text-white">Review approvals</span>
-                  <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </Link>
-              </div>
             </section>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="dashboard-panel overflow-hidden">
-              <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-neutral-900">Pending Approvals</h2>
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{pendingEvents.length}</span>
-                </div>
-                <Link to="/admin/approvals" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>
-              </div>
-              {pendingEventsError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{pendingEventsError}</p>}
-              <div className="divide-y divide-neutral-50">
-                {loadingPendingEvents ? (
-                  <div className="flex justify-center py-8"><Spinner /></div>
-                ) : pendingEvents.length === 0 ? (
-                  <p className="px-5 py-8 text-center text-sm text-neutral-500">No events are waiting for approval.</p>
-                ) : pendingEvents.map(event => (
-                  <div key={event.id} className="px-5 py-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-neutral-900 truncate">{event.title}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        {event.organizer ? `${event.organizer.firstname} ${event.organizer.lastname}` : 'Organizer'}
-                        {' · Submitted '}
-                        {new Date(event.updatedAt).toLocaleDateString('en-ZA')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant="default">{event.category}</Badge>
-                      <Link to="/admin/approvals">
-                        <Button size="sm" variant="secondary">Review</Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 gap-6">
             <div className="dashboard-panel overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
                 <h2 className="font-semibold text-neutral-900">Recent Registrations</h2>
@@ -321,15 +242,15 @@ function EventStatusPieChart({ statusCounts }: { statusCounts: AdminEventAnalyti
   );
 }
 
-function ApprovedEventsBarChart({ approvedByCategory }: { approvedByCategory: AdminEventAnalytics['approvedByCategory'] }) {
-  const sortedCategories = [...approvedByCategory].sort((a, b) => b.count - a.count);
+function PublishedEventsBarChart({ publishedByCategory }: { publishedByCategory: AdminEventAnalytics['publishedByCategory'] }) {
+  const sortedCategories = [...publishedByCategory].sort((a, b) => b.count - a.count);
   const visibleCategories = sortedCategories.slice(0, 6);
   const remainingCount = sortedCategories.slice(6).reduce((sum, item) => sum + item.count, 0);
   if (remainingCount > 0) visibleCategories.push({ category: 'Other', count: remainingCount });
   const maxCount = Math.max(1, ...visibleCategories.map(({ count }) => count));
 
   return (
-    <div className="space-y-5 pt-6" role="img" aria-label="Approved events by category">
+    <div className="space-y-5 pt-6" role="img" aria-label="Published events by category">
       {visibleCategories.length > 0 ? visibleCategories.map(({ category, count }) => (
         <div key={category}>
           <div className="flex items-center justify-between gap-3 mb-2 text-sm">
@@ -344,7 +265,7 @@ function ApprovedEventsBarChart({ approvedByCategory }: { approvedByCategory: Ad
           </div>
         </div>
       )) : (
-        <p className="py-8 text-center text-sm text-neutral-500">No events have been approved yet.</p>
+        <p className="py-8 text-center text-sm text-neutral-500">No events have been published yet.</p>
       )}
     </div>
   );
@@ -352,5 +273,4 @@ function ApprovedEventsBarChart({ approvedByCategory }: { approvedByCategory: Ad
 
 const UsersIcon  = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const CalIcon    = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-const ClockIcon  = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const TicketIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;

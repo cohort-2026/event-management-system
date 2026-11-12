@@ -16,14 +16,13 @@ interface ApiActionResponse {
 
 export interface AdminEventAnalytics {
   statusCounts: Array<{ status: Event['status']; count: number }>;
-  approvedByCategory: Array<{ category: string; count: number }>;
+  publishedByCategory: Array<{ category: string; count: number }>;
 }
 
 export const getEvents       = ()                                    => api.get<ApiResponse<Event[]>>('/events');
 export const getEventById    = (id: string)                          => api.get<ApiResponse<Event>>(`/events/${id}`);
 export const getManagedEvent = (id: string)                          => api.get<ApiResponse<Event>>(`/events/${id}/manage`);
 export const getMyEvents     = ()                                    => api.get<ApiResponse<Event[]>>('/events/mine');
-export const getPendingEvents = ()                                   => api.get<ApiResponse<Event[]>>('/events/admin/approval-queue');
 export const getAdminEventAnalytics = ()                             => api.get<ApiResponse<AdminEventAnalytics>>('/events/admin/analytics');
 export const uploadEventBanner = (file: File) => {
   const formData = new FormData();
@@ -36,6 +35,16 @@ export const createEvent     = (data: CreateEventDto)                => api.post
 export const updateEvent     = (id: string, data: UpdateEventDto)    => api.put<ApiResponse<Event>>(`/events/${id}`, data);
 export const deleteEvent     = (id: string)                          => api.delete(`/events/${id}`);
 export const publishEvent      = (id: string)                        => api.patch<ApiResponse<Event>>(`/events/${id}/publish`);
-export const approveEvent    = (id: string)                          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/approve`);
-export const rejectEvent    = (id: string, reason: string)          => api.patch<{ success: boolean; message: string; notificationSent: boolean }>(`/events/${id}/reject`, { reason });
 export const cancelEvent     = (id: string)                          => api.patch<ApiActionResponse>(`/events/${id}/cancel`);
+export const completeEvent   = (id: string)                          => api.patch<ApiResponse<Event>>(`/events/${id}/complete`);
+export const getEventRegistrations = (id: string)                    => api.get<ApiResponse<EventRegistration[]>>(`/events/${id}/bookings`);
+
+export interface EventRegistration {
+  id: string;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+  attendee: { id: string; firstname: string; lastname: string; email: string };
+  ticket: { referenceNumber: string; type: string; status: string; issuedAt: string } | null;
+  payment: { amount: number | string; currency: string; status: string; provider: string; createdAt: string } | null;
+}

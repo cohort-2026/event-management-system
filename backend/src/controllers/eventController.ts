@@ -3,7 +3,6 @@ import { EventStatus, EventType, Prisma, PrismaClient } from '@prisma/client';
 import {
   sendEventCancellationNotification,
   sendEventChangeNotification,
-  sendEventStatusNotification,
 } from '../services/emailService';
 
 const prisma = new PrismaClient();
@@ -331,6 +330,18 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       if (data.capacity < activeBookingCount) {
         return { error: 'capacity_too_low' as const };
       }
+      const previousTicketTypes = new Map(event.ticketTypes.map(ticket => [ticket.name.toLocaleLowerCase(), ticket]));
+      const nextTicketTypes = data.ticketTypes.map(ticket => {
+        const previous = previousTicketTypes.get(ticket.name.toLocaleLowerCase());
+        const soldQuantity = previous ? previous.quantity - previous.availableQuantity : 0;
+        return { ...ticket, soldQuantity };
+      });
+      if (event.ticketTypes.some(ticket => {
+        const soldQuantity = ticket.quantity - ticket.availableQuantity;
+        return soldQuantity > 0 && !data.ticketTypes.some(next => next.name.toLocaleLowerCase() === ticket.name.toLocaleLowerCase());
+      }) || nextTicketTypes.some(ticket => ticket.quantity < ticket.soldQuantity)) {
+        return { error: 'ticket_quantity_too_low' as const };
+      }
       const updated = await transaction.event.update({
         where: { id: event.id },
         data: {
@@ -355,9 +366,9 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       });
       await transaction.eventTicketType.deleteMany({ where: { eventId: event.id } });
       await transaction.eventTicketType.createMany({
-        data: data.ticketTypes.map(ticket => ({
+        data: nextTicketTypes.map(({ soldQuantity, ...ticket }) => ({
           ...ticket,
-          availableQuantity: ticket.quantity,
+          availableQuantity: ticket.quantity - soldQuantity,
           eventId: event.id,
         })),
       });
@@ -378,6 +389,10 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     }
     if (result.error === 'capacity_too_low') {
       res.status(409).json({ success: false, message: 'Capacity cannot be lower than the number of active registrations' });
+      return;
+    }
+    if (result.error === 'ticket_quantity_too_low') {
+      res.status(409).json({ success: false, message: 'Ticket quantities cannot remove or reduce ticket types that already have issued tickets' });
       return;
     }
 
@@ -564,25 +579,9 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
   }
 };
 
-export const listEventsForApproval = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const events = await prisma.event.findMany({
-      where: { status: EventStatus.DRAFT },
-      include: {
-        ...eventInclude,
-        organizer: { select: { firstname: true, lastname: true, email: true } },
-      },
-      orderBy: { updatedAt: 'asc' },
-    });
-    res.json({ success: true, data: events.map(serializeEvent) });
-  } catch (err) {
-    next(err);
-  }
-};
-
 export const getAdminEventAnalytics = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const [statusCounts, approvedByCategory] = await Promise.all([
+    const [statusCounts, publishedByCategory] = await Promise.all([
       prisma.event.groupBy({
         by: ['status'],
         _count: { _all: true },
@@ -599,104 +598,11 @@ export const getAdminEventAnalytics = async (_req: Request, res: Response, next:
       success: true,
       data: {
         statusCounts: statusCounts.map(({ status, _count }) => ({ status, count: _count._all })),
-        approvedByCategory: approvedByCategory.map(({ category, _count }) => ({
+        publishedByCategory: publishedByCategory.map(({ category, _count }) => ({
           category,
           count: _count._all,
         })),
       },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const notifyOrganizer = async (
-  eventId: string,
-  status: 'APPROVED' | 'REJECTED',
-  reason?: string,
-): Promise<boolean> => {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: {
-      title: true,
-      organizer: { select: { firstname: true, email: true } },
-    },
-  });
-  if (!event) return false;
-  await sendEventStatusNotification(event.organizer.email, event.organizer.firstname, event.title, status, reason);
-  return true;
-};
-
-export const approveEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const eventId = getEventId(req);
-    if (!eventId) {
-      res.status(400).json({ success: false, message: 'A valid event ID is required' });
-      return;
-    }
-    const updated = await prisma.event.updateMany({
-      where: { id: eventId, status: EventStatus.DRAFT },
-      data: { status: EventStatus.PUBLISHED },
-    });
-    if (!updated.count) {
-      res.status(404).json({ success: false, message: 'Draft event not found' });
-      return;
-    }
-
-    let notificationSent = true;
-    try {
-      notificationSent = await notifyOrganizer(eventId, 'APPROVED');
-    } catch (error) {
-      console.error('Event approval notification failed:', error);
-      notificationSent = false;
-    }
-    res.json({
-      success: true,
-      message: notificationSent
-        ? 'Event approved and published. The organizer has been notified.'
-        : 'Event approved and published, but the organizer notification could not be sent.',
-      notificationSent,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const rejectEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const eventId = getEventId(req);
-    if (!eventId) {
-      res.status(400).json({ success: false, message: 'A valid event ID is required' });
-      return;
-    }
-    const reason = text(req.body?.reason);
-    if (reason.length < 10 || reason.length > 2000) {
-      res.status(400).json({ success: false, message: 'Provide a rejection reason between 10 and 2000 characters' });
-      return;
-    }
-
-    const updated = await prisma.event.updateMany({
-      where: { id: eventId, status: EventStatus.DRAFT },
-      data: { status: EventStatus.DRAFT },
-    });
-    if (!updated.count) {
-      res.status(404).json({ success: false, message: 'Draft event not found' });
-      return;
-    }
-
-    let notificationSent = true;
-    try {
-      notificationSent = await notifyOrganizer(eventId, 'REJECTED', reason);
-    } catch (error) {
-      console.error('Event rejection notification failed:', error);
-      notificationSent = false;
-    }
-    res.json({
-      success: true,
-      message: notificationSent
-        ? 'Event rejected. The organizer has been notified.'
-        : 'Event rejected, but the organizer notification could not be sent.',
-      notificationSent,
     });
   } catch (err) {
     next(err);
@@ -746,6 +652,78 @@ export const cancelEvent = async (req: Request, res: Response, next: NextFunctio
         : 'Event cancelled, but some attendee or vendor notifications could not be sent.',
       notificationSent,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const completeEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const eventId = getEventId(req);
+    if (!eventId) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, organizerId: req.user!.id },
+      select: { id: true, status: true, endTime: true },
+    });
+    if (!event) {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+    if (event.status !== EventStatus.PUBLISHED) {
+      res.status(409).json({ success: false, message: 'Only published events can be completed' });
+      return;
+    }
+    if (event.endTime > new Date()) {
+      res.status(409).json({ success: false, message: 'An event can only be completed after its end time' });
+      return;
+    }
+
+    const updated = await prisma.event.updateMany({
+      where: { id: eventId, organizerId: req.user!.id, status: EventStatus.PUBLISHED, endTime: { lte: new Date() } },
+      data: { status: EventStatus.COMPLETED },
+    });
+    if (updated.count !== 1) {
+      res.status(409).json({ success: false, message: 'Event status changed; reload and try again' });
+      return;
+    }
+
+    const completedEvent = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: eventInclude });
+    res.json({ success: true, data: serializeEvent(completedEvent), message: 'Event marked as completed.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listEventBookings = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const eventId = getEventId(req);
+    if (!eventId) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, organizerId: req.user!.id },
+      select: { id: true },
+    });
+    if (!event) {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: { eventId },
+      include: {
+        attendee: { select: { id: true, firstname: true, lastname: true, email: true } },
+        ticket: { select: { referenceNumber: true, type: true, status: true, issuedAt: true } },
+        payment: { select: { amount: true, currency: true, status: true, provider: true, createdAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, data: bookings });
   } catch (err) {
     next(err);
   }

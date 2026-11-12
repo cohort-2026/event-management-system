@@ -353,14 +353,6 @@ export default function CreateEvent() {
           />
 
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-          {(existingEvent?.status === 'DRAFT' || existingEvent?.status === 'REJECTED') && existingEvent.rejectionReason && (
-            <section className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
-              <h2 className="font-bold text-rose-900">Admin feedback</h2>
-              <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{existingEvent.rejectionReason}</p>
-              <p className="mt-2 text-xs text-rose-700">Update the event details, then publish it when ready.</p>
-            </section>
-          )}
-
           {completed ? (
             <section role="status" className="max-w-3xl rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm">
               <h2 className="text-xl font-black text-neutral-900">{existingEvent?.status === 'PUBLISHED' ? 'Event published' : 'Event saved'}</h2>
