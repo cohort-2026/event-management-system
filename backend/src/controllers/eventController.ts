@@ -488,6 +488,66 @@ export const listMyEvents = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+export const getMyEventRevenue = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const payments = await prisma.payment.findMany({
+      where: {
+        status: 'PAID',
+        booking: {
+          is: {
+            status: 'CONFIRMED',
+            event: { is: { organizerId: req.user!.id } },
+          },
+        },
+      },
+      select: {
+        amount: true,
+        currency: true,
+        booking: {
+          select: {
+            event: { select: { id: true, title: true, startTime: true } },
+          },
+        },
+      },
+    });
+
+    const totals = new Map<string, {
+      eventId: string;
+      eventTitle: string;
+      eventDate: Date;
+      currency: string;
+      revenue: number;
+    }>();
+    for (const payment of payments) {
+      const event = payment.booking.event;
+      const key = `${event.id}:${payment.currency}`;
+      const current = totals.get(key);
+      if (current) {
+        current.revenue += Number(payment.amount);
+      } else {
+        totals.set(key, {
+          eventId: event.id,
+          eventTitle: event.title,
+          eventDate: event.startTime,
+          currency: payment.currency,
+          revenue: Number(payment.amount),
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: [...totals.values()].map(point => ({
+        ...point,
+        eventDate: point.eventDate.toISOString(),
+        revenue: Math.round(point.revenue * 100) / 100,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const listPublicEvents = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const events = await prisma.event.findMany({

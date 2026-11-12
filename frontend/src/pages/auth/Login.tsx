@@ -96,101 +96,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
-        <Link to="/" className="relative flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </span>
-          <span className="font-extrabold text-white text-lg tracking-tight">
-            EventMS
-          </span>
-        </Link>
+    <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4 py-10 sm:px-6">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl shadow-neutral-900/20 sm:p-6">
         <div className="relative">
-          <h2 className="text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">
-            Manage events that move people.
-          </h2>
-          <p className="text-neutral-300 mt-4 leading-relaxed text-sm">
-            One platform for creating events, managing registrations, onboarding
-            vendors and tracking attendance.
-          </p>
-          <div className="mt-8 flex flex-col gap-3">
-            {[
-              "Secure role-based access",
-              "Digital tickets & check-in",
-              "Real-time reporting",
-            ].map((t) => (
-              <div key={t} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
-                  <svg
-                    className="w-3 h-3 text-brand-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </span>
-                <span className="text-sm text-neutral-300">{t}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="relative text-xs text-neutral-600">
-          © {new Date().getFullYear()} EventMS
-        </p>
-      </div>
+        <Link to="/" className="mb-5 flex flex-col items-center gap-2">
+          <img src="/dream-event-logo.jpg" alt="Dream Event Management" className="h-14 w-14 rounded-xl object-cover shadow-sm" />
+          <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
+        </Link>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg
-                className="w-3.5 h-3.5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">
-              EventMS
-            </span>
-          </Link>
-
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
+          <h1 className="text-center text-2xl font-black text-neutral-900 tracking-tight">
             Welcome back
           </h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">
-            Sign in to your account to continue.
+          <p className="text-center text-sm text-neutral-500 mt-1 mb-5">
+            Manage events that move people.
           </p>
 
           {location.state?.registrationSuccess && (
@@ -249,7 +167,7 @@ export default function Login() {
             <div className="-mt-2 flex justify-end">
               <Link
                 to="/forgot-password"
-                className="text-sm font-semibold text-black hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
+                className="text-sm font-semibold text-neutral-700 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 Forgot password?
               </Link>
@@ -264,17 +182,17 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-500">
+          <p className="mt-4 text-center text-sm text-neutral-500">
             Don't have an account?{" "}
             <Link
               to="/register"
               className="font-semibold text-brand-600 hover:text-brand-700"
             >
-              Create one
+              Register
             </Link>
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -58,7 +58,10 @@ export default function SetupPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
       <section className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <Link to="/" className="text-sm font-bold text-brand-700">EventMS</Link>
+        <Link to="/" className="inline-flex items-center gap-2.5 text-sm font-bold text-brand-700">
+          <img src="/eventms-logo.avif" alt="" className="h-14 w-14 rounded-xl bg-white p-1.5 object-contain" />
+          EventMS
+        </Link>
         <h1 className="mt-6 text-2xl font-black text-neutral-900">Set your organizer password</h1>
         <p className="mt-2 text-sm text-neutral-600">
           {email ? `Create a permanent password for ${email}.` : 'Use the setup link from your invitation email.'}

@@ -9,13 +9,13 @@ export default function UserManagementNav() {
           to="/admin/users/organizers/pending"
           className="text-sm font-semibold text-brand-600 transition-colors hover:text-brand-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
         >
-          ORGANIZER PROFILE AWAITING APPROVAL
+          Organizer Profile Awaiting Approval
         </Link>
         <Link
           to="/admin/users/vendors/pending"
           className="text-sm font-semibold text-brand-600 transition-colors hover:text-brand-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
         >
-          VENDOR PROFILES AWAITING APPROVAL
+          Vendor Profiles Awaiting Approval
         </Link>
       </nav>
     </section>

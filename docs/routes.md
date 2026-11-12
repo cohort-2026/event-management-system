@@ -26,6 +26,8 @@ Required role: `ORGANIZER`
 | Path | Page file | Notes |
 |---|---|---|
 | `/organizer` | `pages/organizer/OrganizerDashboard.tsx` | Overview of own events |
+| `GET /api/events/mine` | — | Authenticated organizer's event data |
+| `GET /api/events/mine/revenue` | — | Paid revenue grouped by owned event and currency |
 | `/organizer/events/new` | `pages/organizer/CreateEvent.tsx` | Create event details and ticket tiers; save a draft or submit for approval |
 | `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Correct a draft or rejected event and resubmit it |
 | `/organizer/events/:id/registrations` | `pages/organizer/EventRegistrations.tsx` | View attendee registrations |
@@ -49,6 +51,8 @@ approved vendors. Organizers can cancel their own published events through
 approved vendors. Admins review events through
 `GET /api/events/admin/approval-queue`, then use the approve/reject endpoints.
 Approval and rejection decisions trigger organizer email notifications.
+The revenue endpoint only returns payments marked `PAID` for `CONFIRMED`
+bookings on events owned by the authenticated organizer.
 
 ---
 

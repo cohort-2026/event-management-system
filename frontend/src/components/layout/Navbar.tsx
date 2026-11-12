@@ -23,12 +23,19 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
 };
 
 const publicLinks = [
-  { label: "Events", to: "/events" },
+  { label: "Home", to: "/" },
   { label: "About", to: "#about" },
+  { label: "Events", to: "/events" },
   { label: "Contact", to: "#contact" },
 ];
 
-export default function Navbar() {
+interface NavbarProps {
+  logoSrc?: string;
+}
+
+export default function Navbar({
+  logoSrc = "/eventms-logo.avif",
+}: NavbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -87,21 +94,7 @@ export default function Navbar() {
           className="flex items-center gap-2.5 shrink-0"
           onClick={() => setOpen(false)}
         >
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-sm">
-            <svg
-              className="w-4.5 h-4.5 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </span>
+          <img src={logoSrc} alt="" className="h-12 w-12 rounded-xl object-cover" />
           <span className="font-extrabold text-neutral-900 text-lg tracking-tight dark:!text-white">
             EventMS
           </span>

@@ -25,7 +25,7 @@ export default function OrganizerPageLayout({
     () => localStorage.getItem('eventms-organizer-sidebar-collapsed') === 'true',
   );
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('eventms-theme') === 'dark');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('eventms-theme') !== 'light');
 
   useEffect(() => {
     localStorage.setItem('eventms-theme', isDark ? 'dark' : 'light');
@@ -78,8 +78,8 @@ export default function OrganizerPageLayout({
                     {`${user?.firstname?.[0] ?? 'O'}${user?.lastname?.[0] ?? ''}`.toUpperCase()}
                   </span>
                   <span className="min-w-0">
-                    <span className="block max-w-40 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{user?.firstname} {user?.lastname}</span>
-                    <span className="block text-[11px] text-slate-500 dark:text-slate-400">Organizer</span>
+                    <span className="block max-w-40 truncate text-sm font-semibold text-white">{user?.firstname} {user?.lastname}</span>
+                    <span className="block text-[11px] text-white">Organizer</span>
                   </span>
                 </div>
               </div>

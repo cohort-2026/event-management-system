@@ -9,6 +9,7 @@ import {
   getAdminEventAnalytics,
   getPublicEvent,
   getManagedEvent,
+  getMyEventRevenue,
   listVendorApplicationsForEvent,
   listEventsForApproval,
   listMyEvents,
@@ -25,6 +26,7 @@ const router = Router();
 // GET  /api/events/:id      View event details (no auth required)
 router.get('/', listPublicEvents);
 router.get('/mine', requireAuth, requireRole('ORGANIZER'), listMyEvents);
+router.get('/mine/revenue', requireAuth, requireRole('ORGANIZER'), getMyEventRevenue);
 router.get('/admin/approval-queue', requireAuth, requireRole('ADMIN'), listEventsForApproval);
 router.get('/admin/analytics', requireAuth, requireRole('ADMIN'), getAdminEventAnalytics);
 router.get('/:id/manage', requireAuth, requireRole('ORGANIZER'), getManagedEvent);

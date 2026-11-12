@@ -39,6 +39,8 @@ Every protected API endpoint is guarded by two middleware functions defined in
 |--------|------|------|-------|
 | GET | `/api/events` | No | — |
 | GET | `/api/events/:id` | No | — |
+| GET | `/api/events/mine` | Yes | `ORGANIZER` |
+| GET | `/api/events/mine/revenue` | Yes | `ORGANIZER` (own paid, confirmed bookings) |
 | POST | `/api/events` | Yes | `ORGANIZER` |
 | PUT | `/api/events/:id` | Yes | `ORGANIZER` + ownership |
 | PATCH | `/api/events/:id/submit` | Yes | `ORGANIZER` + ownership |

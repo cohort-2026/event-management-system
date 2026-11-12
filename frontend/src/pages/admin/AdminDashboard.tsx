@@ -98,8 +98,8 @@ export default function AdminDashboard() {
               to: '/admin/users',
               icon: <UsersIcon />,
               children: [
-                { label: 'ORGANIZER PROFILE AWAITING APPROVAL', to: '/admin/users/organizers/pending' },
-                { label: 'VENDOR PROFILES AWAITING APPROVAL', to: '/admin/users/vendors/pending' },
+                { label: 'Organizer Profile Awaiting Approval', to: '/admin/users/organizers/pending' },
+                { label: 'Vendor Profiles Awaiting Approval', to: '/admin/users/vendors/pending' },
               ],
             },
             {
@@ -107,8 +107,8 @@ export default function AdminDashboard() {
               to: '/admin/user-accounts',
               icon: <UsersIcon />,
               children: [
-                { label: 'ORGANIZER PROFILES', to: '/admin/users/organizers' },
-                { label: 'VENDOR PROFILES', to: '/admin/users/vendors' },
+                { label: 'Organizer Profiles', to: '/admin/users/organizers' },
+                { label: 'Vendor Profiles', to: '/admin/users/vendors' },
               ],
             },
           ]}

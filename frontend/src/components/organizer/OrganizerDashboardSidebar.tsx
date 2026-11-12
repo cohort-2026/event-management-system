@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  CalendarDays,
   ChevronLeft,
   LogOut,
   Menu,
@@ -66,7 +65,7 @@ export default function OrganizerDashboardSidebar({
     isCollapsed ? 'justify-center' : '',
     active
       ? 'bg-violet-600 text-white shadow-sm shadow-violet-950/20'
-      : 'text-slate-300 hover:bg-white/10 hover:text-white',
+      : 'text-white hover:bg-white/10 hover:text-white',
   ].join(' ');
 
   return (
@@ -80,19 +79,21 @@ export default function OrganizerDashboardSidebar({
         />
       )}
       <aside className={[
-        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,calc(100vw-2rem))] flex-col bg-[#17152a] text-white transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
+        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,calc(100vw-2rem))] flex-col bg-[#17152a]/70 text-white backdrop-blur-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         collapsed ? 'lg:w-[5.25rem]' : 'lg:w-64',
       ].join(' ')}>
         <div className={`flex h-[4.5rem] shrink-0 items-center border-b border-white/10 ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-5'}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500">
-            <CalendarDays size={19} aria-hidden="true" />
-          </div>
+          <img
+            src="/dream-event-logo.jpg"
+            alt="Dream Event Management"
+            className="h-10 w-10 shrink-0 rounded-lg object-cover"
+          />
           {!isCollapsed && <span className="text-base font-bold tracking-tight">EventMS</span>}
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:flex"
+            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-lg bg-transparent text-white hover:bg-transparent lg:flex"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -101,7 +102,7 @@ export default function OrganizerDashboardSidebar({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/10 lg:hidden"
             aria-label="Close navigation"
           >
             <X size={18} />
@@ -109,19 +110,19 @@ export default function OrganizerDashboardSidebar({
         </div>
 
         <div className={`flex items-center border-b border-white/10 py-4 ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-4'}`}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-400/20 text-sm font-bold text-violet-200 ring-1 ring-violet-300/30">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-400/20 text-sm font-bold text-white ring-1 ring-violet-300/30">
             {initials}
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user?.firstname} {user?.lastname}</p>
-              <p className="mt-0.5 text-xs text-slate-400">Organizer</p>
+              <p className="mt-0.5 text-xs text-white">Organizer</p>
             </div>
           )}
         </div>
 
         <nav aria-label="Organizer navigation" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-5">
-          {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace</p>}
+          {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">Workspace</p>}
           {organizerNavigation.filter(item => item.group === 'workspace').map(item => {
             const Icon = item.icon;
             const active = item.activeKey ? currentPage === item.activeKey : false;
@@ -141,7 +142,7 @@ export default function OrganizerDashboardSidebar({
           })}
 
           <div className="!mt-5 border-t border-white/10 pt-5">
-            {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Account</p>}
+            {!isCollapsed && <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">Account</p>}
             {organizerNavigation.filter(item => item.group === 'account').map(item => {
               const Icon = item.icon;
               return (
@@ -185,7 +186,7 @@ export function OrganizerMobileMenuButton({ onClick }: { onClick: () => void }) 
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-transparent text-white lg:hidden"
       aria-label="Open navigation"
     >
       <Menu size={19} />

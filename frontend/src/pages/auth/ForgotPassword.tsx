@@ -44,11 +44,7 @@ export default function ForgotPassword() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </span>
+          <img src="/eventms-logo.avif" alt="" className="h-14 w-14 rounded-xl bg-white p-1.5 object-contain" />
           <span className="font-extrabold text-white text-lg tracking-tight">EventMS</span>
         </Link>
         <div className="relative">
@@ -77,11 +73,7 @@ export default function ForgotPassword() {
       <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
         <div className="w-full max-w-sm">
           <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </span>
+            <img src="/eventms-logo.avif" alt="" className="h-12 w-12 rounded-xl bg-white p-1.5 object-contain" />
             <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
           </Link>
 

@@ -85,7 +85,7 @@ export default function LandingPage() {
       >
         Skip to main content
       </a>
-      <Navbar />
+      <Navbar logoSrc="/dream-event-logo.jpg" />
 
       <main id="main-content">
         {/* ── Hero ── */}

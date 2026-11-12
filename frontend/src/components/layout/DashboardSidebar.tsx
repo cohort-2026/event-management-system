@@ -88,11 +88,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
               ? 'border-white/10 bg-[#05213b]'
               : 'border-neutral-100 bg-brand-900'
           } ${collapsed && !mobileOpen ? 'justify-center px-2 py-5' : 'gap-3 px-6 py-5'}`}>
-            <div className="w-11 h-11 rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
+            <img src="/dream-event-logo.jpg" alt="Dream Event Management" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
             {(!collapsed || mobileOpen) && <div className="min-w-0 flex-1">
               <p className={`text-[11px] font-black uppercase tracking-[0.22em] ${analyticsAppearance ? 'text-cyan-300' : 'text-brand-100'}`}>EventMS</p>
               <p className="text-base font-black text-white mt-1">{title}</p>

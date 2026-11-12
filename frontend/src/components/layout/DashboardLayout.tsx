@@ -93,11 +93,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       `}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/8 shrink-0">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </span>
+          <img src="/dream-event-logo.jpg" alt="Dream Event Management" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
           <span className="font-extrabold text-white text-base tracking-tight">EventMS</span>
           <button className="ml-auto lg:hidden text-neutral-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

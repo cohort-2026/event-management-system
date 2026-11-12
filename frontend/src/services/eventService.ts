@@ -19,10 +19,19 @@ export interface AdminEventAnalytics {
   approvedByCategory: Array<{ category: string; count: number }>;
 }
 
+export interface OrganizerRevenuePoint {
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  currency: string;
+  revenue: number;
+}
+
 export const getEvents       = ()                                    => api.get<ApiResponse<Event[]>>('/events');
 export const getEventById    = (id: string)                          => api.get<ApiResponse<Event>>(`/events/${id}`);
 export const getManagedEvent = (id: string)                          => api.get<ApiResponse<Event>>(`/events/${id}/manage`);
 export const getMyEvents     = ()                                    => api.get<ApiResponse<Event[]>>('/events/mine');
+export const getMyEventRevenue = ()                                  => api.get<ApiResponse<OrganizerRevenuePoint[]>>('/events/mine/revenue');
 export const getPendingEvents = ()                                   => api.get<ApiResponse<Event[]>>('/events/admin/approval-queue');
 export const getAdminEventAnalytics = ()                             => api.get<ApiResponse<AdminEventAnalytics>>('/events/admin/analytics');
 export const uploadEventBanner = (file: File) => {

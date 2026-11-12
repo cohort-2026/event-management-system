@@ -316,7 +316,7 @@ export default function CreateEvent() {
     return (
       <OrganizerPageLayout title="Create an event">
         <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-bold text-neutral-900">Event creation unavailable</h1>
+          <h1 className="text-xl font-bold text-white">Event creation unavailable</h1>
           <p role={profileCheckError ? 'alert' : 'status'} className="mt-3 text-sm text-amber-900">
             {profileCheckError || 'Please complete the profile and try again. Your profile must be approved by an admin before creating events.'}
           </p>
