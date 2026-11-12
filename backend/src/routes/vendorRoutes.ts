@@ -640,7 +640,51 @@ router.get('/staff', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	return res.json({ success: true, data: staffMembers });
 });
 
-router.post('/:id/staff',       requireAuth, requireRole('VENDOR'), (_req, res) => res.sendStatus(501));
+router.post('/:id/staff', requireAuth, requireRole('VENDOR'), async (req, res) => {
+	const vendorId = req.user?.id;
+	const applicationId = routeId(req.params.id);
+	const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+	const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+	if (!vendorId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+	if (!applicationId) return res.status(400).json({ success: false, message: 'A valid application ID is required' });
+	if (name.length < 2 || name.length > 120 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+		return res.status(400).json({ success: false, message: 'Enter a valid staff name and email address' });
+	}
+
+	const result = await prisma.$transaction(async transaction => {
+		const application = await transaction.vendorApplication.findFirst({
+			where: {
+				id: applicationId,
+				vendorId,
+				status: 'APPROVED',
+				event: { is: { startTime: { gt: new Date() } } },
+			},
+			select: {
+				id: true,
+				_count: { select: { staffMembers: true } },
+			},
+		});
+		if (!application) return { error: 'not_found' as const };
+		if (application._count.staffMembers >= 20) return { error: 'limit' as const };
+
+		return {
+			staff: await transaction.vendorStaffMember.create({
+				data: {
+					applicationId,
+					name,
+					email,
+					entryPassId: `VND-${randomUUID().slice(0, 8).toUpperCase()}`,
+				},
+			}),
+		};
+	});
+
+	if ('error' in result) {
+		if (result.error === 'limit') return res.status(409).json({ success: false, message: 'An application can have no more than 20 staff members' });
+		return res.status(404).json({ success: false, message: 'Approved application not found or the event has started' });
+	}
+	return res.status(201).json({ success: true, data: result.staff });
+});
 
 type VendorApplicationDecision =
 	| { status: 'APPROVED'; assignedStand: string }

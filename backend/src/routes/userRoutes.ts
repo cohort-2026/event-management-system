@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { approveOrganizerProfile, createOrganizer, deleteOrganizerAccount, listOrganizers, rejectOrganizerProfile } from '../controllers/organizerController';
+import { deactivateUser, getUser, listUsers, updateUserRole } from '../controllers/userController';
 
 const router = Router();
 
@@ -15,9 +16,9 @@ router.delete('/organizers/:id',                 requireAuth, requireRole('ADMIN
 // GET   /api/users/:id              Get a single user
 // PATCH /api/users/:id/role         Change a user's role
 // PATCH /api/users/:id/deactivate   Deactivate a user account
-router.get('/',                   requireAuth, requireRole('ADMIN'), (_req, res) => res.sendStatus(501));
-router.get('/:id',                requireAuth, requireRole('ADMIN'), (_req, res) => res.sendStatus(501));
-router.patch('/:id/role',         requireAuth, requireRole('ADMIN'), (_req, res) => res.sendStatus(501));
-router.patch('/:id/deactivate',   requireAuth, requireRole('ADMIN'), (_req, res) => res.sendStatus(501));
+router.get('/',                   requireAuth, requireRole('ADMIN'), listUsers);
+router.get('/:id',                requireAuth, requireRole('ADMIN'), getUser);
+router.patch('/:id/role',         requireAuth, requireRole('ADMIN'), updateUserRole);
+router.patch('/:id/deactivate',   requireAuth, requireRole('ADMIN'), deactivateUser);
 
 export default router;

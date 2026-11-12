@@ -6,6 +6,7 @@ import {
   cancelEvent,
   completeEvent,
   createEvent,
+  deleteEvent,
   getAdminEventAnalytics,
   getPublicEvent,
   getManagedEvent,
@@ -42,7 +43,7 @@ router.put('/:id',              requireAuth, requireRole('ORGANIZER'), requireAp
 router.patch('/:id/publish',    requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, publishEvent);
 router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, cancelEvent);
 router.patch('/:id/complete',   requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, completeEvent);
-router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, (_req, res) => res.sendStatus(501));
+router.delete('/:id',           requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, deleteEvent);
 router.get('/:id/bookings',     requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listEventBookings);
 router.get('/:id/vendors',      requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listVendorApplicationsForEvent);
 

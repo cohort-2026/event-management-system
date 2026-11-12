@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { cancelBooking, createBooking, listMyBookings } from '../controllers/bookingController';
 
 const router = Router();
 
 // POST  /api/bookings              Create a booking (attendees only)
 // GET   /api/bookings/me           View own bookings
 // PATCH /api/bookings/:id/cancel   Cancel own booking
-router.post('/',              requireAuth, requireRole('ATTENDEE'), (_req, res) => res.sendStatus(501));
-router.get('/me',             requireAuth, (_req, res) => res.sendStatus(501));
-router.patch('/:id/cancel',   requireAuth, requireRole('ATTENDEE'), (_req, res) => res.sendStatus(501));
+router.post('/',              requireAuth, requireRole('ATTENDEE'), createBooking);
+router.get('/me',             requireAuth, requireRole('ATTENDEE'), listMyBookings);
+router.patch('/:id/cancel',   requireAuth, requireRole('ATTENDEE'), cancelBooking);
 
 export default router;

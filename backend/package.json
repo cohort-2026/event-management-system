@@ -13,7 +13,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:phase1": "node --test ../tests/phase-1-workflows.test.cjs ../tests/phase-1-api.test.cjs",
+    "test:phase1:api": "node --test ../tests/phase-1-api.test.cjs"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"

@@ -418,6 +418,56 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+export const deleteEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const eventId = getEventId(req);
+    if (!eventId) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+
+    const result = await prisma.$transaction(async transaction => {
+      const event = await transaction.event.findFirst({
+        where: { id: eventId, organizerId: req.user!.id },
+        select: {
+          id: true,
+          status: true,
+          _count: { select: { bookings: true, vendorApplications: true } },
+        },
+      });
+      if (!event) return 'not_found' as const;
+      if (event.status !== EventStatus.DRAFT) return 'not_draft' as const;
+      if (event._count.bookings > 0 || event._count.vendorApplications > 0) return 'has_applications' as const;
+
+      const deleted = await transaction.event.deleteMany({
+        where: { id: event.id, organizerId: req.user!.id, status: EventStatus.DRAFT },
+      });
+      return deleted.count === 1 ? 'deleted' as const : 'changed' as const;
+    });
+
+    if (result === 'not_found') {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+    if (result === 'not_draft') {
+      res.status(409).json({ success: false, message: 'Only draft events can be deleted' });
+      return;
+    }
+    if (result === 'has_applications') {
+      res.status(409).json({ success: false, message: 'Events with bookings or vendor applications cannot be deleted' });
+      return;
+    }
+    if (result === 'changed') {
+      res.status(409).json({ success: false, message: 'Event status changed; reload and try again' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Draft event deleted.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const publishEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const eventId = getEventId(req);
