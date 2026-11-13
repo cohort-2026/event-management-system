@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AuthCard from '@/components/auth/AuthCard';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { requestPasswordReset } from '@/services/authService';
+import { Mail } from 'lucide-react';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -39,81 +41,17 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
-        <Link to="/" className="relative flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </span>
-          <span className="font-extrabold text-white text-lg tracking-tight">EventMS</span>
-        </Link>
-        <div className="relative">
-          <h2 className="text-3xl font-black text-white leading-tight tracking-tight">
-            Get back to planning great events.
-          </h2>
-          <p className="text-neutral-300 mt-4 leading-relaxed text-sm">
-            Enter the email address linked to your account and we’ll send you a password reset code.
-          </p>
-          <div className="mt-8 flex flex-col gap-3">
-            {['Secure account recovery', 'A one-time reset code', 'Quick access back to EventMS'].map(item => (
-              <div key={item} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                </span>
-                <span className="text-sm text-neutral-300">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="relative text-xs text-neutral-600">© {new Date().getFullYear()} EventMS</p>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
-          <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
-          </Link>
-
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Forgot your password?</h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">
-            Enter your account email and we’ll send you a password reset code.
-          </p>
-
-          {error && (
-            <div role="alert" className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit} noValidate className="form-stack">
-            <Input
-              label="Email address"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-            />
-            <Button type="submit" loading={loading} className="w-full" size="lg">
-              Send OTP code
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-neutral-500">
-            Remember your password?{' '}
-            <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Sign in</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    <AuthCard title="Forgot your password?" description="We’ll email you a 6-digit code." icon={Mail}>
+      {error && <div role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">{error}</div>}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <Input label="Email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" />
+        <Button type="submit" loading={loading} className="h-10 w-full !bg-neutral-950 !text-white hover:!bg-neutral-800" size="lg">
+          Send code
+        </Button>
+      </form>
+      <p className="mt-5 text-center text-sm text-neutral-600">
+        Remember your password? <Link to="/login" className="font-semibold !text-rose-600 hover:underline">Back to sign in</Link>
+      </p>
+    </AuthCard>
   );
 }

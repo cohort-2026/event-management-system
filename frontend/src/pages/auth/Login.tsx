@@ -2,8 +2,11 @@ import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { login, resendVerificationEmail } from "@/services/authService";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/primitives/button";
+import { Input } from "@/components/ui/primitives/input";
+import { Label } from "@/components/ui/label";
+import { CalendarDays, Eye, EyeOff, LoaderCircle, TriangleAlert } from "lucide-react";
 import axios from "axios";
 
 interface FieldErrors {
@@ -22,6 +25,7 @@ export default function Login() {
   const [showVerificationLink, setShowVerificationLink] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
@@ -33,27 +37,27 @@ export default function Login() {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setServerError("");
     setShowVerificationLink(false);
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await login({ email, password });
-      setUser(res.data.data);
-      navigate(res.data.data.mustChangePassword ? '/change-password' : '/');
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.message;
+      const response = await login({ email, password });
+      setUser(response.data.data);
+      navigate(response.data.data.mustChangePassword ? "/change-password" : "/");
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message;
         const unverified =
-          err.response?.status === 403 &&
-          msg === "Please verify your email before signing in";
+          error.response?.status === 403 &&
+          message === "Please verify your email before signing in";
         setShowVerificationLink(unverified);
         setServerError(
-          err.response?.status === 401
-            ? (msg ?? "Invalid email or password")
-            : (msg ?? "Something went wrong."),
+          error.response?.status === 401
+            ? (message ?? "Invalid email or password")
+            : (message ?? "Something went wrong."),
         );
       }
     } finally {
@@ -73,18 +77,18 @@ export default function Login() {
       navigate("/verify-email", {
         state: { email, verificationNotice: response.data.message },
       });
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 429) {
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
         navigate("/verify-email", {
           state: {
             email,
-            verificationNotice: err.response.data.message,
-            resendCooldown: err.response.data.retryAfter,
+            verificationNotice: error.response.data.message,
+            resendCooldown: error.response.data.retryAfter,
           },
         });
-      } else if (axios.isAxiosError(err)) {
+      } else if (axios.isAxiosError(error)) {
         setServerError(
-          err.response?.data?.message ??
+          error.response?.data?.message ??
             "The verification code could not be sent.",
         );
       } else {
@@ -96,185 +100,73 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
-        <Link to="/" className="relative flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </span>
-          <span className="font-extrabold text-white text-lg tracking-tight">
-            EventMS
-          </span>
+    <main className="min-h-screen bg-white lg:grid lg:grid-cols-2">
+      <aside className="relative hidden min-h-screen overflow-hidden bg-gradient-to-br from-rose-600 via-red-500 to-orange-500 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <div aria-hidden="true" className="absolute inset-0 opacity-80 [background-image:radial-gradient(circle_at_82%_16%,rgba(255,255,255,.32)_0_10%,transparent_10.2%),radial-gradient(circle_at_14%_82%,rgba(255,183,117,.9)_0_19%,transparent_19.2%),radial-gradient(ellipse_at_58%_116%,rgba(150,47,24,.75)_0_28%,transparent_28.2%)]" />
+        <Link to="/" className="relative flex items-center gap-2.5 !text-white" aria-label="EventMS home">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-white/20"><CalendarDays aria-hidden="true" className="size-4" /></span>
+          <span className="text-sm font-extrabold tracking-tight">EventMS</span>
         </Link>
-        <div className="relative">
-          <h2 className="text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">
-            Manage events that move people.
+        <div className="relative max-w-md pb-8">
+          <p className="mb-3 text-sm font-semibold text-white/80">Discover. Book. Show up.</p>
+          <h2 className="text-4xl font-black leading-tight tracking-tight xl:text-5xl">
+            Your seat at your next event is one step away.
           </h2>
-          <p className="text-neutral-300 mt-4 leading-relaxed text-sm">
-            One platform for creating events, managing registrations, onboarding
-            vendors and tracking attendance.
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/80">
+            Find workshops, meet new people, and keep every ticket in one place.
           </p>
-          <div className="mt-8 flex flex-col gap-3">
-            {[
-              "Secure role-based access",
-              "Digital tickets & check-in",
-              "Real-time reporting",
-            ].map((t) => (
-              <div key={t} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
-                  <svg
-                    className="w-3 h-3 text-brand-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </span>
-                <span className="text-sm text-neutral-300">{t}</span>
-              </div>
-            ))}
-          </div>
         </div>
-        <p className="relative text-xs text-neutral-600">
-          © {new Date().getFullYear()} EventMS
-        </p>
-      </div>
+        <p className="relative text-xs text-white/65">© {new Date().getFullYear()} EventMS</p>
+      </aside>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg
-                className="w-3.5 h-3.5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">
-              EventMS
-            </span>
+      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[360px]">
+          <Link to="/" className="mb-8 flex items-center justify-center gap-2 lg:hidden" aria-label="EventMS home">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white"><CalendarDays aria-hidden="true" className="size-4" /></span>
+            <span className="text-sm font-extrabold text-neutral-950">EventMS</span>
           </Link>
+          <h1 className="text-2xl font-extrabold tracking-tight text-neutral-950">Welcome back</h1>
+          <p className="mt-1 text-sm text-neutral-600">Sign in to book your place.</p>
 
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
-            Welcome back
-          </h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">
-            Sign in to your account to continue.
-          </p>
-
-          {location.state?.registrationSuccess && (
-            <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-              Registration successful. Please sign in to continue.
-            </div>
-          )}
-
-          {location.state?.passwordResetSuccess && (
-            <div
-              role="status"
-              className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
-            >
-              {location.state?.passwordSetupMessage ?? 'Your password has been reset. Please sign in with your new password.'}
-            </div>
-          )}
-
+          {location.state?.registrationSuccess && <div role="status" className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">Registration successful. Please sign in to continue.</div>}
+          {location.state?.passwordResetSuccess && <div role="status" className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{location.state?.passwordSetupMessage ?? "Your password has been reset. Please sign in with your new password."}</div>}
           {serverError && (
-            <div className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
-              {serverError}
-              {showVerificationLink && (
-                <Link
-                  to="/verify-email"
-                  state={{ email }}
-                  onClick={handleVerifyEmail}
-                  className="block mt-2 font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  {sendingVerification
-                    ? "Sending verification code..."
-                    : "Verify your email"}
-                </Link>
-              )}
-            </div>
+            <Alert variant="destructive" className="mt-5 border-rose-200 bg-rose-50 text-rose-800">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription className="text-rose-800">
+                {serverError}
+                {showVerificationLink && <Link to="/verify-email" state={{ email }} onClick={handleVerifyEmail} className="mt-1 block font-semibold !text-rose-700 underline underline-offset-2 hover:!text-rose-800">{sendingVerification ? "Sending verification code..." : "Verify your email"}</Link>}
+              </AlertDescription>
+            </Alert>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="form-stack">
-            <Input
-              label="Email address"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-              placeholder="example@gmail.com"
-            />
-            <Input
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              showPasswordToggle
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-              placeholder="••••••••"
-            />
-            <div className="-mt-2 flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm font-semibold text-black hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
-              >
-                Forgot password?
-              </Link>
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="login-email" className="text-xs font-medium text-neutral-900">Email</Label>
+              <Input id="login-email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "login-email-error" : undefined} placeholder="you@example.com" className="h-10 border-neutral-300 bg-white text-sm focus-visible:border-neutral-500 focus-visible:ring-neutral-900/10" />
+              {errors.email && <p id="login-email-error" role="alert" className="text-xs font-medium text-rose-600">{errors.email}</p>}
             </div>
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
-              Sign in
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="login-password" className="text-xs font-medium text-neutral-900">Password</Label>
+                <Link to="/forgot-password" className="text-xs font-semibold !text-rose-600 hover:underline">Forgot password?</Link>
+              </div>
+              <div className="relative">
+                <Input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "login-password-error" : undefined} placeholder="Enter your password" className="h-10 border-neutral-300 bg-white pr-11 text-sm focus-visible:border-neutral-500 focus-visible:ring-neutral-900/10" />
+                <button type="button" onClick={() => setShowPassword(visible => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-neutral-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-700">
+                  {showPassword ? <EyeOff aria-hidden="true" className="size-4" /> : <Eye aria-hidden="true" className="size-4" />}
+                </button>
+              </div>
+              {errors.password && <p id="login-password-error" role="alert" className="text-xs font-medium text-rose-600">{errors.password}</p>}
+            </div>
+            <Button type="submit" size="lg" disabled={loading} className="h-10 w-full !bg-neutral-950 px-4 text-sm font-semibold !text-white shadow-none hover:!bg-neutral-800">
+              <span>{loading ? "Signing you in..." : "Sign in"}</span>
+              {loading ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : null}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-neutral-500">
-            Don't have an account?{" "}
-            <Link
-              to="/register"
-              className="font-semibold text-brand-600 hover:text-brand-700"
-            >
-              Create one
-            </Link>
-          </p>
+          <p className="mt-5 text-center text-xs text-neutral-600">New here? <Link to="/register" className="font-semibold !text-rose-600 hover:underline">Create an account</Link></p>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

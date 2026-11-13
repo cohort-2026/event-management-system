@@ -1,6 +1,18 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import axios from "axios";
+import { ArrowRight, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/layout/Navbar";
+import { getEvents } from "@/services/eventService";
+import type { Event } from "@/types/event";
+
+const eventArtwork: Record<string, string> = {
+  Technology: "from-rose-500 via-red-500 to-orange-400",
+  Training: "from-emerald-500 via-teal-500 to-cyan-400",
+  Networking: "from-fuchsia-600 via-pink-500 to-orange-300",
+  "Company Activity": "from-orange-500 via-amber-400 to-rose-400",
+};
 
 const features = [
   {
@@ -60,6 +72,37 @@ const steps = [
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getEvents()
+      .then(response => {
+        if (active) setEvents(response.data.data);
+      })
+      .catch(error => {
+        if (active) {
+          setEventsError(axios.isAxiosError(error)
+            ? error.response?.data?.message ?? "Events could not be loaded."
+            : "Events could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (active) setEventsLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const upcomingEvents = useMemo(() => events
+    .filter(event => event.status === "PUBLISHED" && new Date(event.startTime) > new Date())
+    .sort((first, second) => new Date(first.startTime).getTime() - new Date(second.startTime).getTime()), [events]);
+  const eventCountLabel = eventsLoading
+    ? "Find your next great day out"
+    : eventsError
+      ? "Explore upcoming events"
+      : `${upcomingEvents.length} upcoming event${upcomingEvents.length === 1 ? "" : "s"}`;
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -80,69 +123,67 @@ export default function LandingPage() {
 
       <main id="main-content">
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-neutral-950">
-          <div className="page-container relative py-16 sm:py-20 lg:py-24">
-            <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-10 lg:gap-14">
-              <div className="text-left flex flex-col items-start">
-                <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-neutral-100 text-sm font-semibold px-4 py-2 rounded-full">
-                  <span
-                    aria-hidden="true"
-                    className="w-1.5 h-1.5 rounded-full bg-accent-400 inline-block"
-                  />
-                  Event Management Platform
-                </div>
-
-                <h1 className="mt-7 text-4xl sm:text-5xl lg:text-6xl font-black !text-white leading-tight max-w-3xl tracking-tight">
-                  Organise events that{" "}
-                  <span className="text-accent-400">people remember.</span>
-                </h1>
-
-                <p className="mt-5 text-base sm:text-lg !text-neutral-200 max-w-xl leading-relaxed">
-                  One platform for creating events, managing registrations,
-                  onboarding vendors and tracking attendance — from first invite
-                  to final check-in.
-                </p>
-
-                <div className="mt-8 flex w-full flex-col sm:w-auto sm:flex-row items-stretch sm:items-center justify-start gap-3">
-                  <a
-                    href="#features"
-                    className="inline-flex items-center justify-center gap-2 bg-accent-500 text-neutral-950 font-bold px-6 py-3 rounded-lg hover:bg-accent-400 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  >
-                    Explore features
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 8l4 4m0 0l-4 4m4-4H3"
-                      />
-                    </svg>
-                  </a>
-                  <Link
-                    to="/events"
-                    className="inline-flex items-center justify-center gap-2 bg-white/10 border border-white/25 text-white font-semibold px-6 py-3 rounded-lg hover:bg-white/15 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  >
-                    Browse events
-                  </Link>
-                </div>
+        <section className="overflow-hidden bg-white dark:bg-neutral-950">
+          <div className="page-container grid items-center gap-6 pb-6 pt-8 sm:gap-8 sm:pb-10 sm:pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:py-14">
+            <div className="flex flex-col items-start">
+                <p className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold !text-rose-700 ring-1 ring-rose-100 dark:bg-rose-950/40 dark:!text-rose-200 dark:ring-rose-900">
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-rose-500" />
+                {eventCountLabel}
+              </p>
+              <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] tracking-tight text-neutral-950 dark:!text-white sm:text-5xl lg:text-[3.5rem]">
+                Events people actually <span className="text-rose-600">show up</span> to.
+              </h1>
+              <p className="mt-4 max-w-xl text-base leading-relaxed !text-neutral-600 dark:!text-neutral-300">
+                Workshops, training days and networking evenings in one place. Book in a few taps, get your ticket, and walk straight in.
+              </p>
+              <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <Link to="/events" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-5 text-sm font-bold !text-white shadow-sm transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">
+                  Browse events <ArrowRight aria-hidden="true" className="size-4" />
+                </Link>
+                <Link to="/register" className="inline-flex h-11 items-center justify-center rounded-md border border-neutral-300 bg-white px-5 text-sm font-semibold !text-neutral-900 transition hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:!text-white dark:hover:bg-neutral-800">
+                  Host an event
+                </Link>
               </div>
-
-              <div className="relative">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/20 bg-neutral-800 shadow-2xl">
-                  <img
-                    src="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1400&q=80"
-                    alt="Conference attendees gathered in a bright event venue"
-                    className="h-full w-full object-cover"
-                    fetchPriority="high"
-                  />
-                </div>
+              <div className="mt-6 flex items-center gap-2 text-sm text-neutral-500 dark:!text-neutral-400">
+                <Ticket aria-hidden="true" className="size-4 text-rose-600" />
+                <span>Tickets, vendor stands, and event tools together.</span>
               </div>
             </div>
+
+            <div className="relative mx-auto h-[160px] w-full max-w-[500px] sm:h-[280px] lg:h-[330px]" aria-label="Featured upcoming events">
+              {upcomingEvents.slice(1, 2).map(event => <SpotlightEvent key={event.id} event={event} className="right-2 top-2 h-[140px] w-[61%] rotate-[7deg] sm:right-5 sm:top-6 sm:h-[245px] lg:top-8 lg:h-[275px]" />)}
+              {upcomingEvents.slice(0, 1).map(event => <SpotlightEvent key={event.id} event={event} className="left-2 top-1 z-10 h-[150px] w-[64%] -rotate-[4deg] sm:left-4 sm:top-3 sm:h-[255px] lg:top-5 lg:h-[285px]" />)}
+              {!upcomingEvents.length && !eventsLoading && (
+                <div className="absolute inset-x-4 inset-y-1 overflow-hidden rounded-2xl bg-gradient-to-br from-rose-600 via-red-500 to-orange-400 p-4 text-white shadow-xl sm:inset-x-10 sm:inset-y-5 sm:p-6">
+                  <div aria-hidden="true" className="absolute inset-0 opacity-30 [background-image:repeating-radial-gradient(circle_at_80%_18%,transparent_0_13px,rgba(255,255,255,.5)_14px_16px,transparent_17px_27px)]" />
+                  <div className="relative flex h-full flex-col justify-between">
+                    <span className="flex size-11 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm"><CalendarDays aria-hidden="true" className="size-5" /></span>
+                    <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] !text-white/80 sm:text-xs">Make room for</p><p className="mt-1 max-w-[220px] text-lg font-black leading-tight !text-white sm:text-3xl">something worth showing up for.</p></div>
+                  </div>
+                </div>
+              )}
+              {eventsLoading && <div className="absolute inset-x-10 inset-y-5 animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800" />}
+            </div>
+          </div>
+        </section>
+
+        <section id="upcoming" className="scroll-mt-20 border-t border-neutral-100 bg-[#fafaf9] py-10 dark:border-neutral-800 dark:bg-neutral-900 sm:py-12">
+          <div className="page-container">
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-rose-600">Make a plan</p><h2 className="mt-1 text-2xl font-black tracking-tight text-neutral-950 dark:!text-white">Happening soon</h2></div>
+              <Link to="/events" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold !text-rose-700 hover:!text-rose-800 dark:!text-rose-300">See all events <ArrowRight aria-hidden="true" className="size-4" /></Link>
+            </div>
+            {eventsError && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm !text-rose-800">{eventsError}</p>}
+            {eventsLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading upcoming events">{[0, 1, 2].map(item => <div key={item} className="h-[88px] animate-pulse rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />)}</div>
+            ) : upcomingEvents.length ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{upcomingEvents.slice(0, 3).map(event => <UpcomingEvent key={event.id} event={event} />)}</div>
+            ) : (
+              <div className="flex flex-col items-start gap-3 rounded-lg border border-neutral-200 bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-700 dark:bg-neutral-950">
+                <p className="text-sm !text-neutral-600 dark:!text-neutral-300">{eventsError ? "Event listings are temporarily unavailable." : "No upcoming events are published yet. Check back soon."}</p>
+                <Link to="/events" className="text-sm font-semibold !text-rose-700 hover:underline dark:!text-rose-300">Explore all events</Link>
+              </div>
+            )}
           </div>
         </section>
 
@@ -221,7 +262,7 @@ export default function LandingPage() {
                   "Publish events, review vendor applications, and manage registrations and check-in.",
                 ],
               ].map(([title, description]) => (
-                <article key={title}>
+                <article id={title === "Organisers" ? "organisers" : title === "Vendors" ? "vendors" : undefined} key={title}>
                   <h3 className="text-lg font-bold text-neutral-900 dark:!text-white">
                     {title}
                   </h3>
@@ -358,5 +399,67 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function SpotlightEvent({ event, className }: { event: Event; className: string }) {
+  const date = new Date(event.startTime);
+  const month = date.toLocaleDateString("en-ZA", { month: "short" }).toUpperCase();
+  const day = date.toLocaleDateString("en-ZA", { day: "2-digit" });
+  const artwork = eventArtwork[event.category] ?? "from-orange-500 via-rose-500 to-fuchsia-500";
+
+  return (
+    <Link to={`/events/${event.id}`} aria-label={`View ${event.title}`} className={`absolute block overflow-hidden rounded-2xl border border-white/70 bg-gradient-to-br ${artwork} p-4 !text-white shadow-xl transition-transform hover:scale-[1.02] ${className}`}>
+      {event.bannerImageUrl ? (
+        <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 opacity-35 [background-image:repeating-radial-gradient(circle_at_85%_12%,transparent_0_12px,rgba(255,255,255,.65)_13px_15px,transparent_16px_25px)]" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/75 via-neutral-950/10 to-neutral-950/5" />
+      <div className="relative flex h-full flex-col justify-between">
+        <div className="flex items-start justify-between gap-2">
+          <span className="rounded-md bg-white px-2 py-1 text-center text-[9px] font-bold leading-tight text-neutral-950 shadow-sm">
+            {month}<span className="block text-sm">{day}</span>
+          </span>
+          <span className="max-w-[65%] truncate rounded-full bg-neutral-950/35 px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm">{event.category}</span>
+        </div>
+        <div>
+          <p className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">{event.title}</p>
+          <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-white/85">
+            <MapPin aria-hidden="true" className="size-3 shrink-0" /><span className="truncate">{event.venue}</span>
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function UpcomingEvent({ event }: { event: Event }) {
+  const date = new Date(event.startTime);
+  const month = date.toLocaleDateString("en-ZA", { month: "short" }).toUpperCase();
+  const day = date.toLocaleDateString("en-ZA", { day: "2-digit" });
+  const artwork = eventArtwork[event.category] ?? "from-orange-500 via-rose-500 to-fuchsia-500";
+
+  return (
+    <Link to={`/events/${event.id}`} className="group flex min-w-0 items-center gap-3 rounded-lg border border-neutral-200 bg-white p-2 transition hover:border-neutral-300 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-950">
+      <div className={`relative flex size-[68px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br ${artwork}`}>
+        {event.bannerImageUrl ? <img src={event.bannerImageUrl} alt="" className="absolute inset-0 size-full object-cover" /> : <CalendarDays aria-hidden="true" className="size-6 text-white/90" />}
+        <span className="absolute left-1 top-1 rounded bg-white px-1.5 py-0.5 text-center text-[8px] font-bold leading-tight text-rose-600">
+          {month}<span className="block text-xs text-neutral-950">{day}</span>
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[10px] font-bold uppercase tracking-wide text-rose-600">
+          {date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })} · {date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+        <h3 className="mt-0.5 truncate text-sm font-bold text-neutral-950 group-hover:text-rose-700 dark:!text-white dark:group-hover:!text-rose-300">{event.title}</h3>
+        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-neutral-500 dark:!text-neutral-400">
+          <MapPin aria-hidden="true" className="size-3 shrink-0" /> {event.venue}
+        </p>
+      </div>
+      <p className="hidden shrink-0 text-[11px] font-medium text-neutral-600 sm:block dark:!text-neutral-300">
+        {event.isFree ? "Free" : `From R${event.price ?? "—"}`}
+      </p>
+    </Link>
   );
 }

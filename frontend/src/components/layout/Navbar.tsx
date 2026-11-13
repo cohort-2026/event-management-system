@@ -24,9 +24,10 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
 };
 
 const publicLinks = [
-  { label: "Events", to: "/events" },
-  { label: "About", to: "#about" },
-  { label: "Contact", to: "#contact" },
+  { label: "Discover", to: "/events" },
+  { label: "Upcoming", to: "#upcoming" },
+  { label: "For organisers", to: "#organisers" },
+  { label: "For vendors", to: "#vendors" },
 ];
 
 export default function Navbar() {
@@ -85,10 +86,10 @@ export default function Navbar() {
         {/* Logo */}
         <Link
           to="/"
-          className="flex items-center gap-2.5 shrink-0"
+          className="flex items-center gap-2.5 shrink-0 !text-neutral-950 dark:!text-white"
           onClick={() => setOpen(false)}
         >
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-sm">
+          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-sm">
             <svg
               className="w-4.5 h-4.5 text-white"
               fill="none"
@@ -125,7 +126,7 @@ export default function Navbar() {
                 to={l.to}
                 className={({ isActive }) =>
                   `px-3.5 py-2 rounded-lg text-sm font-medium transition-colors duration-150
-                ${isActive ? "text-brand-600 bg-brand-50 dark:bg-neutral-800 dark:!text-brand-300" : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 dark:!text-neutral-300 dark:hover:!text-white dark:hover:bg-neutral-800"}`
+                ${isActive ? "!text-neutral-950 bg-neutral-100 dark:bg-neutral-800 dark:!text-white" : "!text-neutral-600 hover:!text-neutral-950 hover:bg-neutral-100 dark:!text-neutral-300 dark:hover:!text-white dark:hover:bg-neutral-800"}`
                 }
               >
                 {l.label}
@@ -158,15 +159,15 @@ export default function Navbar() {
             <>
               <Link
                 to="/login"
-                className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors px-3 py-2 dark:!text-neutral-300 dark:hover:!text-white"
+                className="text-sm font-semibold !text-neutral-600 hover:!text-neutral-950 transition-colors px-3 py-2 dark:!text-neutral-300 dark:hover:!text-white"
               >
                 Sign in
               </Link>
               <Link
                 to="/register"
-                className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors px-3 py-2 dark:!text-neutral-300 dark:hover:!text-white"
+                className="rounded-md bg-neutral-950 text-sm font-semibold !text-white transition-colors px-4 py-2 hover:bg-neutral-800 dark:bg-white dark:!text-neutral-950 dark:hover:bg-neutral-200"
               >
-                Sign up
+                Create account
               </Link>
             </>
           )}
@@ -225,7 +226,7 @@ export default function Navbar() {
                 key={l.to}
                 href={l.to}
                 onClick={() => setOpen(false)}
-                className="px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
+                className="px-3 py-2.5 rounded-lg text-sm font-medium !text-neutral-700 hover:bg-neutral-100 hover:!text-neutral-950 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
               >
                 {l.label}
               </a>
@@ -259,7 +260,7 @@ export default function Navbar() {
                 <Link
                   to="/login"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-2.5 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
+                  className="px-3 py-2.5 rounded-lg text-sm font-semibold !text-neutral-700 hover:bg-neutral-100 hover:!text-neutral-950 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
                 >
                   Sign in
                 </Link>
@@ -268,7 +269,7 @@ export default function Navbar() {
                   onClick={() => setOpen(false)}
                   className="px-3 py-2.5 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
                 >
-                  Sign up
+                  Create account
                 </Link>
               </>
             )}

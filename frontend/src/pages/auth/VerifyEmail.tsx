@@ -4,6 +4,7 @@ import axios from 'axios';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { resendVerificationEmail, verifyEmail } from '@/services/authService';
+import { Mail } from 'lucide-react';
 
 interface LocationState {
   email?: string;
@@ -17,6 +18,7 @@ export default function VerifyEmail() {
   const locationState = (location.state as LocationState | null) ?? {};
   const initialEmail = locationState.email ?? '';
   const [email, setEmail] = useState(initialEmail);
+  const [emailEditable, setEmailEditable] = useState(false);
   const [code, setCode] = useState('');
   const [serverError, setServerError] = useState('');
   const [notice, setNotice] = useState(locationState.verificationNotice ?? '');
@@ -91,60 +93,58 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-200 px-6 py-12">
-      <div className="w-full max-w-sm rounded-xl bg-white border border-neutral-200 shadow-sm p-8">
-        <Link to="/" className="flex items-center gap-2 mb-10">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f7f5] px-4 py-8">
+      <div className="w-full max-w-[380px] rounded-lg border border-neutral-200 bg-white p-5 shadow-[0_12px_35px_-24px_rgba(15,23,42,0.35)] sm:p-7">
+        <Link to="/" className="mb-5 flex justify-center" aria-label="EventMS home">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-sm">
+            <Mail aria-hidden="true" className="size-5" />
           </span>
-          <span className="font-extrabold text-neutral-900 text-lg tracking-tight">EventMS</span>
         </Link>
 
-        <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Verify your email</h1>
-        <p className="text-sm text-neutral-500 mt-2 mb-7">
+        <h1 className="text-center text-xl font-extrabold tracking-tight text-neutral-950">Check your email</h1>
+        <p className="mt-2 mb-5 text-center text-sm text-neutral-600">
           We sent a six-digit code to your email address.
         </p>
 
-        <div className="mb-5 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-          <div className="flex items-center justify-between gap-4">
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="flex items-center justify-center gap-2">
             <span>Code expires in</span>
-            <strong className="font-mono text-base">{formatTime(secondsRemaining)}</strong>
+            <strong className="font-mono text-sm">{formatTime(secondsRemaining)}</strong>
           </div>
         </div>
 
         {serverError && (
-          <div className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">
             {serverError}
           </div>
         )}
 
         {notice && (
-          <div role="status" className="mb-5 rounded-lg bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
+          <div role="status" className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
             {notice}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} noValidate className="form-stack">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <Input
             label="Email address"
             type="email"
             autoComplete="email"
             value={email}
-            disabled
+            disabled={!emailEditable}
             onChange={event => setEmail(event.target.value)}
           />
-          <Input
-            label="Verification code"
-            inputMode="numeric"
-            maxLength={6}
-            autoComplete="one-time-code"
-            value={code}
-            onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            helperText="Enter the code from the email."
-          />
-          <Button type="submit" loading={loading} className="w-full" size="lg">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="verification-code" className="text-sm font-medium text-neutral-800">Verification code</label>
+            <div className="relative">
+              <input id="verification-code" type="text" inputMode="numeric" maxLength={6} autoComplete="one-time-code" aria-label="Six-digit verification code" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0" />
+              <div aria-hidden="true" className="flex justify-center gap-2">
+                {Array.from({ length: 6 }, (_, index) => <span key={index} className={`flex h-10 w-9 items-center justify-center rounded-md border bg-white text-lg font-semibold text-neutral-950 sm:w-10 ${index === code.length ? 'border-rose-500 ring-2 ring-rose-100' : 'border-neutral-300'}`}>{code[index] ?? ''}</span>)}
+              </div>
+            </div>
+            <p className="text-xs text-neutral-500">Enter the code from the email.</p>
+          </div>
+          <Button type="submit" loading={loading} className="h-10 w-full !bg-neutral-950 !text-white hover:!bg-neutral-800" size="lg">
             Verify email
           </Button>
         </form>
@@ -154,15 +154,23 @@ export default function VerifyEmail() {
             type="button"
             onClick={handleResend}
             disabled={resendCooldown > 0 || resending || !email}
-            className="text-sm font-semibold text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-neutral-400"
+            className="text-sm font-semibold !text-rose-600 hover:underline disabled:cursor-not-allowed disabled:!text-neutral-400"
           >
             {resending ? 'Sending code...' : resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
           </button>
         </div>
 
-        <p className="mt-6 text-center text-sm text-neutral-500">
-          Already verified?{' '}
-          <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Sign in</Link>
+        <p className="mt-4 text-center text-sm text-neutral-600">
+          Wrong address?{' '}
+          <button type="button" onClick={() => {
+            setEmailEditable(value => !value);
+            setCode('');
+            setResendCooldown(0);
+            setNotice('');
+            setServerError('');
+          }} className="font-semibold !text-rose-600 hover:underline">
+            {emailEditable ? 'Use this email' : 'Change email'}
+          </button>
         </p>
       </div>
     </div>

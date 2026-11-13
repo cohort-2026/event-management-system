@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import AuthCard from '@/components/auth/AuthCard';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { setupOrganizerPassword } from '@/services/organizerService';
+import { ShieldCheck } from 'lucide-react';
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
@@ -56,41 +58,22 @@ export default function SetupPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
-      <section className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <Link to="/" className="text-sm font-bold text-brand-700">EventMS</Link>
-        <h1 className="mt-6 text-2xl font-black text-neutral-900">Set your organizer password</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          {email ? `Create a permanent password for ${email}.` : 'Use the setup link from your invitation email.'}
-        </p>
-
-        {error && <p role="alert" className="mt-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input
-            label="New password"
-            type="password"
-            autoComplete="new-password"
-            showPasswordToggle
-            value={password}
-            onChange={event => setPassword(event.target.value)}
-            required
-          />
-          <Input
-            label="Confirm password"
-            type="password"
-            autoComplete="new-password"
-            showPasswordToggle
-            value={confirmPassword}
-            onChange={event => setConfirmPassword(event.target.value)}
-            required
-          />
-          <ul className="list-disc space-y-1 pl-5 text-xs text-neutral-500">
-            {PASSWORD_RULES.map(rule => <li key={rule.label}>{rule.label}</li>)}
-          </ul>
-          <Button type="submit" loading={saving} className="w-full">Set password</Button>
-        </form>
-      </section>
-    </div>
+    <AuthCard title="Set up your organiser account" description={email ? `Create a permanent password for ${email}.` : 'Use the setup link from your invitation email.'} icon={ShieldCheck}>
+      <div className="mb-4 flex justify-center">
+        <span className="rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">Organizer invitation</span>
+      </div>
+      {error && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">{error}</p>}
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <Input label="Email" type="email" value={email} disabled />
+        <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle value={password} onChange={event => setPassword(event.target.value)} required />
+        <Input label="Confirm password" type="password" autoComplete="new-password" showPasswordToggle value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required />
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-neutral-600">
+          {PASSWORD_RULES.map(rule => <li key={rule.label}>{rule.label}</li>)}
+        </ul>
+        <Button type="submit" loading={saving} className="h-10 w-full !bg-gradient-to-r !from-rose-600 !to-orange-500 !text-white hover:!brightness-105">Activate account</Button>
+      </form>
+      <p className="mt-4 text-center text-[11px] text-neutral-500">This invitation link expires in 48 hours.</p>
+      <p className="mt-4 text-center text-sm text-neutral-600"><Link to="/login" className="font-semibold !text-rose-600 hover:underline">Back to sign in</Link></p>
+    </AuthCard>
   );
 }

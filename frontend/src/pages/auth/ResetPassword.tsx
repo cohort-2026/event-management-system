@@ -8,6 +8,7 @@ import axios from "axios";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { resetPassword, requestPasswordReset } from "@/services/authService";
+import { LockKeyhole } from "lucide-react";
 
 interface FieldErrors {
   code?: string;
@@ -158,8 +159,8 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f7f5] px-4 py-8">
+      <div className="hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
@@ -224,36 +225,20 @@ export default function ResetPassword() {
         </p>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
-          <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg
-                className="w-3.5 h-3.5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">
-              EventMS
+      <div className="w-full">
+        <div className="mx-auto w-full max-w-[380px] rounded-lg border border-neutral-200 bg-white p-5 shadow-[0_12px_35px_-24px_rgba(15,23,42,0.35)] sm:p-7">
+          <Link to="/" className="mb-5 flex justify-center" aria-label="EventMS home">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-sm">
+              <LockKeyhole aria-hidden="true" className="size-5" />
             </span>
           </Link>
 
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
+          <h1 className="text-center text-xl font-extrabold tracking-tight text-neutral-950">
             Reset your password
           </h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">
+          <p className="mt-2 mb-5 text-center text-sm text-neutral-600">
             Enter the six-digit code sent to{" "}
-            <span className="font-semibold text-neutral-700">
+            <span className="font-semibold text-neutral-900">
               {email || "your email"}
             </span>
             , then choose a new password.
@@ -262,7 +247,7 @@ export default function ResetPassword() {
           {notice && (
             <div
               role="status"
-              className="mb-5 rounded-lg bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700"
+              className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"
             >
               {notice}
             </div>
@@ -270,13 +255,13 @@ export default function ResetPassword() {
           {serverError && (
             <div
               role="alert"
-              className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700"
+              className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800"
             >
               {serverError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="form-stack">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
               label="Enter OTP code"
               type="text"
@@ -295,6 +280,8 @@ export default function ResetPassword() {
                 }));
               }}
               error={fieldErrors.code}
+              placeholder="000000"
+              className="text-center font-mono tracking-[0.3em]"
             />
             <Input
               label="New password"
@@ -328,10 +315,10 @@ export default function ResetPassword() {
             <Button
               type="submit"
               loading={loading}
-              className="w-full"
+              className="h-10 w-full !bg-neutral-950 !text-white hover:!bg-neutral-800"
               size="lg"
             >
-              Create new password
+              Save new password
             </Button>
           </form>
 
@@ -341,7 +328,7 @@ export default function ResetPassword() {
               type="button"
               onClick={handleResendCode}
               disabled={resendCooldown > 0 || resending || loading || !email}
-              className="font-semibold text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-neutral-400"
+              className="font-semibold !text-rose-600 hover:underline disabled:cursor-not-allowed disabled:!text-neutral-400"
             >
               {resending
                 ? "Sending..."
@@ -353,7 +340,7 @@ export default function ResetPassword() {
               <span className="text-neutral-600">Already have your password?</span>
               <Link
                 to="/login"
-                className="font-semibold text-brand-600 hover:text-brand-700"
+                className="font-semibold !text-rose-600 hover:underline"
               >
                 Sign in
               </Link>

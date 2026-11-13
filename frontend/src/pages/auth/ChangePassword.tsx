@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AuthCard from '@/components/auth/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
 import { changePassword } from '@/services/authService';
+import { LockKeyhole } from 'lucide-react';
 
 const PERMANENT_PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
@@ -55,27 +57,16 @@ export default function ChangePassword() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-50 px-6">
-      <section className="w-full max-w-md bg-white rounded-2xl border border-neutral-200 shadow-sm p-8">
-        <h1 className="text-2xl font-bold text-neutral-900">Set a new password</h1>
-        <p className="text-sm text-neutral-500 mt-2 mb-6">
-          {user?.mustChangePassword
-            ? 'Replace your temporary password with a permanent password before continuing.'
-            : 'Change your password to keep your account secure.'}
-        </p>
-        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          <Input label="Current password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} required />
-          <Input label="New password" type="password" autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} required minLength={8} />
-          <Input label="Confirm new password" type="password" autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} required minLength={8} />
-          {user?.mustChangePassword && (
-            <ul className="list-disc space-y-1 pl-5 text-xs text-neutral-500">
-              {PERMANENT_PASSWORD_RULES.map(rule => <li key={rule.label}>{rule.label}</li>)}
-            </ul>
-          )}
-          <Button type="submit" loading={loading} className="w-full">Change password</Button>
-        </form>
-      </section>
-    </main>
+    <AuthCard title={user?.mustChangePassword ? 'Choose a new password' : 'Update your password'} description={user?.mustChangePassword ? 'Replace your temporary password to continue.' : 'Change your password to keep your account secure.'} icon={LockKeyhole}>
+      {user?.mustChangePassword && <div role="status" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">You signed in with a temporary password. Choose your own to continue.</div>}
+      {error && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">{error}</p>}
+      <form onSubmit={submit} className="space-y-4">
+        <Input label="Current password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} required />
+        <Input label="New password" type="password" autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} required minLength={8} />
+        <Input label="Confirm new password" type="password" autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} required minLength={8} />
+        {user?.mustChangePassword && <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-neutral-600">{PERMANENT_PASSWORD_RULES.map(rule => <li key={rule.label}>{rule.label}</li>)}</ul>}
+        <Button type="submit" loading={loading} className="h-10 w-full !bg-neutral-950 !text-white hover:!bg-neutral-800">Update password</Button>
+      </form>
+    </AuthCard>
   );
 }
