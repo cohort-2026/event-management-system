@@ -14,6 +14,7 @@ import {
   listVendorApplicationsForEvent,
   listMyEvents,
   listPublicEvents,
+  patchEvent,
   publishEvent,
   updateEvent,
 } from '../controllers/eventController';
@@ -27,6 +28,7 @@ router.param('id', validateUuidParam);
 // GET  /api/events/:id      View event details (no auth required)
 router.get('/', listPublicEvents);
 router.get('/mine', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listMyEvents);
+router.get('/my', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listMyEvents);
 router.get('/admin/analytics', requireAuth, requireRole('ADMIN'), getAdminEventAnalytics);
 router.get('/:id/manage', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, getManagedEvent);
 router.get('/:id', getPublicEvent);
@@ -42,6 +44,7 @@ router.post('/banner-image', requireAuth, requireRole('ORGANIZER'), requireAppro
 // GET    /api/events/:id/vendors         View vendor applications for own event
 router.post('/',                requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, createEvent);
 router.put('/:id',              requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, updateEvent);
+router.patch('/:id',            requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, patchEvent);
 router.patch('/:id/publish',    requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, publishEvent);
 router.patch('/:id/cancel',     requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, cancelEvent);
 router.patch('/:id/complete',   requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, completeEvent);

@@ -114,8 +114,11 @@ test('public event list and detail queries expose published events only', () => 
     eventController.indexOf('export const getPublicEvent'),
     eventController.indexOf('export const getManagedEvent'),
   );
-  assert.match(list, /where:\s*\{\s*status:\s*EventStatus\.PUBLISHED\s*\}/);
+  assert.match(list, /const where: Prisma\.EventWhereInput\s*=\s*\{\s*status:\s*EventStatus\.PUBLISHED\s*\}/);
   assert.match(detail, /where:\s*\{\s*id:\s*eventId,\s*status:\s*EventStatus\.PUBLISHED\s*\}/);
+  assert.match(list, /search/);
+  assert.match(list, /paginationMeta/);
+  assert.match(eventController, /meetingDetails:\s*_meetingDetails/);
 });
 
 test('admin, organizer, vendor and attendee frontend routes are role-protected', () => {

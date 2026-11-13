@@ -80,6 +80,10 @@ test('request validation rejects malformed JSON, UUIDs, and pagination', async (
 
   const invalidPage = await request('/api/events?page=0');
   assert.equal(invalidPage.status, 400);
+  const excessivePage = await request('/api/events?page=9007199254740991&limit=100');
+  assert.equal(excessivePage.status, 400);
+  const invalidDate = await request('/api/events?startDate=2026-02-31');
+  assert.equal(invalidDate.status, 400);
 
   const invalidEmail = await request('/api/auth/login', {
     method: 'POST',

@@ -50,6 +50,16 @@ export const validatePaginationQuery = (
       return;
     }
   }
+  const page = req.query.page === undefined ? 1 : Number(req.query.page);
+  const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+  if (!Number.isSafeInteger((page - 1) * limit)) {
+    res.status(400).json({
+      success: false,
+      message: 'Invalid pagination parameters',
+      errors: [{ field: 'page', message: 'The requested page is too large' }],
+    });
+    return;
+  }
   next();
 };
 

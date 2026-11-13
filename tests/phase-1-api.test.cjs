@@ -27,6 +27,8 @@ if (!testDatabaseUrl) {
   const emailService = require(path.join(backend, 'dist', 'services', 'emailService.js'));
   const verificationCodes = new Map();
   emailService.sendVerificationCode = async (email, code) => verificationCodes.set(email, code);
+  emailService.sendEventChangeNotification = async () => {};
+  emailService.sendEventCancellationNotification = async () => {};
 
   const app = require(path.join(backend, 'dist', 'app.js')).default;
   const prisma = new PrismaClient();
@@ -257,6 +259,7 @@ if (!testDatabaseUrl) {
     assert.equal(draftResponse.response.status, 201, 'approved organizer creates a draft');
     const eventId = draftResponse.data.data.id;
     const ticketTypeId = draftResponse.data.data.ticketTypes[0].id;
+    assert.equal(draftResponse.data.data.status, 'DRAFT', 'new events start as drafts');
     assert.equal((await request(`/api/events/${eventId}`)).response.status, 404, 'public users cannot view drafts');
 
     const updatedEvent = await request(`/api/events/${eventId}`, {
@@ -272,12 +275,28 @@ if (!testDatabaseUrl) {
       body: eventInput('Unauthorized edit'),
     })).response.status, 404, 'organizers cannot edit another organizer event');
 
+    await prisma.user.update({
+      where: { email: accounts.organizer.email },
+      data: { profileApprovalStatus: ProfileApprovalStatus.PENDING_APPROVAL },
+    });
+    assert.equal((await request(`/api/events/${eventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 403, 'unapproved organizers cannot publish events');
+    await prisma.user.update({
+      where: { email: accounts.organizer.email },
+      data: { profileApprovalStatus: ProfileApprovalStatus.APPROVED },
+    });
+
     const published = await request(`/api/events/${eventId}/publish`, {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
     });
     assert.equal(published.response.status, 200, 'approved organizer publishes without admin approval');
-    assert.equal((await request(`/api/events/${eventId}`)).response.status, 200, 'published event is publicly visible');
+    const publicEvent = await request(`/api/events/${eventId}`);
+    assert.equal(publicEvent.response.status, 200, 'published event is publicly visible');
+    assert.equal(publicEvent.data.data.meetingDetails, undefined, 'public details omit meeting links');
+    assert.equal(publicEvent.data.data.organizerId, undefined, 'public details omit internal organizer identifiers');
     assert.equal((await request(`/api/events/${eventId}/publish`, {
       method: 'PATCH',
       cookie: adminCookie,
@@ -288,8 +307,13 @@ if (!testDatabaseUrl) {
     })).response.status, 404, 'event approval endpoint does not exist');
     assert.equal((await request(`/api/events/${eventId}/cancel`, {
       method: 'PATCH',
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'organizers cannot cancel another organizer event');
+    assert.equal((await request(`/api/events/${eventId}/cancel`, {
+      method: 'PATCH',
       cookie: accounts.organizer.cookie,
     })).response.status, 200, 'organizer cancels their own event');
+    assert.equal((await request(`/api/events/${eventId}`)).response.status, 404, 'cancelled events are not public');
 
     const freeEvent = await request('/api/events', {
       method: 'POST',
@@ -311,6 +335,112 @@ if (!testDatabaseUrl) {
     assert.equal(booking.response.status, 201, 'attendee books a free published event');
     assert.equal(booking.data.data.eventTicketTypeId, freeTicketTypeId);
     const ticketId = booking.data.data.ticket.id;
+    const ownerBookings = await request(`/api/events/${bookableEventId}/bookings?limit=1`, {
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(ownerBookings.response.status, 200);
+    assert.equal(ownerBookings.data.data.length, 1);
+    assert.equal(ownerBookings.data.pagination.total, 1);
+    assert.equal((await request(`/api/events/${bookableEventId}/bookings`, {
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'organizers cannot view another organizer event bookings');
+
+    const vendor = await prisma.user.findUnique({ where: { email: accounts.vendor.email } });
+    await prisma.vendorApplication.create({
+      data: {
+        companyName: 'Phase 1 Vendor',
+        registrationNumber: '2026/123456/07',
+        description: 'Vendor application for event access testing.',
+        requestedStandType: 'Food',
+        requestedStandSize: 'Small',
+        standDescription: 'One demonstration stand.',
+        eventId: bookableEventId,
+        vendorId: vendor.id,
+      },
+    });
+    assert.equal((await request(`/api/events/${bookableEventId}/vendors`, {
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    assert.equal((await request(`/api/events/${bookableEventId}/vendors`, {
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'vendor applications are restricted to the event owner');
+
+    const increasedCapacity = await request(`/api/events/${bookableEventId}`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+      body: { capacity: 12, ticketTypes: [{ name: 'General', price: 0, quantity: 12 }] },
+    });
+    assert.equal(increasedCapacity.response.status, 200, 'PATCH accepts an editable partial update');
+    assert.equal(increasedCapacity.data.data.ticketTypes[0].id, freeTicketTypeId, 'ticket type identity is preserved');
+    assert.equal(increasedCapacity.data.data.ticketTypes[0].availableQuantity, 11, 'issued quantity is preserved');
+    const storedBookingAfterUpdate = await prisma.booking.findUnique({ where: { id: booking.data.data.id } });
+    assert.equal(storedBookingAfterUpdate.eventTicketTypeId, freeTicketTypeId);
+    assert.ok(await prisma.ticket.findUnique({ where: { id: ticketId } }));
+
+    assert.equal((await request(`/api/events/${bookableEventId}`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+      body: { organizerId: vendor.id },
+    })).response.status, 400, 'protected ownership fields cannot be mass-assigned');
+    assert.equal((await request(`/api/events/${bookableEventId}`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+      body: { ticketTypes: [{ name: 'General', price: 1, quantity: 12 }] },
+    })).response.status, 409, 'ticket prices with booking history cannot be changed');
+
+    await prisma.event.update({
+      where: { id: bookableEventId },
+      data: { status: 'DRAFT' },
+    });
+    assert.equal((await request(`/api/events/${bookableEventId}`, {
+      method: 'DELETE',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'events with booking or ticket history cannot be deleted');
+    await prisma.event.update({
+      where: { id: bookableEventId },
+      data: { status: 'PUBLISHED' },
+    });
+
+    const onlineInput = eventInput('Private Meeting Link Event');
+    onlineInput.eventType = 'ONLINE';
+    onlineInput.venue = 'Online';
+    onlineInput.meetingDetails = 'https://meeting.example.test/secret-room';
+    const onlineDraft = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: onlineInput,
+    });
+    const onlineEventId = onlineDraft.data.data.id;
+    assert.equal((await request(`/api/events/${onlineEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const onlinePublicEvent = await request(`/api/events/${onlineEventId}`);
+    assert.equal(onlinePublicEvent.response.status, 200);
+    assert.equal(onlinePublicEvent.data.data.meetingDetails, undefined);
+    assert.doesNotMatch(JSON.stringify(onlinePublicEvent.data), /secret-room/);
+
+    const startDate = new Date(onlinePublicEvent.data.data.startTime).toISOString().slice(0, 10);
+    const filteredEvents = await request(
+      `/api/events?search=Private%20Meeting&category=Workshop&location=Online&startDate=${startDate}&endDate=${startDate}&page=1&limit=1`,
+    );
+    assert.equal(filteredEvents.response.status, 200);
+    assert.equal(filteredEvents.data.data.length, 1);
+    assert.equal(filteredEvents.data.data[0].id, onlineEventId);
+    assert.equal(filteredEvents.data.pagination.total, 1);
+    const firstPage = await request('/api/events?limit=1');
+    assert.equal(firstPage.data.data.length, 1);
+    assert.equal(firstPage.data.pagination.total >= 2, true);
+    const publicEvents = await request('/api/events');
+    assert.equal(publicEvents.data.data.some(event => event.id === eventId), false, 'cancelled events are excluded from public lists');
+    const listedOnlineEvent = publicEvents.data.data.find(event => event.id === onlineEventId);
+    assert.equal(listedOnlineEvent.meetingDetails, undefined, 'public listings omit meeting links');
+    assert.equal(listedOnlineEvent.organizerId, undefined, 'public listings omit organizer identifiers');
+
+    const myEvents = await request('/api/events/my?limit=1', { cookie: accounts.organizer.cookie });
+    assert.equal(myEvents.response.status, 200);
+    assert.equal(myEvents.data.data.length, 1);
+    assert.equal(myEvents.data.pagination.total >= 3, true);
 
     assert.equal((await request('/api/tickets/me', { cookie: accounts.attendee.cookie })).response.status, 200);
     assert.equal((await request(`/api/tickets/${ticketId}`, { cookie: accounts.otherAttendee.cookie })).response.status, 404);
