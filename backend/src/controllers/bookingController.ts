@@ -3,6 +3,7 @@ import { BookingStatus, EventStatus, PaymentStatus, Prisma, TicketStatus, Ticket
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { isUuid } from '../middleware/requestValidation';
+import { issueTicketsForBooking } from '../services/ticketService';
 
 const MAX_TICKETS_PER_BOOKING = 100;
 const MAX_BOOKING_AMOUNT = new Prisma.Decimal('99999999.99');
@@ -34,8 +35,6 @@ const serializeBooking = (booking: Prisma.BookingGetPayload<{ include: typeof bo
 });
 
 const bookingReference = (): string => `BKG-${randomUUID().replace(/-/g, '').toUpperCase()}`;
-const ticketReference = (): string => `EVT-${randomUUID().replace(/-/g, '').toUpperCase()}`;
-const ticketQrPayload = (): string => `QR-${randomUUID().replace(/-/g, '')}`;
 
 export const createBooking = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -136,7 +135,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         if (ticketCapacity.count !== 1) throw new CapacityUnavailableError();
       }
 
-      return transaction.booking.create({
+      const createdBooking = await transaction.booking.create({
         data: {
           reference: bookingReference(),
           quantity,
@@ -147,20 +146,8 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
           ticketType: ticketTypeEnum(ticketType.name),
           status: isFree ? BookingStatus.CONFIRMED : BookingStatus.PENDING,
           paymentStatus: isFree ? PaymentStatus.NOT_REQUIRED : PaymentStatus.PENDING,
-          ...(isFree
+          ...(!isFree
             ? {
-              tickets: {
-                create: Array.from({ length: quantity }, () => ({
-                  referenceNumber: ticketReference(),
-                  qrPayload: ticketQrPayload(),
-                  type: TypeOfTickets.FREE,
-                  status: TicketStatus.ACTIVE,
-                  eventId,
-                  holderId: req.user!.id,
-                })),
-              },
-            }
-            : {
               payment: {
                 create: {
                   amount: totalAmount,
@@ -168,8 +155,22 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
                   provider: 'SIMULATED',
                 },
               },
-            }),
+            }
+            : {}),
         },
+      });
+      if (isFree) {
+        await issueTicketsForBooking(transaction, {
+          id: createdBooking.id,
+          eventId,
+          holderId: req.user!.id,
+          quantity,
+          type: TypeOfTickets.FREE,
+        });
+      }
+
+      return transaction.booking.findUniqueOrThrow({
+        where: { id: createdBooking.id },
         include: bookingInclude,
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -250,6 +251,9 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
         ORDER BY "id"
         FOR UPDATE
       `;
+      await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "bookings" WHERE "id" = ${id} FOR UPDATE
+      `;
       const booking = await transaction.booking.findFirst({
         where: { id, attendeeId: req.user!.id },
         select: {
@@ -258,6 +262,7 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
           eventTicketTypeId: true,
           quantity: true,
           status: true,
+          paymentStatus: true,
           tickets: { select: { status: true } },
           event: { select: { startTime: true } },
         },
@@ -267,9 +272,21 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
       if (booking.event.startTime <= new Date()) return 'started' as const;
       if (booking.tickets.some(ticket => ticket.status === TicketStatus.USED)) return 'checked_in' as const;
 
+      const abandonedPayment = booking.paymentStatus === PaymentStatus.PENDING
+        ? await transaction.payment.updateMany({
+          where: { bookingId: id, status: PaymentStatus.PENDING, provider: 'SIMULATED' },
+          data: {
+            status: PaymentStatus.FAILED,
+            providerReference: 'SIMULATED-CANCELLED',
+          },
+        })
+        : { count: 0 };
       const updated = await transaction.booking.updateMany({
         where: { id, attendeeId: req.user!.id, status: { not: BookingStatus.CANCELLED } },
-        data: { status: BookingStatus.CANCELLED },
+        data: {
+          status: BookingStatus.CANCELLED,
+          ...(abandonedPayment.count > 0 ? { paymentStatus: PaymentStatus.FAILED } : {}),
+        },
       });
       if (updated.count !== 1) return 'already_cancelled' as const;
 
@@ -310,7 +327,7 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
     }
     res.json({
       success: true,
-      message: 'Booking cancelled. Payment history is unchanged; refunds are not processed by this endpoint.',
+      message: 'Booking cancelled. Pending simulated payment was closed; successful payments are not refunded here.',
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {

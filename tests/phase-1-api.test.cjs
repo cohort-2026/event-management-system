@@ -348,6 +348,11 @@ if (!testDatabaseUrl) {
     assert.ok(booking.data.data.tickets.every(ticket => ticket.qrPayload));
     assert.equal(booking.data.data.ticket.id, booking.data.data.tickets[0].id, 'legacy singular ticket response is preserved');
     const ticketId = booking.data.data.ticket.id;
+    assert.equal((await request(`/api/payments/${booking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    })).response.status, 409, 'free bookings cannot be processed as paid payments');
 
     const invalidQuantity = await request('/api/bookings', {
       method: 'POST',
@@ -550,16 +555,144 @@ if (!testDatabaseUrl) {
     assert.equal(paidBooking.data.data.payment.amount, '50', 'pending payment amount matches booking total');
     const paidEventAfterBooking = await prisma.event.findUnique({ where: { id: paidEventId } });
     assert.equal(paidEventAfterBooking.availableCapacity, 10, 'pending paid bookings do not reserve capacity');
+    const pendingPayment = await request(`/api/payments/${paidBooking.data.data.id}`, {
+      cookie: accounts.attendee.cookie,
+    });
+    assert.equal(pendingPayment.response.status, 200);
+    assert.equal(pendingPayment.data.data.payment.status, 'PENDING');
+    assert.equal(pendingPayment.data.data.payment.simulated, true);
+    assert.equal((await request(`/api/payments/${paidBooking.data.data.id}`, {
+      cookie: accounts.otherAttendee.cookie,
+    })).response.status, 404, 'attendees cannot view another attendee payment');
+    assert.equal((await request(`/api/payments/${paidBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    })).response.status, 404, 'attendees cannot process another attendee payment');
+    assert.equal((await request(`/api/payments/${paidBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS', cardNumber: 'not-collected' },
+    })).response.status, 400, 'payment API rejects financial credential fields');
+    assert.equal((await request('/api/payments/not-a-uuid', {
+      cookie: accounts.attendee.cookie,
+    })).response.status, 400, 'payment API validates booking UUIDs');
+
+    const processedPayment = await request(`/api/payments/${paidBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    });
+    assert.equal(processedPayment.response.status, 200, 'attendee processes their own simulated payment');
+    assert.equal(processedPayment.data.data.booking.status, 'CONFIRMED');
+    assert.equal(processedPayment.data.data.booking.paymentStatus, 'PAID');
+    assert.equal(processedPayment.data.data.payment.status, 'PAID');
+    assert.equal(processedPayment.data.data.tickets.length, 2, 'successful payment issues the booked quantity');
+    assert.ok(processedPayment.data.data.tickets.every(ticket =>
+      ticket.type === 'PAID' && ticket.qrPayload));
+    const repeatedPayment = await request(`/api/payments/${paidBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    });
+    assert.equal(repeatedPayment.response.status, 200);
+    assert.equal(repeatedPayment.data.data.tickets.length, 2, 'repeated payment does not issue duplicate tickets');
+    assert.equal((await prisma.event.findUnique({ where: { id: paidEventId } })).availableCapacity, 8,
+      'repeated payment does not deduct capacity twice');
+    assert.equal((await request('/api/payments/me?limit=1', {
+      cookie: accounts.attendee.cookie,
+    })).response.status, 200);
     assert.equal((await request(`/api/bookings/${paidBooking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
     })).response.status, 200);
-    assert.ok(await prisma.payment.findUnique({ where: { bookingId: paidBooking.data.data.id } }),
-      'cancelling preserves pending payment history');
+    const successfulPaymentHistory = await prisma.payment.findUnique({
+      where: { bookingId: paidBooking.data.data.id },
+    });
+    assert.equal(successfulPaymentHistory.status, 'PAID', 'cancelling preserves successful simulated payment history');
+    assert.equal((await prisma.event.findUnique({ where: { id: paidEventId } })).availableCapacity, 10,
+      'cancelling restores capacity after successful payment without claiming a refund');
+
+    const failedBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { eventId: paidEventId, ticketTypeId: paidTicketTypeId, quantity: 1 },
+    });
+    assert.equal(failedBooking.response.status, 201);
+    const failedPayment = await request(`/api/payments/${failedBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { outcome: 'FAILED' },
+    });
+    assert.equal(failedPayment.response.status, 200);
+    assert.equal(failedPayment.data.data.booking.paymentStatus, 'FAILED');
+    assert.equal(failedPayment.data.data.tickets.length, 0, 'failed payment does not issue tickets');
+    assert.equal((await prisma.event.findUnique({ where: { id: paidEventId } })).availableCapacity, 10,
+      'failed payment does not claim capacity');
+    assert.equal((await request(`/api/payments/${failedBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { outcome: 'FAILED' },
+    })).response.status, 200, 'repeated failed payment returns the existing result');
+    assert.equal((await prisma.ticket.count({ where: { bookingId: failedBooking.data.data.id } })), 0);
+
+    const cancelledPendingBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: paidEventId, ticketTypeId: paidTicketTypeId, quantity: 1 },
+    });
+    assert.equal(cancelledPendingBooking.response.status, 201);
+    assert.equal((await request(`/api/bookings/${cancelledPendingBooking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+    })).response.status, 200);
+    assert.equal((await prisma.payment.findUnique({
+      where: { bookingId: cancelledPendingBooking.data.data.id },
+    })).status, 'FAILED', 'cancelling a pending simulated payment closes it as failed');
+    assert.equal((await request(`/api/payments/${cancelledPendingBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    })).response.status, 409, 'cancelled pending bookings cannot be paid');
+    assert.equal((await prisma.ticket.count({ where: { bookingId: cancelledPendingBooking.data.data.id } })), 0);
+
+    const cancelledPaidEventInput = eventInput('Phase 1 Cancelled Paid Event');
+    cancelledPaidEventInput.ticketTypes[0].price = 15;
+    const cancelledPaidEvent = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: cancelledPaidEventInput,
+    });
+    const cancelledPaidEventId = cancelledPaidEvent.data.data.id;
+    const cancelledPaidTicketTypeId = cancelledPaidEvent.data.data.ticketTypes[0].id;
+    assert.equal((await request(`/api/events/${cancelledPaidEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const cancelledEventBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: cancelledPaidEventId, ticketTypeId: cancelledPaidTicketTypeId, quantity: 1 },
+    });
+    assert.equal(cancelledEventBooking.response.status, 201);
+    assert.equal((await request(`/api/events/${cancelledPaidEventId}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    assert.equal((await request(`/api/payments/${cancelledEventBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    })).response.status, 409, 'payments for cancelled events are rejected');
+    assert.equal((await prisma.payment.findUnique({
+      where: { bookingId: cancelledEventBooking.data.data.id },
+    })).status, 'FAILED');
+    assert.equal((await prisma.ticket.count({ where: { bookingId: cancelledEventBooking.data.data.id } })), 0);
 
     const singleSeatInput = eventInput('Phase 1 Concurrent Booking Event');
     singleSeatInput.capacity = 1;
     singleSeatInput.ticketTypes[0].quantity = 1;
+    singleSeatInput.ticketTypes[0].price = 10;
     const singleSeatEvent = await request('/api/events', {
       method: 'POST',
       cookie: accounts.organizer.cookie,
@@ -584,8 +717,35 @@ if (!testDatabaseUrl) {
         body: { eventId: singleSeatEventId, ticketTypeId: singleSeatTicketTypeId, quantity: 1 },
       }),
     ]);
-    assert.deepEqual(concurrentBookings.map(result => result.response.status).sort(), [201, 409],
-      'concurrent requests cannot book the same final seat');
+    assert.deepEqual(concurrentBookings.map(result => result.response.status), [201, 201],
+      'pending paid bookings do not reserve capacity');
+    const concurrentPayments = await Promise.all(concurrentBookings.map((result, index) =>
+      request(`/api/payments/${result.data.data.id}/process`, {
+        method: 'POST',
+        cookie: index === 0 ? accounts.attendee.cookie : accounts.otherAttendee.cookie,
+        body: { outcome: 'SUCCESS' },
+      })));
+    assert.deepEqual(concurrentPayments.map(result => result.response.status).sort(), [200, 409],
+      'concurrent simulated successes cannot oversell the final seat');
+    const singleSeatAfterPayments = await prisma.event.findUnique({ where: { id: singleSeatEventId } });
+    assert.equal(singleSeatAfterPayments.availableCapacity, 0);
+    const concurrentBookingRecords = await Promise.all(concurrentBookings.map(result =>
+      prisma.booking.findUnique({ where: { id: result.data.data.id } })));
+    assert.deepEqual(concurrentBookingRecords.map(result => result.paymentStatus).sort(), ['FAILED', 'PAID']);
+    assert.equal(await prisma.ticket.count({ where: { eventId: singleSeatEventId } }), 1,
+      'only the successful payment gets a ticket');
+    const successfulConcurrentIndex = concurrentBookingRecords.findIndex(record => record.paymentStatus === 'PAID');
+    const repeatedConcurrentSuccess = await request(
+      `/api/payments/${concurrentBookings[successfulConcurrentIndex].data.data.id}/process`,
+      {
+        method: 'POST',
+        cookie: successfulConcurrentIndex === 0 ? accounts.attendee.cookie : accounts.otherAttendee.cookie,
+        body: { outcome: 'SUCCESS' },
+      },
+    );
+    assert.equal(repeatedConcurrentSuccess.response.status, 200);
+    assert.equal((await prisma.event.findUnique({ where: { id: singleSeatEventId } })).availableCapacity, 0,
+      'retry after a concurrent success does not deduct capacity again');
 
     const draftToDelete = await request('/api/events', {
       method: 'POST',

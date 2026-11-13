@@ -32,6 +32,9 @@ const authRoutes = read('backend', 'src', 'routes', 'authRoutes.ts');
 const authMiddleware = read('backend', 'src', 'middleware', 'auth.ts');
 const eventRoutes = read('backend', 'src', 'routes', 'eventRoutes.ts');
 const eventController = read('backend', 'src', 'controllers', 'eventController.ts');
+const paymentRoutes = read('backend', 'src', 'routes', 'paymentRoutes.ts');
+const paymentController = read('backend', 'src', 'controllers', 'paymentController.ts');
+const ticketService = read('backend', 'src', 'services', 'ticketService.ts');
 const organizerRoutes = read('backend', 'src', 'routes', 'userRoutes.ts');
 const vendorRoutes = read('backend', 'src', 'routes', 'vendorRoutes.ts');
 const frontendRoles = read('frontend', 'src', 'types', 'user.ts');
@@ -77,6 +80,21 @@ test('booking capacity migration backfills records and permits multiple tickets 
   assert.match(bookingCapacityMigration, /UPDATE "tickets"[\s\S]*"qr_payload" = 'QR-' \|\| "reference_number"/);
   assert.match(bookingCapacityMigration, /DROP INDEX "tickets_booking_id_key"/);
   assert.doesNotMatch(bookingCapacityMigration, /\b(DELETE\s+FROM|TRUNCATE|DROP\s+TABLE)\b/i);
+});
+
+test('simulated payment routes enforce attendee ownership and use transactional ticket issuance', () => {
+  assert.match(paymentRoutes, /router\.post\([\s\S]*requireAuth[\s\S]*requireRole\('ATTENDEE'\)[\s\S]*processSimulatedPayment/);
+  assert.match(paymentRoutes, /router\.get\('\/:bookingId'/);
+  assert.match(paymentController, /body\.outcome !== 'SUCCESS' && body\.outcome !== 'FAILED'/);
+  assert.match(paymentController, /Object\.keys\(body\)/);
+  assert.match(paymentController, /FOR UPDATE/);
+  assert.match(paymentController, /availableCapacity:\s*\{\s*gte:\s*booking\.quantity\s*\}/);
+  assert.match(paymentController, /availableQuantity:\s*\{\s*gte:\s*booking\.quantity\s*\}/);
+  assert.match(paymentController, /issueTicketsForBooking/);
+  assert.match(ticketService, /existingCount > 0/);
+  assert.match(ticketService, /transaction\.ticket\.createMany/);
+  assert.match(paymentController, /providerReference:\s*'SIMULATED-SUCCESS'/);
+  assert.doesNotMatch(paymentController, /cardNumber|cvv|bankingPassword/i);
 });
 
 test('public registration excludes Admin in both backend validation and frontend types', () => {

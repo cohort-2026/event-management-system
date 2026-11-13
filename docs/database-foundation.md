@@ -139,10 +139,22 @@ Tracks payment for a paid booking.
 | `amount` | DECIMAL(10,2) | NOT NULL | — |
 | `currency` | TEXT | NOT NULL, DEFAULT `ZAR` | — |
 | `status` | PaymentStatus (enum) | NOT NULL, DEFAULT `PENDING` | — |
-| `provider` | TEXT | NOT NULL | e.g. PayFast, Stripe |
-| `provider_reference` | TEXT | NULLABLE | External payment ID |
+| `provider` | TEXT | NOT NULL | `SIMULATED` for BE-04 test payments |
+| `provider_reference` | TEXT | NULLABLE | Explicitly marked simulated result; never a real transaction ID |
 | `booking_id` | UUID | NOT NULL, UNIQUE, FK → bookings | One payment per booking |
 | `created_at` | TIMESTAMPTZ | NOT NULL | — |
+
+BE-04 accepts only a simulated `SUCCESS` or `FAILED` outcome and rejects any
+additional request fields, including card or banking credentials. A success
+rechecks and atomically claims event and ticket-type capacity before confirming
+the booking and issuing paid tickets. A failed or capacity-blocked outcome
+creates no tickets. Repeated requests return the existing terminal result.
+`POST /api/payments/:bookingId/process` processes the owner's simulated outcome;
+`GET /api/payments/:bookingId` and `GET /api/payments/me` return owner-scoped
+payment status without provider references.
+Pending and abandoned payments do not expire automatically; a pending payment
+is closed as failed if its booking is cancelled. Cancelling a paid booking
+preserves the successful simulated payment history and does not issue a refund.
 
 ---
 
