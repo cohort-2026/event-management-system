@@ -8,6 +8,7 @@ import {
   createEvent,
   deleteEvent,
   getAdminEventAnalytics,
+  getEventAttendance,
   getPublicEvent,
   getManagedEvent,
   listEventBookings,
@@ -31,6 +32,7 @@ router.get('/mine', requireAuth, requireRole('ORGANIZER'), requireApprovedOrgani
 router.get('/my', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, listMyEvents);
 router.get('/admin/analytics', requireAuth, requireRole('ADMIN'), getAdminEventAnalytics);
 router.get('/:id/manage', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, getManagedEvent);
+router.get('/:id/attendance', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, getEventAttendance);
 router.get('/:id', getPublicEvent);
 
 // ── Organizer ─────────────────────────────────────────────────────────────────

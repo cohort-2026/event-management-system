@@ -32,6 +32,9 @@ const authRoutes = read('backend', 'src', 'routes', 'authRoutes.ts');
 const authMiddleware = read('backend', 'src', 'middleware', 'auth.ts');
 const eventRoutes = read('backend', 'src', 'routes', 'eventRoutes.ts');
 const eventController = read('backend', 'src', 'controllers', 'eventController.ts');
+const ticketRoutes = read('backend', 'src', 'routes', 'ticketRoutes.ts');
+const ticketController = read('backend', 'src', 'controllers', 'ticketController.ts');
+const ticketCheckInService = read('backend', 'src', 'services', 'ticketCheckInService.ts');
 const paymentRoutes = read('backend', 'src', 'routes', 'paymentRoutes.ts');
 const paymentController = read('backend', 'src', 'controllers', 'paymentController.ts');
 const ticketService = read('backend', 'src', 'services', 'ticketService.ts');
@@ -157,6 +160,24 @@ test('public event list and detail queries expose published events only', () => 
   assert.match(list, /search/);
   assert.match(list, /paginationMeta/);
   assert.match(eventController, /meetingDetails:\s*_meetingDetails/);
+});
+
+test('ticket access, QR check-in and attendance routes enforce ownership and booking validity', () => {
+  assert.match(ticketRoutes, /router\.get\('\/me',\s*requireAuth,\s*requireRole\('ATTENDEE'\)/);
+  assert.match(ticketRoutes, /router\.get\('\/:id',\s*requireAuth,\s*requireRole\('ATTENDEE',\s*'ORGANIZER'\)/);
+  assert.match(ticketRoutes, /router\.post\('\/scan',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*scanTicketQr\)/);
+  assert.match(ticketRoutes, /router\.patch\('\/:id\/checkin',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*checkInTicket\)/);
+  assert.match(ticketController, /where\s*=\s*\{\s*holderId:\s*req\.user!\.id\s*\}/);
+  assert.match(ticketController, /ticket\?\.event\.organizerId\s*===\s*req\.user!\.id/);
+  assert.match(ticketController, /isValidQrPayload/);
+  assert.match(ticketCheckInService, /FOR UPDATE/);
+  assert.match(ticketCheckInService, /BookingStatus\.CONFIRMED/);
+  assert.match(ticketCheckInService, /PaymentStatus\.NOT_REQUIRED/);
+  assert.match(ticketCheckInService, /PaymentStatus\.PAID/);
+  assert.match(ticketCheckInService, /TicketStatus\.ACTIVE/);
+  assert.match(eventRoutes, /router\.get\('\/:id\/attendance',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*getEventAttendance\)/);
+  assert.match(eventController, /totalConfirmedTickets[\s\S]*totalCheckedInTickets[\s\S]*totalNotYetCheckedInTickets/);
+  assert.match(eventController, /payment:\s*\{\s*is:\s*\{\s*status:\s*PaymentStatus\.PAID\s*\}\s*\}/);
 });
 
 test('admin, organizer, vendor and attendee frontend routes are role-protected', () => {

@@ -138,6 +138,24 @@ if (!testDatabaseUrl) {
     };
   }
 
+  async function createSyntheticTicketForBooking(bookingId) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { eventId: true, attendeeId: true },
+    });
+    assert.ok(booking, 'the test booking exists');
+    return prisma.ticket.create({
+      data: {
+        referenceNumber: `EVT-${randomUUID().replace(/-/g, '').toUpperCase()}`,
+        qrPayload: `QR-${randomUUID().replace(/-/g, '')}`,
+        type: 'PAID',
+        bookingId,
+        eventId: booking.eventId,
+        holderId: booking.attendeeId,
+      },
+    });
+  }
+
   test('live auth, approval, role authorization, event, booking and ownership workflows', async () => {
     const adminHash = await bcrypt.hash(password, 4);
     const admin = await prisma.user.create({
@@ -495,8 +513,43 @@ if (!testDatabaseUrl) {
     assert.equal(myEvents.data.data.length, 1);
     assert.equal(myEvents.data.pagination.total >= 3, true);
 
-    assert.equal((await request('/api/tickets/me', { cookie: accounts.attendee.cookie })).response.status, 200);
+    const attendeeTicketPage = await request('/api/tickets/me?page=1&limit=1', {
+      cookie: accounts.attendee.cookie,
+    });
+    assert.equal(attendeeTicketPage.response.status, 200);
+    assert.equal(attendeeTicketPage.data.data.length, 1);
+    assert.equal(attendeeTicketPage.data.pagination.total, 2);
+    assert.ok(attendeeTicketPage.data.data[0].event.startTime);
+    assert.ok(attendeeTicketPage.data.data[0].bookingReference);
+    assert.ok(attendeeTicketPage.data.data[0].checkInStatus);
+    assert.equal((await request('/api/tickets/me', {
+      cookie: accounts.otherAttendee.cookie,
+    })).data.data.length, 0, 'attendees see only their own tickets');
+    assert.equal((await request('/api/tickets/me?limit=0', {
+      cookie: accounts.attendee.cookie,
+    })).response.status, 400, 'ticket pagination is validated');
+    const ownedTicket = await request(`/api/tickets/${ticketId}`, {
+      cookie: accounts.attendee.cookie,
+    });
+    assert.equal(ownedTicket.response.status, 200);
+    assert.equal(ownedTicket.data.data.qrPayload, booking.data.data.ticket.qrPayload);
+    assert.equal(ownedTicket.data.data.ticketType, 'General');
+    assert.ok(ownedTicket.data.data.event.venue);
+    assert.equal(ownedTicket.data.data.event.organizerId, undefined);
+    const organizerTicket = await request(`/api/tickets/${ticketId}`, {
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(organizerTicket.response.status, 200, 'event organizer may view ticket details');
+    assert.equal(organizerTicket.data.data.qrPayload, undefined, 'organizers do not receive attendee QR payloads from ticket detail');
+    assert.equal((await request(`/api/tickets/${ticketId}`, {
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'organizers cannot view tickets for another organizer event');
     assert.equal((await request(`/api/tickets/${ticketId}`, { cookie: accounts.otherAttendee.cookie })).response.status, 404);
+    assert.equal((await request(`/api/tickets/${ticketId}`, { cookie: adminCookie })).response.status, 403);
+    assert.equal((await request(`/api/tickets/${ticketId}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+    })).response.status, 403, 'attendees cannot check in tickets');
     assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.otherAttendee.cookie,
@@ -521,6 +574,137 @@ if (!testDatabaseUrl) {
     assert.equal(restoredFreeCapacity.availableCapacity, 12, 'cancelling restores event capacity by booking quantity');
     const restoredTicketCapacity = await prisma.eventTicketType.findUnique({ where: { id: freeTicketTypeId } });
     assert.equal(restoredTicketCapacity.availableQuantity, 12, 'cancelling restores ticket type quantity');
+
+    const checkInEvent = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: eventInput('Phase 1 Ticket Check-in Event'),
+    });
+    assert.equal(checkInEvent.response.status, 201);
+    const checkInEventId = checkInEvent.data.data.id;
+    const checkInTicketTypeId = checkInEvent.data.data.ticketTypes[0].id;
+    assert.equal((await request(`/api/events/${checkInEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const checkInBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: checkInEventId, ticketTypeId: checkInTicketTypeId, quantity: 5 },
+    });
+    assert.equal(checkInBooking.response.status, 201);
+    const checkInTickets = checkInBooking.data.data.tickets;
+    assert.equal(checkInTickets.length, 5);
+    assert.equal(new Set(checkInTickets.map(ticket => ticket.qrPayload)).size, 5,
+      'every issued ticket has a unique QR payload');
+    await prisma.event.update({
+      where: { id: checkInEventId },
+      data: {
+        startTime: new Date(Date.now() - 5 * 60 * 1000),
+        endTime: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+
+    assert.equal((await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { qrPayload: checkInTickets[0].qrPayload },
+    })).response.status, 403, 'attendees cannot scan or check in tickets');
+    assert.equal((await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: { qrPayload: 'invalid!!' },
+    })).response.status, 400, 'malformed QR payloads are rejected');
+    assert.equal((await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: { qrPayload: 'QR-not-a-ticket', attendeeId: randomUUID() },
+    })).response.status, 400, 'QR scans accept no attendee-supplied identity');
+    assert.equal((await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: { qrPayload: `QR-${randomUUID().replace(/-/g, '')}` },
+    })).response.status, 404, 'unknown QR payloads are rejected');
+    assert.equal((await request(`/api/tickets/${checkInTickets[0].id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'an organizer cannot check in another organizer event ticket');
+
+    const qrCheckIn = await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: { qrPayload: checkInTickets[0].qrPayload },
+    });
+    assert.equal(qrCheckIn.response.status, 200, 'organizer scans and checks in a valid ticket');
+    assert.equal(qrCheckIn.data.data.referenceNumber, checkInTickets[0].referenceNumber);
+    assert.equal(qrCheckIn.data.data.attendee, undefined, 'QR verification does not reveal attendee details');
+    assert.equal((await request('/api/tickets/scan', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: { qrPayload: checkInTickets[0].qrPayload },
+    })).response.status, 409, 'a QR token cannot be checked in twice');
+
+    const idCheckIn = await request(`/api/tickets/${checkInTickets[1].id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(idCheckIn.response.status, 200, 'organizer can check in by ticket ID');
+    assert.equal((await request(`/api/tickets/${checkInTickets[1].id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'ID-based duplicate check-ins are rejected');
+
+    const concurrentCheckIns = await Promise.all([
+      request(`/api/tickets/${checkInTickets[2].id}/checkin`, {
+        method: 'PATCH',
+        cookie: accounts.organizer.cookie,
+      }),
+      request(`/api/tickets/${checkInTickets[2].id}/checkin`, {
+        method: 'PATCH',
+        cookie: accounts.organizer.cookie,
+      }),
+    ]);
+    assert.deepEqual(concurrentCheckIns.map(result => result.response.status).sort(), [200, 409],
+      'concurrent check-in requests cannot both use the same ticket');
+    await prisma.ticket.update({
+      where: { id: checkInTickets[4].id },
+      data: { status: 'CANCELLED' },
+    });
+    assert.equal((await request(`/api/tickets/${checkInTickets[4].id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'cancelled tickets cannot be checked in');
+
+    const attendance = await request(`/api/events/${checkInEventId}/attendance?page=1&limit=2`, {
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(attendance.response.status, 200);
+    assert.equal(attendance.data.data.totalConfirmedTickets, 4, 'cancelled tickets are excluded from attendance totals');
+    assert.equal(attendance.data.data.totalCheckedInTickets, 3);
+    assert.equal(attendance.data.data.totalNotYetCheckedInTickets, 1);
+    assert.equal(attendance.data.data.attendancePercentage, 75);
+    assert.equal(attendance.data.data.tickets.length, 2, 'attendance ticket list is paginated');
+    assert.equal(attendance.data.pagination.total, 4);
+    assert.equal((await request(`/api/events/${checkInEventId}/attendance`, {
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'organizers cannot view another organizer event attendance');
+    const storedCheckedInTicket = await prisma.ticket.findUnique({ where: { id: checkInTickets[0].id } });
+    assert.equal(storedCheckedInTicket.status, 'USED');
+    assert.ok(storedCheckedInTicket.checkedInAt, 'check-in timestamp is persisted');
+    assert.equal(storedCheckedInTicket.qrPayload, checkInTickets[0].qrPayload, 'check-in preserves the existing QR payload');
+    assert.equal((await request(`/api/events/${checkInEventId}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    assert.equal((await request(`/api/tickets/${checkInTickets[3].id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'tickets for cancelled events cannot be checked in');
+    const cancelledEventAttendance = await request(`/api/events/${checkInEventId}/attendance`, {
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(cancelledEventAttendance.data.data.totalConfirmedTickets, 0,
+      'tickets for cancelled events are excluded from attendance totals');
 
     const paidEventInput = eventInput('Phase 1 Paid Booking Event');
     paidEventInput.ticketTypes[0].price = 25;
@@ -635,6 +819,62 @@ if (!testDatabaseUrl) {
       body: { outcome: 'FAILED' },
     })).response.status, 200, 'repeated failed payment returns the existing result');
     assert.equal((await prisma.ticket.count({ where: { bookingId: failedBooking.data.data.id } })), 0);
+    const failedBookingTestTicket = await createSyntheticTicketForBooking(failedBooking.data.data.id);
+    assert.equal((await request(`/api/tickets/${failedBookingTestTicket.id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'tickets attached to failed payments cannot be checked in');
+
+    const unconfirmedBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: paidEventId, ticketTypeId: paidTicketTypeId, quantity: 1 },
+    });
+    assert.equal(unconfirmedBooking.response.status, 201);
+    const unconfirmedBookingTestTicket = await createSyntheticTicketForBooking(unconfirmedBooking.data.data.id);
+    assert.equal((await request(`/api/tickets/${unconfirmedBookingTestTicket.id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'tickets attached to unconfirmed bookings cannot be checked in');
+
+    const paidCheckInInput = eventInput('Phase 1 Paid Ticket Check-in Event');
+    paidCheckInInput.ticketTypes[0].price = 10;
+    const paidCheckInEvent = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: paidCheckInInput,
+    });
+    const paidCheckInEventId = paidCheckInEvent.data.data.id;
+    const paidCheckInTicketTypeId = paidCheckInEvent.data.data.ticketTypes[0].id;
+    assert.equal((await request(`/api/events/${paidCheckInEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const paidCheckInBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { eventId: paidCheckInEventId, ticketTypeId: paidCheckInTicketTypeId, quantity: 1 },
+    });
+    const paidCheckInPayment = await request(`/api/payments/${paidCheckInBooking.data.data.id}/process`, {
+      method: 'POST',
+      cookie: accounts.otherAttendee.cookie,
+      body: { outcome: 'SUCCESS' },
+    });
+    assert.equal(paidCheckInPayment.response.status, 200);
+    const paidCheckInTicket = paidCheckInPayment.data.data.tickets[0];
+    await prisma.event.update({
+      where: { id: paidCheckInEventId },
+      data: {
+        startTime: new Date(Date.now() - 5 * 60 * 1000),
+        endTime: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    const paidTicketCheckIn = await request(`/api/tickets/${paidCheckInTicket.id}/checkin`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    });
+    assert.equal(paidTicketCheckIn.response.status, 200,
+      'tickets from successful paid bookings can be checked in');
 
     const cancelledPendingBooking = await request('/api/bookings', {
       method: 'POST',

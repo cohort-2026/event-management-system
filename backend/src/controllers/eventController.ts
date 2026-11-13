@@ -1,5 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { EventStatus, EventType, Prisma } from '@prisma/client';
+import {
+  BookingStatus,
+  EventStatus,
+  EventType,
+  PaymentStatus,
+  Prisma,
+  TicketStatus,
+} from '@prisma/client';
 import {
   sendEventCancellationNotification,
   sendEventChangeNotification,
@@ -1100,5 +1107,104 @@ export const listEventBookings = async (req: Request, res: Response, next: NextF
     });
   } catch (err) {
     next(err);
+  }
+};
+
+export const getEventAttendance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const eventId = getEventId(req);
+    if (!eventId) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, organizerId: req.user!.id },
+      select: { id: true },
+    });
+    if (!event) {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+
+    const pagination = getPagination(req) ?? { page: 1, limit: 20, skip: 0, take: 20 };
+    const where: Prisma.TicketWhereInput = {
+      eventId,
+      OR: [
+        { status: TicketStatus.ACTIVE, checkedInAt: null },
+        { status: TicketStatus.USED, checkedInAt: { not: null } },
+      ],
+      event: { is: { status: { not: EventStatus.CANCELLED } } },
+      booking: {
+        is: {
+          eventId,
+          status: BookingStatus.CONFIRMED,
+          OR: [
+            { paymentStatus: PaymentStatus.NOT_REQUIRED },
+            {
+              paymentStatus: PaymentStatus.PAID,
+              payment: { is: { status: PaymentStatus.PAID } },
+            },
+          ],
+        },
+      },
+    };
+    const checkedInWhere: Prisma.TicketWhereInput = { ...where, status: TicketStatus.USED };
+    const [totalConfirmedTickets, totalCheckedInTickets, tickets] = await Promise.all([
+      prisma.ticket.count({ where }),
+      prisma.ticket.count({ where: checkedInWhere }),
+      prisma.ticket.findMany({
+        where,
+        select: {
+          id: true,
+          referenceNumber: true,
+          type: true,
+          status: true,
+          issuedAt: true,
+          checkedInAt: true,
+          holder: { select: { firstname: true, lastname: true } },
+          booking: {
+            select: {
+              reference: true,
+              eventTicketType: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: [{ issuedAt: 'desc' }, { id: 'asc' }],
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+    ]);
+    const totalNotYetCheckedInTickets = totalConfirmedTickets - totalCheckedInTickets;
+
+    res.json({
+      success: true,
+      data: {
+        totalConfirmedTickets,
+        totalCheckedInTickets,
+        totalNotYetCheckedInTickets,
+        attendancePercentage: totalConfirmedTickets === 0
+          ? 0
+          : Number(((totalCheckedInTickets / totalConfirmedTickets) * 100).toFixed(2)),
+        tickets: tickets.map(ticket => ({
+          id: ticket.id,
+          referenceNumber: ticket.referenceNumber,
+          type: ticket.type,
+          ticketType: ticket.booking.eventTicketType?.name ?? ticket.type,
+          status: ticket.status,
+          issuedAt: ticket.issuedAt,
+          checkedInAt: ticket.checkedInAt,
+          attendee: ticket.holder,
+          bookingReference: ticket.booking.reference,
+        })),
+      },
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: totalConfirmedTickets,
+        totalPages: Math.ceil(totalConfirmedTickets / pagination.limit),
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 };
