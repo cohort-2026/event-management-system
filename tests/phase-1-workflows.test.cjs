@@ -27,6 +27,13 @@ const bookingCapacityMigration = read(
   '20261113130000_booking_quantities_and_ticket_qr',
   'migration.sql',
 );
+const vendorProfileMigration = read(
+  'backend',
+  'prisma',
+  'migrations',
+  '20261113152000_add_vendor_profile_and_document_review_fields',
+  'migration.sql',
+);
 const authController = read('backend', 'src', 'controllers', 'authController.ts');
 const authRoutes = read('backend', 'src', 'routes', 'authRoutes.ts');
 const authMiddleware = read('backend', 'src', 'middleware', 'auth.ts');
@@ -127,6 +134,24 @@ test('admin profile decisions are admin-only and unapproved profiles are restric
   assert.match(authMiddleware, /profile\?\.status !== VendorProfileStatus\.APPROVED/);
   assert.match(authMiddleware, /Vendor profile approval is required/);
   assert.match(authMiddleware, /ProfileApprovalStatus\.APPROVED/);
+});
+
+test('vendor profiles, documents and applications use separate admin and organizer review workflows', () => {
+  assert.match(schema, /enum VendorDocumentStatus\s*\{\s*PENDING_REVIEW\s+APPROVED\s+REJECTED/s);
+  assert.match(vendorProfileMigration, /ADD COLUMN "business_type"/);
+  assert.match(vendorProfileMigration, /ADD COLUMN "business_address"/);
+  assert.doesNotMatch(vendorProfileMigration, /\b(DELETE\s+FROM|TRUNCATE|DROP\s+TABLE)\b/i);
+  assert.match(vendorRoutes, /router\.get\('\/me', requireAuth, requireRole\('VENDOR'\), getVendorProfile\)/);
+  assert.match(vendorRoutes, /router\.get\('\/applications\/me'/);
+  assert.match(vendorRoutes, /router\.get\('\/events'/);
+  assert.match(vendorRoutes, /router\.get\('\/invoices'/);
+  assert.match(vendorRoutes, /router\.patch\('\/staff\/:id'/);
+  assert.match(vendorRoutes, /router\.delete\('\/staff\/:id'/);
+  assert.match(vendorRoutes, /SELECT "id" FROM "events" WHERE "id" = \$\{application\.event\.id\} FOR UPDATE/);
+  assert.match(vendorRoutes, /vendorProfile\?\.status !== VendorProfileStatus\.APPROVED/);
+  assert.match(vendorRoutes, /data: \{ isActive: false \}/);
+  assert.match(vendorRoutes, /Vendor access deactivated; profile and related records were preserved/);
+  assert.match(eventController, /paginationMeta\(pagination, total\)/);
 });
 
 test('organizer event write routes require approved organizer role and ownership', () => {

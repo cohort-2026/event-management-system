@@ -110,3 +110,55 @@ export const sendVendorStandInvoice = async (details: {
     ].join('\n'),
   });
 };
+
+export const sendVendorProfileDecision = async (details: {
+  email: string;
+  firstname: string;
+  businessName: string;
+  status: 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `EventMS vendor profile ${details.status.toLowerCase()}`,
+    text: [
+      `Hello ${details.firstname},`,
+      '',
+      `The vendor profile for ${details.businessName} was ${details.status.toLowerCase()}.`,
+      ...(details.rejectionReason ? ['', `Review feedback: ${details.rejectionReason}`] : []),
+      '',
+      details.status === 'APPROVED'
+        ? 'You can now apply to participate in published events.'
+        : 'Please review the feedback and update your profile before resubmitting.',
+    ].join('\n'),
+  });
+};
+
+export const sendVendorApplicationSubmitted = async (details: {
+  email: string;
+  firstname: string;
+  businessName: string;
+  eventTitle: string;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `New vendor application: ${details.eventTitle}`,
+    text: `Hello ${details.firstname},\n\n${details.businessName} submitted a vendor stand application for "${details.eventTitle}". Review it in your EventMS organizer dashboard.`,
+  });
+};
+
+export const sendVendorApplicationRejected = async (details: {
+  email: string;
+  firstname: string;
+  eventTitle: string;
+  rejectionReason: string;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `EventMS stand application update: ${details.eventTitle}`,
+    text: `Hello ${details.firstname},\n\nYour stand application for "${details.eventTitle}" was not approved.\n\nReason: ${details.rejectionReason}\n\nYou may update the application and submit it again.`,
+  });
+};

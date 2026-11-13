@@ -78,6 +78,12 @@ enum VendorProfileStatus {
   REJECTED
 }
 
+enum VendorDocumentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum VendorInvoiceStatus {
   ISSUED
   PAID
@@ -115,6 +121,7 @@ model User {
   vendorApplicationDecisions VendorApplication[] @relation("VendorApplicationDecider")
   vendorProfile       VendorProfile?
   vendorDocuments     VendorDocument[]
+  reviewedVendorDocuments VendorDocument[] @relation("VendorDocumentReviewer")
   auditEvents         AuditLog[] @relation("AuditActor")
   notifications       Notification[] @relation("NotificationRecipient")
   organizationName   String? @map("organization_name")
@@ -357,6 +364,8 @@ model VendorProfile {
   id                       String   @id @default(uuid())
   userId                   String   @unique @map("user_id")
   businessName             String   @default("") @map("business_name")
+  businessType             String   @default("") @map("business_type")
+  businessAddress          String   @default("") @map("business_address")
   businessDescription      String   @default("") @map("business_description")
   businessRegistrationNumber String  @default("") @map("business_registration_number")
   contactPerson            String   @default("") @map("contact_person")
@@ -382,11 +391,16 @@ model VendorDocument {
   storageName  String   @unique @map("storage_name")
   originalName String   @map("original_name")
   sizeBytes    Int      @map("size_bytes")
+  status       VendorDocumentStatus @default(PENDING_REVIEW)
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewedById String? @map("reviewed_by_id")
+  rejectionReason String? @map("rejection_reason")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor     User  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VendorDocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
-  @@index([vendorId])
+  @@index([vendorId, status])
   @@map("vendor_documents")
 }
 

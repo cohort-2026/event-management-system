@@ -27,6 +27,8 @@ const phoneCountries = getCountries()
 
 const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason'> = {
   businessName: '',
+  businessType: '',
+  businessAddress: '',
   businessDescription: '',
   businessRegistrationNumber: '',
   contactPerson: '',
@@ -193,6 +195,8 @@ export default function VendorProfilePage() {
     if (profile.businessRegistrationNumber && !businessRegistrationRegex.test(profile.businessRegistrationNumber)) {
       errors.businessRegistrationNumber = 'Use the format 2020/123456/07.';
     }
+    if (submitForReview && profile.businessType.trim().length < 2) errors.businessType = 'Enter a business type or category.';
+    if (submitForReview && profile.businessAddress.trim().length < 5) errors.businessAddress = 'Enter a business address.';
     const parsedPhone = parsePhoneNumberFromString(phoneNumber, phoneCountry);
     const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : '';
     if (!normalizedPhone) errors.contactPhone = `Enter a valid phone number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`;
@@ -285,7 +289,11 @@ export default function VendorProfilePage() {
               <h2 id="business-details-heading" className="text-lg font-bold text-neutral-900">Business details</h2>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input label="Business or trading name" value={profile.businessName} onChange={event => updateField('businessName', event.target.value)} required maxLength={120} error={fieldErrors.businessName} disabled={isApproved} />
+                <Input label="Business type or category" value={profile.businessType} onChange={event => updateField('businessType', event.target.value)} required maxLength={100} error={fieldErrors.businessType} disabled={isApproved} />
                 <Input label="Business registration number" value={profile.businessRegistrationNumber} onChange={event => updateField('businessRegistrationNumber', event.target.value)} maxLength={14} error={fieldErrors.businessRegistrationNumber} helperText="Format: 2020/123456/07" disabled={isApproved} />
+                <div className="md:col-span-2">
+                  <Input label="Business address" value={profile.businessAddress} onChange={event => updateField('businessAddress', event.target.value)} required maxLength={500} error={fieldErrors.businessAddress} disabled={isApproved} />
+                </div>
                 <div className="md:col-span-2">
                   <Textarea label="Business description" value={profile.businessDescription} onChange={event => updateField('businessDescription', event.target.value)} maxLength={2000} helperText={`${profile.businessDescription.length}/2000 characters`} error={fieldErrors.businessDescription} disabled={isApproved} />
                 </div>
@@ -378,10 +386,12 @@ export default function VendorProfilePage() {
                       <div className="min-w-0">
                         <p className="break-all text-sm font-semibold text-neutral-900">{document.originalName}</p>
                         <p className="mt-1 text-xs text-neutral-500">{formatFileSize(document.sizeBytes)} · Uploaded {new Date(document.createdAt).toLocaleDateString()}</p>
+                        {document.status && <p className="mt-1 text-xs text-neutral-600">Review status: {document.status.replace(/_/g, ' ').toLowerCase()}</p>}
+                        {document.rejectionReason && <p className="mt-1 text-xs text-rose-700">Feedback: {document.rejectionReason}</p>}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Button type="button" size="sm" variant="secondary" onClick={() => downloadDocument(document)}>Download</Button>
-                        {!isApproved && <Button type="button" size="sm" variant="ghost" onClick={() => removeDocument(document)} aria-label={`Remove ${document.originalName}`}>Remove</Button>}
+                        {!isApproved && document.status === 'PENDING_REVIEW' && <Button type="button" size="sm" variant="ghost" onClick={() => removeDocument(document)} aria-label={`Remove ${document.originalName}`}>Remove</Button>}
                       </div>
                     </li>
                   ))}

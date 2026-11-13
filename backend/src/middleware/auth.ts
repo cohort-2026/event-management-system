@@ -73,10 +73,14 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       const isAuthRecoveryRoute = req.baseUrl.endsWith('/auth') &&
         (req.path === '/me' || req.path === '/change-password');
       const isVendorProfileRoute = req.baseUrl.endsWith('/vendors') && (
-        (['GET', 'PUT'].includes(req.method) && req.path === '/profile') ||
+        (['GET', 'POST', 'PUT', 'PATCH'].includes(req.method) && req.path === '/profile') ||
+        (req.method === 'GET' && req.path === '/me') ||
+        (req.method === 'GET' && req.path === '/events') ||
         (['GET', 'POST'].includes(req.method) && req.path === '/documents') ||
+        (['GET', 'PUT', 'DELETE'].includes(req.method) && /^\/documents\/[^/]+$/.test(req.path)) ||
         (req.method === 'GET' && /^\/documents\/[^/]+\/download$/.test(req.path)) ||
-        (req.method === 'DELETE' && /^\/documents\/[^/]+$/.test(req.path))
+        (req.method === 'GET' && /^\/applications\/(?:me|[^/]+)$/.test(req.path)) ||
+        (req.method === 'GET' && /^\/invoices(?:\/[^/]+)?$/.test(req.path))
       );
       if (!isAuthRecoveryRoute && !isVendorProfileRoute) {
         res.status(403).json({ success: false, message: 'Vendor profile approval is required before using this feature' });

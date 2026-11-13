@@ -913,38 +913,47 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
       return;
     }
 
-    const applications = await prisma.vendorApplication.findMany({
-      where: { eventId },
-      include: {
-        staffMembers: true,
-        invoice: true,
-        vendor: {
-          select: {
-            id: true,
-            firstname: true,
-            lastname: true,
-            email: true,
-            vendorProfile: {
-              select: {
-                businessName: true,
-                businessDescription: true,
-                businessRegistrationNumber: true,
-                contactPerson: true,
-                contactEmail: true,
-                contactPhone: true,
-                productsServices: true,
-                supportingDocumentUrls: true,
-                logoUrl: true,
+    const pagination = getPagination(req) ?? { page: 1, limit: 20, skip: 0, take: 20 };
+    const where = { eventId };
+    const [applications, total] = await Promise.all([
+      prisma.vendorApplication.findMany({
+        where,
+        include: {
+          staffMembers: true,
+          invoice: true,
+          vendor: {
+            select: {
+              id: true,
+              firstname: true,
+              lastname: true,
+              email: true,
+              vendorProfile: {
+                select: {
+                  businessName: true,
+                  businessType: true,
+                  businessAddress: true,
+                  businessDescription: true,
+                  businessRegistrationNumber: true,
+                  contactPerson: true,
+                  contactEmail: true,
+                  contactPhone: true,
+                  productsServices: true,
+                  supportingDocumentUrls: true,
+                  logoUrl: true,
+                },
               },
             },
           },
+          decidedBy: { select: { firstname: true, lastname: true } },
         },
-        decidedBy: { select: { firstname: true, lastname: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      prisma.vendorApplication.count({ where }),
+    ]);
 
-    res.json({ success: true, data: applications });
+    res.json({ success: true, data: applications, pagination: paginationMeta(pagination, total) });
   } catch (err) {
     next(err);
   }

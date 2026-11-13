@@ -29,6 +29,9 @@ if (!testDatabaseUrl) {
   emailService.sendVerificationCode = async (email, code) => verificationCodes.set(email, code);
   emailService.sendEventChangeNotification = async () => {};
   emailService.sendEventCancellationNotification = async () => {};
+  emailService.sendVendorApplicationSubmitted = async () => {};
+  emailService.sendVendorApplicationRejected = async () => {};
+  emailService.sendVendorStandInvoice = async () => {};
 
   const app = require(path.join(backend, 'dist', 'app.js')).default;
   const prisma = new PrismaClient();
@@ -105,6 +108,8 @@ if (!testDatabaseUrl) {
       cookie,
       body: {
         businessName: `Business ${key}`,
+        businessType: 'Food services',
+        businessAddress: '123 Test Street, Test City',
         businessDescription: 'A test business profile for event participation.',
         businessRegistrationNumber: '2020/123456/07',
         contactPerson: key,
@@ -191,6 +196,7 @@ if (!testDatabaseUrl) {
       ['ORGANIZER', 'otherOrganizer'],
       ['VENDOR', 'vendor'],
       ['VENDOR', 'rejectedVendor'],
+      ['VENDOR', 'otherVendor'],
     ]) {
       await registerAndLogin(role, key);
     }
@@ -253,7 +259,9 @@ if (!testDatabaseUrl) {
 
     const vendorProfileId = await submitVendorProfile(accounts.vendor.cookie, 'vendor');
     const rejectedVendorProfileId = await submitVendorProfile(accounts.rejectedVendor.cookie, 'rejectedVendor');
-    assert.equal((await request('/api/vendors/me', { cookie: accounts.vendor.cookie })).response.status, 403);
+    const otherVendorProfileId = await submitVendorProfile(accounts.otherVendor.cookie, 'otherVendor');
+    assert.equal((await request('/api/vendors/me', { cookie: accounts.vendor.cookie })).response.status, 200,
+      'vendors can view their own profile while awaiting review');
     assert.equal((await request(`/api/vendors/admin/profiles/${vendorProfileId}/approve`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
@@ -266,6 +274,10 @@ if (!testDatabaseUrl) {
       method: 'PATCH',
       cookie: adminCookie,
       body: { reason: 'Please provide valid supporting documents.' },
+    })).response.status, 200);
+    assert.equal((await request(`/api/vendors/admin/profiles/${otherVendorProfileId}/approve`, {
+      method: 'PATCH',
+      cookie: adminCookie,
     })).response.status, 200);
     assert.equal((await request('/api/vendors/me', { cookie: accounts.vendor.cookie })).response.status, 200);
 
@@ -338,10 +350,13 @@ if (!testDatabaseUrl) {
       body: { eventId, ticketTypeId, quantity: 1 },
     })).response.status, 404, 'attendees cannot book cancelled events');
 
+    const freeEventInput = eventInput('Phase 1 Free Booking Event');
+    freeEventInput.vendorStandsAvailable = 2;
+    freeEventInput.vendorStandRatePerSqm = 50;
     const freeEvent = await request('/api/events', {
       method: 'POST',
       cookie: accounts.organizer.cookie,
-      body: eventInput('Phase 1 Free Booking Event'),
+      body: freeEventInput,
     });
     const bookableEventId = freeEvent.data.data.id;
     const freeTicketTypeId = freeEvent.data.data.ticketTypes[0].id;
@@ -349,6 +364,93 @@ if (!testDatabaseUrl) {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
     })).response.status, 200);
+
+    const browsableVendorEvents = await request('/api/vendors/events?search=Free%20Booking&location=Test%20Hall&page=1&limit=5', {
+      cookie: accounts.vendor.cookie,
+    });
+    assert.equal(browsableVendorEvents.response.status, 200);
+    assert.equal(browsableVendorEvents.data.data[0].id, bookableEventId);
+    assert.equal(browsableVendorEvents.data.data[0].availableVendorStands, 2);
+    assert.equal((await request('/api/vendors/events', {
+      cookie: accounts.rejectedVendor.cookie,
+    })).response.status, 200, 'vendors can browse events before profile approval');
+
+    const vendorApplication = await request('/api/vendors/applications', {
+      method: 'POST',
+      cookie: accounts.vendor.cookie,
+      body: {
+        eventId: bookableEventId,
+        requestedStandType: 'Food',
+        requestedStandSize: '3m x 3m',
+        standDescription: 'A small food service stand with sample products.',
+        supportingInformation: 'We will provide the required equipment.',
+        staffMembers: [{ name: 'Vendor Staff', email: 'staff@vendor.test' }],
+      },
+    });
+    assert.equal(vendorApplication.response.status, 201, 'approved vendor submits an event application');
+    assert.equal(Number(vendorApplication.data.data.quotedAmount), 450);
+    const vendorApplicationId = vendorApplication.data.data.id;
+    assert.equal((await request('/api/vendors/applications', {
+      method: 'POST',
+      cookie: accounts.vendor.cookie,
+      body: {
+        eventId: bookableEventId,
+        requestedStandType: 'Food',
+        requestedStandSize: '3m x 3m',
+        standDescription: 'A duplicate stand application.',
+      },
+    })).response.status, 409, 'duplicate active vendor applications are rejected');
+    assert.equal((await request('/api/vendors/applications', {
+      method: 'POST',
+      cookie: accounts.vendor.cookie,
+      body: {
+        eventId: bookableEventId,
+        vendorId: randomUUID(),
+        requestedStandType: 'Food',
+        requestedStandSize: '3m x 3m',
+        standDescription: 'A mass-assignment attempt.',
+      },
+    })).response.status, 400, 'application ownership cannot be mass-assigned');
+    const ownApplications = await request('/api/vendors/applications/me?page=1&limit=1', {
+      cookie: accounts.vendor.cookie,
+    });
+    assert.equal(ownApplications.response.status, 200);
+    assert.equal(ownApplications.data.data[0].id, vendorApplicationId);
+    assert.equal(ownApplications.data.pagination.total, 1);
+    assert.equal((await request(`/api/vendors/applications/${vendorApplicationId}`, {
+      cookie: accounts.otherVendor.cookie,
+    })).response.status, 404, 'vendors cannot view another vendor application');
+
+    assert.equal((await request(`/api/vendors/${vendorApplicationId}/approve`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+      body: { assignedStand: 'A-01' },
+    })).response.status, 200, 'the event organizer approves an application and issues an invoice');
+    const vendorInvoices = await request('/api/vendors/invoices', { cookie: accounts.vendor.cookie });
+    assert.equal(vendorInvoices.response.status, 200);
+    assert.equal(vendorInvoices.data.data.length, 1);
+    assert.equal(vendorInvoices.data.data[0].status, 'ISSUED');
+    assert.equal((await request(`/api/vendors/invoices/${vendorInvoices.data.data[0].id}`, {
+      cookie: accounts.otherVendor.cookie,
+    })).response.status, 404, 'vendors cannot view another vendor invoice');
+    const newStaff = await request(`/api/vendors/${vendorApplicationId}/staff`, {
+      method: 'POST',
+      cookie: accounts.vendor.cookie,
+      body: { name: 'Second Staff', email: 'second@vendor.test' },
+    });
+    assert.equal(newStaff.response.status, 201);
+    assert.equal((await request(`/api/vendors/staff/${newStaff.data.data.id}`, {
+      method: 'PATCH',
+      cookie: accounts.vendor.cookie,
+      body: { name: 'Updated Staff', email: 'updated@vendor.test' },
+    })).response.status, 200, 'vendor staff details can be updated by their owner');
+    assert.equal((await request(`/api/vendors/staff/${newStaff.data.data.id}`, {
+      method: 'DELETE',
+      cookie: accounts.vendor.cookie,
+    })).response.status, 200, 'vendor can remove their own staff member');
+    assert.equal((await request(`/api/vendors/staff/${newStaff.data.data.id}`, {
+      cookie: accounts.otherVendor.cookie,
+    })).response.status, 404, 'vendors cannot view another vendor staff member');
 
     const booking = await request('/api/bookings', {
       method: 'POST',
@@ -429,9 +531,12 @@ if (!testDatabaseUrl) {
         vendorId: vendor.id,
       },
     });
-    assert.equal((await request(`/api/events/${bookableEventId}/vendors`, {
+    const organizerApplications = await request(`/api/events/${bookableEventId}/vendors?page=1&limit=1`, {
       cookie: accounts.organizer.cookie,
-    })).response.status, 200);
+    });
+    assert.equal(organizerApplications.response.status, 200);
+    assert.equal(organizerApplications.data.data.length, 1);
+    assert.equal(organizerApplications.data.pagination.total, 2);
     assert.equal((await request(`/api/events/${bookableEventId}/vendors`, {
       cookie: accounts.otherOrganizer.cookie,
     })).response.status, 404, 'vendor applications are restricted to the event owner');
