@@ -187,10 +187,27 @@ if (!testDatabaseUrl) {
     });
     assert.equal(adminLogin.response.status, 200, 'Admin login');
     adminCookie = `auth_token=${adminLogin.cookie}`;
+    const secondAdmin = await prisma.user.create({
+      data: {
+        firstname: 'Phase1Second',
+        lastname: 'Admin',
+        email: `phase1-second-admin-${unique}@example.test`,
+        passwordHash: adminHash,
+        role: Role.ADMIN,
+        emailVerified: true,
+      },
+    });
+    const secondAdminLogin = await request('/api/auth/login', {
+      method: 'POST',
+      body: { email: secondAdmin.email, password },
+    });
+    assert.equal(secondAdminLogin.response.status, 200);
+    const secondAdminCookie = `auth_token=${secondAdminLogin.cookie}`;
 
     for (const [role, key] of [
       ['ATTENDEE', 'attendee'],
       ['ATTENDEE', 'otherAttendee'],
+      ['ATTENDEE', 'managedUser'],
       ['ORGANIZER', 'organizer'],
       ['ORGANIZER', 'rejectedOrganizer'],
       ['ORGANIZER', 'otherOrganizer'],
@@ -200,6 +217,118 @@ if (!testDatabaseUrl) {
     ]) {
       await registerAndLogin(role, key);
     }
+
+    const adminUsers = await request('/api/users?page=1&limit=2&sortBy=email&sortOrder=asc', {
+      cookie: adminCookie,
+    });
+    assert.equal(adminUsers.response.status, 200, 'Admin can list users');
+    assert.equal(adminUsers.data.data.length, 2);
+    assert.equal(adminUsers.data.pagination.page, 1);
+    assert.equal(adminUsers.data.pagination.pageSize, 2);
+    assert.equal(adminUsers.data.pagination.total >= 10, true);
+    assert.equal(Object.prototype.hasOwnProperty.call(adminUsers.data.data[0], 'passwordHash'), false);
+    assert.equal((await request('/api/users?role=PLATFORM_ADMIN', { cookie: adminCookie })).response.status, 400);
+    assert.equal((await request('/api/users?status=unknown', { cookie: adminCookie })).response.status, 400);
+    assert.equal((await request('/api/users?sortBy=passwordHash', { cookie: adminCookie })).response.status, 400);
+    assert.equal((await request('/api/users', { cookie: accounts.attendee.cookie })).response.status, 403,
+      'non-Admin users cannot list user accounts');
+
+    const managedUser = await prisma.user.findUnique({ where: { email: accounts.managedUser.email } });
+    const managedUserDetails = await request(`/api/users/${managedUser.id}`, { cookie: adminCookie });
+    assert.equal(managedUserDetails.response.status, 200, 'Admin can view user details');
+    assert.equal(managedUserDetails.data.data.email, accounts.managedUser.email);
+    assert.equal(Object.prototype.hasOwnProperty.call(managedUserDetails.data.data, 'passwordHash'), false);
+    assert.equal((await request('/api/users/not-a-uuid', { cookie: adminCookie })).response.status, 400,
+      'invalid user IDs are rejected');
+    assert.equal((await request(`/api/users/${managedUser.id}`, { cookie: accounts.attendee.cookie })).response.status, 403);
+
+    assert.equal((await request(`/api/users/${managedUser.id}/role`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+      body: { role: 'PLATFORM_ADMIN' },
+    })).response.status, 400, 'unsupported roles are rejected');
+    assert.equal((await request(`/api/users/${managedUser.id}/role`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+      body: { role: 'VENDOR', isActive: false },
+    })).response.status, 400, 'role updates reject mass-assignment fields');
+    assert.equal((await request(`/api/users/${managedUser.id}/role`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+      body: { role: 'VENDOR' },
+    })).response.status, 403, 'non-Admin users cannot change roles');
+    assert.equal((await request(`/api/users/${admin.id}/role`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+      body: { role: 'ATTENDEE' },
+    })).response.status, 409, 'an Admin cannot remove their own Admin access');
+    for (const role of ['VENDOR', 'ORGANIZER', 'ADMIN', 'ATTENDEE']) {
+      const update = await request(`/api/users/${managedUser.id}/role`, {
+        method: 'PATCH',
+        cookie: adminCookie,
+        body: { role },
+      });
+      assert.equal(update.response.status, 200, `Admin can assign ${role}`);
+      assert.equal(update.data.data.role, role);
+    }
+    const roleAudit = await prisma.auditLog.findFirst({
+      where: { actorId: admin.id, affectedUserId: managedUser.id, action: 'USER_ROLE_UPDATED' },
+    });
+    assert.ok(roleAudit, 'role changes are recorded with the acting Admin');
+
+    assert.equal((await request(`/api/users/${secondAdmin.id}/deactivate`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+    })).response.status, 200, 'Admin can deactivate another account');
+    assert.equal((await request('/api/auth/me', { cookie: secondAdminCookie })).response.status, 401,
+      'deactivated users cannot use their existing authentication cookie');
+    assert.equal((await request(`/api/users/${secondAdmin.id}/activate`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+    })).response.status, 200, 'Admin can reactivate an account');
+    assert.equal((await request('/api/auth/me', { cookie: secondAdminCookie })).response.status, 200,
+      'reactivated account status is checked from the database');
+    assert.equal((await request(`/api/users/${admin.id}/deactivate`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+    })).response.status, 409, 'an Admin cannot deactivate their own account');
+    const statusAudit = await prisma.auditLog.findFirst({
+      where: { actorId: admin.id, affectedUserId: secondAdmin.id, action: 'USER_ACCOUNT_ACTIVATED' },
+    });
+    assert.ok(statusAudit, 'account status changes are audited');
+
+    assert.equal((await request('/api/reports/events', { cookie: accounts.attendee.cookie })).response.status, 403,
+      'non-Admins cannot access event reports');
+
+    const ownNotification = await prisma.notification.create({
+      data: { recipientId: managedUser.id, title: 'Private notice', message: 'User-owned notification', link: '/account' },
+    });
+    const otherNotification = await prisma.notification.create({
+      data: { recipientId: (await prisma.user.findUnique({ where: { email: accounts.attendee.email } })).id,
+        title: 'Other notice', message: 'Private to another user', link: '/account' },
+    });
+    const userNotifications = await request('/api/notifications?page=1&limit=5', {
+      cookie: accounts.managedUser.cookie,
+    });
+    assert.equal(userNotifications.response.status, 200, 'authenticated users can view their own notifications');
+    assert.ok(userNotifications.data.data.some(notification => notification.id === ownNotification.id));
+    assert.equal(userNotifications.data.data.some(notification => notification.id === otherNotification.id), false);
+    assert.equal(userNotifications.data.unreadCount >= 1, true);
+    assert.equal((await request(`/api/notifications/${otherNotification.id}/read`, {
+      method: 'PATCH',
+      cookie: accounts.managedUser.cookie,
+    })).response.status, 404, 'users cannot mark another account notification as read');
+    assert.equal((await request(`/api/notifications/${ownNotification.id}/read`, {
+      method: 'PATCH',
+      cookie: accounts.managedUser.cookie,
+    })).response.status, 200, 'users can mark their own notifications as read');
+    assert.ok((await prisma.notification.findUnique({ where: { id: ownNotification.id } })).readAt);
+    assert.equal((await request('/api/notifications/read-all', {
+      method: 'PATCH',
+      cookie: accounts.managedUser.cookie,
+    })).response.status, 200, 'users can mark all their own notifications as read');
+    assert.equal((await request('/api/notifications', { cookie: adminCookie })).response.status, 200,
+      'Admin notification access remains scoped to Admin-owned notifications');
 
     const badLogin = await request('/api/auth/login', {
       method: 'POST',
@@ -237,11 +366,24 @@ if (!testDatabaseUrl) {
     await submitOrganizerProfile(accounts.otherOrganizer.cookie, 'otherOrganizer');
     const profileList = await request('/api/users/organizers', { cookie: adminCookie });
     assert.equal(profileList.response.status, 200);
+    assert.equal(profileList.data.pagination.total >= 3, true);
 
     const approvedOrganizer = profileList.data.data.find(user => user.email === accounts.organizer.email);
     const rejectedOrganizer = profileList.data.data.find(user => user.email === accounts.rejectedOrganizer.email);
     const otherOrganizer = profileList.data.data.find(user => user.email === accounts.otherOrganizer.email);
     assert.ok(approvedOrganizer && rejectedOrganizer && otherOrganizer);
+    const organizerSearch = await request(
+      `/api/users/organizers?status=PENDING_APPROVAL&search=${encodeURIComponent(accounts.organizer.email)}&page=1&limit=1`,
+      { cookie: adminCookie },
+    );
+    assert.equal(organizerSearch.response.status, 200);
+    assert.equal(organizerSearch.data.data.length, 1);
+    assert.equal(organizerSearch.data.pagination.total, 1);
+    assert.equal(organizerSearch.data.data[0].id, approvedOrganizer.id);
+    const organizerDetails = await request(`/api/users/organizers/${approvedOrganizer.id}`, { cookie: adminCookie });
+    assert.equal(organizerDetails.response.status, 200);
+    assert.equal(organizerDetails.data.data.profileApprovalStatus, ProfileApprovalStatus.PENDING_APPROVAL);
+    assert.equal((await request('/api/users/organizers/not-a-uuid', { cookie: adminCookie })).response.status, 400);
 
     assert.equal((await request(`/api/users/organizers/${approvedOrganizer.id}/approve-profile`, {
       method: 'PATCH',
@@ -256,6 +398,24 @@ if (!testDatabaseUrl) {
       method: 'PATCH',
       cookie: adminCookie,
     })).response.status, 200);
+    assert.equal((await request(`/api/users/organizers/${approvedOrganizer.id}/approve-profile`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+    })).response.status, 409, 'an organizer approval cannot be repeated');
+    assert.equal((await request(`/api/users/organizers/${rejectedOrganizer.id}/reject-profile`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+      body: { reason: 'Repeated decision should not change profile history.' },
+    })).response.status, 409, 'an organizer rejection cannot be repeated');
+    assert.equal((await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.rejectedOrganizer.cookie,
+      body: eventInput('Rejected organizer cannot publish'),
+    })).response.status, 403, 'rejected organizers cannot create or publish events');
+    const organizerAudit = await prisma.auditLog.findFirst({
+      where: { actorId: admin.id, affectedUserId: approvedOrganizer.id, action: 'ORGANIZER_PROFILE_APPROVED' },
+    });
+    assert.ok(organizerAudit, 'organizer approval audit records identify the Admin actor');
 
     const vendorProfileId = await submitVendorProfile(accounts.vendor.cookie, 'vendor');
     const rejectedVendorProfileId = await submitVendorProfile(accounts.rejectedVendor.cookie, 'rejectedVendor');
@@ -364,6 +524,41 @@ if (!testDatabaseUrl) {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
     })).response.status, 200);
+
+    const managedHistoryDraft = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: eventInput('Managed User History Event'),
+    });
+    const managedHistoryEventId = managedHistoryDraft.data.data.id;
+    assert.equal((await request(`/api/events/${managedHistoryEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const managedHistoryBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.managedUser.cookie,
+      body: {
+        eventId: managedHistoryEventId,
+        ticketTypeId: managedHistoryDraft.data.data.ticketTypes[0].id,
+        quantity: 1,
+      },
+    });
+    assert.equal(managedHistoryBooking.response.status, 201);
+    const managedHistoryTicketId = managedHistoryBooking.data.data.tickets[0].id;
+    assert.equal((await request(`/api/bookings/${managedHistoryBooking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.managedUser.cookie,
+    })).response.status, 200);
+    assert.equal((await request(`/api/users/${managedUser.id}/deactivate`, {
+      method: 'PATCH',
+      cookie: adminCookie,
+    })).response.status, 200, 'Admin can deactivate an attendee account');
+    assert.equal((await request('/api/auth/me', { cookie: accounts.managedUser.cookie })).response.status, 401);
+    assert.equal((await prisma.user.findUnique({ where: { id: managedUser.id } })).isActive, false);
+    assert.equal((await prisma.booking.findUnique({ where: { id: managedHistoryBooking.data.data.id } })).status, 'CANCELLED');
+    assert.equal((await prisma.ticket.findUnique({ where: { id: managedHistoryTicketId } })).status, 'CANCELLED',
+      'account deactivation preserves ticket and booking history');
 
     const browsableVendorEvents = await request('/api/vendors/events?search=Free%20Booking&location=Test%20Hall&page=1&limit=5', {
       cookie: accounts.vendor.cookie,
@@ -1092,6 +1287,45 @@ if (!testDatabaseUrl) {
     assert.equal((await prisma.event.findUnique({ where: { id: singleSeatEventId } })).availableCapacity, 0,
       'retry after a concurrent success does not deduct capacity again');
 
+    const reportStartDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const reportEndDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const eventReport = await request(
+      `/api/reports/events?startDate=${reportStartDate}&endDate=${reportEndDate}&page=1&limit=5`,
+      { cookie: adminCookie },
+    );
+    assert.equal(eventReport.response.status, 200, 'Admin can retrieve paginated aggregate event reports');
+    assert.equal(eventReport.data.data.financialSummary.paymentMode, 'SIMULATED');
+    assert.equal(typeof eventReport.data.data.summary.totalEvents, 'number');
+    assert.equal(typeof eventReport.data.pagination.total, 'number');
+    assert.ok(eventReport.data.data.paymentStatusCounts.some(status => status.status === 'FAILED'));
+    assert.ok(eventReport.data.data.bookingPaymentStatusCounts.some(status => status.status === 'NOT_REQUIRED'));
+    assert.ok(eventReport.data.data.financialSummary.simulatedPaidAmount >= 50);
+    assert.equal((await request('/api/reports/events?startDate=not-a-date', { cookie: adminCookie })).response.status, 400);
+    assert.equal((await request('/api/reports/events?startDate=2026-99-99', { cookie: adminCookie })).response.status, 400);
+
+    const freeEventReport = await request(`/api/reports/events/${bookableEventId}`, { cookie: adminCookie });
+    assert.equal(freeEventReport.response.status, 200, 'Admin can retrieve an individual event report');
+    assert.equal(freeEventReport.data.data.event.id, bookableEventId);
+    assert.equal(freeEventReport.data.data.financialSummary.simulatedPaidAmount, 0,
+      'free bookings are not reported as paid revenue');
+    assert.equal(freeEventReport.data.data.financialSummary.notRequiredBookingCount, 1);
+    assert.ok(freeEventReport.data.data.event.ticketTypes.length > 0,
+      'individual reports include ticket type pricing and capacity');
+    assert.equal(freeEventReport.data.data.event.organizer.id, (await prisma.user.findUnique({
+      where: { email: accounts.organizer.email },
+      select: { id: true },
+    })).id);
+    assert.equal((await request(`/api/reports/events/${bookableEventId}`, {
+      cookie: accounts.organizer.cookie,
+    })).response.status, 403, 'non-Admins cannot retrieve individual event reports');
+    const paidEventReport = await request(`/api/reports/events/${paidEventId}`, { cookie: adminCookie });
+    assert.equal(paidEventReport.response.status, 200);
+    assert.equal(paidEventReport.data.data.financialSummary.simulatedPaidAmount, 50);
+    assert.ok(paidEventReport.data.data.financialSummary.simulatedPendingAmount >= 25);
+    assert.ok(paidEventReport.data.data.financialSummary.failedAmount >= 25);
+    assert.equal(paidEventReport.data.data.bookings, undefined,
+      'event reports return aggregate booking data without attendee records');
+
     const draftToDelete = await request('/api/events', {
       method: 'POST',
       cookie: accounts.organizer.cookie,
@@ -1107,6 +1341,64 @@ if (!testDatabaseUrl) {
 
     const storedBooking = await prisma.booking.findUnique({ where: { id: booking.data.data.id } });
     assert.equal(storedBooking.status, 'CANCELLED');
+
+    const previousActiveAdmins = await prisma.user.findMany({
+      where: {
+        role: Role.ADMIN,
+        isActive: true,
+        id: { notIn: [admin.id, secondAdmin.id] },
+      },
+      select: { id: true },
+    });
+    const previousActiveAdminIds = previousActiveAdmins.map(user => user.id);
+    await prisma.user.updateMany({
+      where: { id: { in: previousActiveAdminIds } },
+      data: { isActive: false },
+    });
+    try {
+      const concurrentRoleChanges = await Promise.all([
+        request(`/api/users/${secondAdmin.id}/role`, {
+          method: 'PATCH',
+          cookie: adminCookie,
+          body: { role: 'ATTENDEE' },
+        }),
+        request(`/api/users/${admin.id}/role`, {
+          method: 'PATCH',
+          cookie: secondAdminCookie,
+          body: { role: 'ATTENDEE' },
+        }),
+      ]);
+      assert.equal(concurrentRoleChanges.filter(result => result.response.status === 200).length, 1,
+        'concurrent Admin demotions cannot remove the final active Admin');
+      assert.equal(await prisma.user.count({ where: { role: Role.ADMIN, isActive: true } }), 1);
+      await prisma.user.updateMany({
+        where: { id: { in: [admin.id, secondAdmin.id] } },
+        data: { role: Role.ADMIN, isActive: true },
+      });
+
+      const concurrentAdminDeactivations = await Promise.all([
+        request(`/api/users/${secondAdmin.id}/deactivate`, {
+          method: 'PATCH',
+          cookie: adminCookie,
+        }),
+        request(`/api/users/${admin.id}/deactivate`, {
+          method: 'PATCH',
+          cookie: secondAdminCookie,
+        }),
+      ]);
+      assert.equal(concurrentAdminDeactivations.filter(result => result.response.status === 200).length, 1,
+        'concurrent Admin deactivations cannot remove the final active Admin');
+      assert.equal(await prisma.user.count({ where: { role: Role.ADMIN, isActive: true } }), 1);
+    } finally {
+      await prisma.user.updateMany({
+        where: { id: { in: [admin.id, secondAdmin.id] } },
+        data: { role: Role.ADMIN, isActive: true },
+      });
+      await prisma.user.updateMany({
+        where: { id: { in: previousActiveAdminIds } },
+        data: { isActive: true },
+      });
+    }
   });
 
   test.after(async () => {

@@ -104,8 +104,11 @@ export const updateAdminStatus = async (req: Request, res: Response, next: NextF
   try {
     const { isActive } = req.body;
     const targetUserId = req.params.id;
-    if (typeof isActive !== 'boolean') {
-      res.status(400).json({ success: false, message: 'isActive must be a boolean' });
+    if (
+      typeof isActive !== 'boolean' ||
+      Object.keys(req.body as Record<string, unknown>).some(key => key !== 'isActive')
+    ) {
+      res.status(400).json({ success: false, message: 'Provide only a boolean isActive value' });
       return;
     }
     if (typeof targetUserId !== 'string') {
@@ -118,11 +121,31 @@ export const updateAdminStatus = async (req: Request, res: Response, next: NextF
     }
 
     const result = await prisma.$transaction(async transaction => {
-      const updated = await transaction.user.updateMany({
+      await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "users"
+        WHERE "role" = 'ADMIN'::"Role" AND "is_active" = TRUE
+        ORDER BY "id"
+        FOR UPDATE
+      `;
+      const current = await transaction.user.findFirst({
         where: { id: targetUserId, role: Role.ADMIN },
+        select: { id: true, isActive: true },
+      });
+      if (!current) return { error: 'not_found' as const };
+      if (current.isActive === isActive) return { user: current, changed: false };
+      if (!isActive && current.isActive) {
+        const activeAdminCount = await transaction.user.count({
+          where: { role: Role.ADMIN, isActive: true },
+        });
+        if (activeAdminCount <= 1) return { error: 'last_admin' as const };
+      }
+
+      const updated = await transaction.user.updateMany({
+        where: { id: targetUserId, role: Role.ADMIN, isActive: current.isActive },
         data: { isActive },
       });
-      if (updated.count !== 1) return false;
+      if (updated.count !== 1) return { error: 'changed_concurrently' as const };
       await transaction.auditLog.create({
         data: {
           actorId: req.user!.id,
@@ -131,14 +154,29 @@ export const updateAdminStatus = async (req: Request, res: Response, next: NextF
           outcome: isActive ? 'activated' : 'deactivated',
         },
       });
-      return true;
+      return {
+        changed: true,
+        user: { id: targetUserId, isActive },
+      };
     });
 
-    if (!result) {
+    if ('error' in result && result.error === 'not_found') {
       res.status(404).json({ success: false, message: 'Administrator account not found' });
       return;
     }
-    res.json({ success: true, message: `Administrator account ${isActive ? 'activated' : 'deactivated'}` });
+    if ('error' in result && result.error === 'last_admin') {
+      res.status(409).json({ success: false, message: 'The last active administrator cannot be deactivated' });
+      return;
+    }
+    if ('error' in result && result.error === 'changed_concurrently') {
+      res.status(409).json({ success: false, message: 'Administrator account changed concurrently; reload and try again' });
+      return;
+    }
+    res.json({
+      success: true,
+      data: result.user,
+      message: `Administrator account ${isActive ? 'activated' : 'deactivated'}${result.changed ? '' : ' (already in that state)'}.`,
+    });
   } catch (err) {
     next(err);
   }

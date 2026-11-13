@@ -46,6 +46,12 @@ const paymentRoutes = read('backend', 'src', 'routes', 'paymentRoutes.ts');
 const paymentController = read('backend', 'src', 'controllers', 'paymentController.ts');
 const ticketService = read('backend', 'src', 'services', 'ticketService.ts');
 const organizerRoutes = read('backend', 'src', 'routes', 'userRoutes.ts');
+const userController = read('backend', 'src', 'controllers', 'userController.ts');
+const organizerController = read('backend', 'src', 'controllers', 'organizerController.ts');
+const reportRoutes = read('backend', 'src', 'routes', 'reportRoutes.ts');
+const reportController = read('backend', 'src', 'controllers', 'reportController.ts');
+const notificationRoutes = read('backend', 'src', 'routes', 'notificationRoutes.ts');
+const platformAdminController = read('backend', 'src', 'controllers', 'platformAdminController.ts');
 const vendorRoutes = read('backend', 'src', 'routes', 'vendorRoutes.ts');
 const frontendRoles = read('frontend', 'src', 'types', 'user.ts');
 const frontendRegistration = read('frontend', 'src', 'pages', 'auth', 'Register.tsx');
@@ -152,6 +158,48 @@ test('vendor profiles, documents and applications use separate admin and organiz
   assert.match(vendorRoutes, /data: \{ isActive: false \}/);
   assert.match(vendorRoutes, /Vendor access deactivated; profile and related records were preserved/);
   assert.match(eventController, /paginationMeta\(pagination, total\)/);
+});
+
+test('admin user management protects active administrator access and preserves user history', () => {
+  assert.match(organizerRoutes, /router\.get\('\/',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+listUsers\)/);
+  assert.match(organizerRoutes, /router\.get\('\/:id',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+getUser\)/);
+  assert.match(organizerRoutes, /router\.patch\('\/:id\/role',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+updateUserRole\)/);
+  assert.match(organizerRoutes, /router\.patch\('\/:id\/deactivate',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+deactivateUser\)/);
+  assert.match(organizerRoutes, /router\.patch\('\/:id\/activate',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+activateUser\)/);
+  assert.match(userController, /Object\.values\(Role\)/);
+  assert.match(userController, /lockActiveAdmins/);
+  assert.match(userController, /The last active administrator cannot be (?:demoted|deactivated)/);
+  assert.match(userController, /USER_ROLE_UPDATED/);
+  assert.match(userController, /USER_ACCOUNT_(?:ACTIVATED|DEACTIVATED)/);
+  assert.doesNotMatch(userController.match(/const USER_SAFE_SELECT = \{([\s\S]*?)\} as const/)?.[1] ?? '', /passwordHash|token/i);
+  assert.match(authMiddleware, /!user\.isActive/);
+  const softDelete = organizerController.slice(
+    organizerController.indexOf('export const deleteOrganizerAccount'),
+    organizerController.indexOf('export const createOrganizer'),
+  );
+  assert.match(softDelete, /data: \{ isActive: false \}/);
+  assert.doesNotMatch(softDelete, /transaction\.(?:user|booking|ticket|payment|event)\.delete/);
+  assert.match(platformAdminController, /last_admin/);
+});
+
+test('reports aggregate simulated payment, attendance and booking data behind Admin authorization', () => {
+  assert.match(reportRoutes, /router\.get\('\/events',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+getEventReport\)/);
+  assert.match(reportRoutes, /router\.get\('\/events\/:id',\s+requireAuth,\s+requireRole\('ADMIN'\),\s+getEventReportById\)/);
+  assert.match(reportController, /simulatedPaidAmount/);
+  assert.match(reportController, /simulatedPendingAmount/);
+  assert.match(reportController, /PaymentStatus\.NOT_REQUIRED/);
+  assert.match(reportController, /attendancePercentage/);
+  assert.match(reportController, /bookingPaymentStatusCounts/);
+  assert.match(reportController, /Payment figures represent simulated payments only/);
+});
+
+test('notifications are authenticated and always scoped to the recipient', () => {
+  assert.match(notificationRoutes, /router\.get\('\/',\s*requireAuth,\s*async/);
+  assert.match(notificationRoutes, /router\.patch\('\/read-all',\s*requireAuth,\s*async/);
+  assert.match(notificationRoutes, /router\.patch\('\/:id\/read',\s*requireAuth,\s*async/);
+  assert.match(notificationRoutes, /where: \{ recipientId \}/);
+  assert.match(notificationRoutes, /where: \{ id, recipientId: req\.user!\.id/);
+  assert.match(notificationRoutes, /pagination:/);
 });
 
 test('organizer event write routes require approved organizer role and ownership', () => {
