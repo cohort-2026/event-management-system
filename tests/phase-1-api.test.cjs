@@ -314,6 +314,11 @@ if (!testDatabaseUrl) {
       cookie: accounts.organizer.cookie,
     })).response.status, 200, 'organizer cancels their own event');
     assert.equal((await request(`/api/events/${eventId}`)).response.status, 404, 'cancelled events are not public');
+    assert.equal((await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId, ticketTypeId, quantity: 1 },
+    })).response.status, 404, 'attendees cannot book cancelled events');
 
     const freeEvent = await request('/api/events', {
       method: 'POST',
@@ -330,11 +335,54 @@ if (!testDatabaseUrl) {
     const booking = await request('/api/bookings', {
       method: 'POST',
       cookie: accounts.attendee.cookie,
-      body: { eventId: bookableEventId, ticketType: freeTicketTypeId },
+      body: { eventId: bookableEventId, ticketTypeId: freeTicketTypeId, quantity: 2 },
     });
     assert.equal(booking.response.status, 201, 'attendee books a free published event');
     assert.equal(booking.data.data.eventTicketTypeId, freeTicketTypeId);
+    assert.equal(booking.data.data.quantity, 2);
+    assert.equal(booking.data.data.status, 'CONFIRMED');
+    assert.equal(booking.data.data.paymentStatus, 'NOT_REQUIRED');
+    assert.equal(booking.data.data.totalAmount, 0);
+    assert.equal(booking.data.data.payment, null, 'free booking does not create a fake payment');
+    assert.equal(booking.data.data.tickets.length, 2, 'free booking creates one ticket per quantity');
+    assert.ok(booking.data.data.tickets.every(ticket => ticket.qrPayload));
+    assert.equal(booking.data.data.ticket.id, booking.data.data.tickets[0].id, 'legacy singular ticket response is preserved');
     const ticketId = booking.data.data.ticket.id;
+
+    const invalidQuantity = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: bookableEventId, ticketTypeId: freeTicketTypeId, quantity: 0 },
+    });
+    assert.equal(invalidQuantity.response.status, 400, 'zero ticket quantities are rejected');
+    assert.equal((await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: bookableEventId, ticketTypeId: freeTicketTypeId, quantity: 9 },
+    })).response.status, 409, 'ticket quantities exceeding available capacity are rejected');
+    assert.equal((await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: 'not-a-uuid', ticketTypeId: freeTicketTypeId },
+    })).response.status, 400, 'invalid event UUIDs are rejected');
+    assert.equal((await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: bookableEventId, ticketTypeId: 'not-a-uuid' },
+    })).response.status, 400, 'invalid ticket type UUIDs are rejected');
+    assert.equal((await request('/api/bookings/me?limit=0', {
+      cookie: accounts.attendee.cookie,
+    })).response.status, 400, 'invalid booking pagination is rejected');
+    const myBookings = await request('/api/bookings/me?page=1&limit=1', {
+      cookie: accounts.attendee.cookie,
+    });
+    assert.equal(myBookings.response.status, 200);
+    assert.equal(myBookings.data.data.length, 1);
+    assert.equal(myBookings.data.pagination.total, 1);
+    assert.equal((await request('/api/bookings/me', {
+      cookie: accounts.otherAttendee.cookie,
+    })).data.data.length, 0, 'attendees can only list their own bookings');
+
     const ownerBookings = await request(`/api/events/${bookableEventId}/bookings?limit=1`, {
       cookie: accounts.organizer.cookie,
     });
@@ -372,7 +420,7 @@ if (!testDatabaseUrl) {
     });
     assert.equal(increasedCapacity.response.status, 200, 'PATCH accepts an editable partial update');
     assert.equal(increasedCapacity.data.data.ticketTypes[0].id, freeTicketTypeId, 'ticket type identity is preserved');
-    assert.equal(increasedCapacity.data.data.ticketTypes[0].availableQuantity, 11, 'issued quantity is preserved');
+    assert.equal(increasedCapacity.data.data.ticketTypes[0].availableQuantity, 10, 'quantity issued is preserved');
     const storedBookingAfterUpdate = await prisma.booking.findUnique({ where: { id: booking.data.data.id } });
     assert.equal(storedBookingAfterUpdate.eventTicketTypeId, freeTicketTypeId);
     assert.ok(await prisma.ticket.findUnique({ where: { id: ticketId } }));
@@ -448,10 +496,96 @@ if (!testDatabaseUrl) {
       method: 'PATCH',
       cookie: accounts.otherAttendee.cookie,
     })).response.status, 404, 'attendees cannot cancel another user booking');
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { status: 'USED', checkedInAt: new Date() },
+    });
+    assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+    })).response.status, 409, 'bookings with checked-in tickets cannot be cancelled');
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { status: 'ACTIVE', checkedInAt: null },
+    });
     assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
     })).response.status, 200, 'attendee cancels their own booking');
+    const restoredFreeCapacity = await prisma.event.findUnique({ where: { id: bookableEventId } });
+    assert.equal(restoredFreeCapacity.availableCapacity, 12, 'cancelling restores event capacity by booking quantity');
+    const restoredTicketCapacity = await prisma.eventTicketType.findUnique({ where: { id: freeTicketTypeId } });
+    assert.equal(restoredTicketCapacity.availableQuantity, 12, 'cancelling restores ticket type quantity');
+
+    const paidEventInput = eventInput('Phase 1 Paid Booking Event');
+    paidEventInput.ticketTypes[0].price = 25;
+    const paidEvent = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: paidEventInput,
+    });
+    assert.equal(paidEvent.response.status, 201);
+    const paidEventId = paidEvent.data.data.id;
+    const paidTicketTypeId = paidEvent.data.data.ticketTypes[0].id;
+    assert.equal((await request(`/api/events/${paidEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    assert.equal((await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: bookableEventId, ticketTypeId: paidTicketTypeId, quantity: 1 },
+    })).response.status, 404, 'ticket types belonging to another event are rejected');
+    const paidBooking = await request('/api/bookings', {
+      method: 'POST',
+      cookie: accounts.attendee.cookie,
+      body: { eventId: paidEventId, ticketTypeId: paidTicketTypeId, quantity: 2 },
+    });
+    assert.equal(paidBooking.response.status, 201, 'paid booking is created for later payment processing');
+    assert.equal(paidBooking.data.data.status, 'PENDING');
+    assert.equal(paidBooking.data.data.paymentStatus, 'PENDING');
+    assert.equal(paidBooking.data.data.totalAmount, 50, 'total is calculated using the server-side ticket price');
+    assert.equal(paidBooking.data.data.tickets.length, 0, 'unpaid booking has no tickets');
+    assert.equal(paidBooking.data.data.payment.status, 'PENDING');
+    assert.equal(paidBooking.data.data.payment.amount, '50', 'pending payment amount matches booking total');
+    const paidEventAfterBooking = await prisma.event.findUnique({ where: { id: paidEventId } });
+    assert.equal(paidEventAfterBooking.availableCapacity, 10, 'pending paid bookings do not reserve capacity');
+    assert.equal((await request(`/api/bookings/${paidBooking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+    })).response.status, 200);
+    assert.ok(await prisma.payment.findUnique({ where: { bookingId: paidBooking.data.data.id } }),
+      'cancelling preserves pending payment history');
+
+    const singleSeatInput = eventInput('Phase 1 Concurrent Booking Event');
+    singleSeatInput.capacity = 1;
+    singleSeatInput.ticketTypes[0].quantity = 1;
+    const singleSeatEvent = await request('/api/events', {
+      method: 'POST',
+      cookie: accounts.organizer.cookie,
+      body: singleSeatInput,
+    });
+    assert.equal(singleSeatEvent.response.status, 201);
+    const singleSeatEventId = singleSeatEvent.data.data.id;
+    const singleSeatTicketTypeId = singleSeatEvent.data.data.ticketTypes[0].id;
+    assert.equal((await request(`/api/events/${singleSeatEventId}/publish`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200);
+    const concurrentBookings = await Promise.all([
+      request('/api/bookings', {
+        method: 'POST',
+        cookie: accounts.attendee.cookie,
+        body: { eventId: singleSeatEventId, ticketTypeId: singleSeatTicketTypeId, quantity: 1 },
+      }),
+      request('/api/bookings', {
+        method: 'POST',
+        cookie: accounts.otherAttendee.cookie,
+        body: { eventId: singleSeatEventId, ticketTypeId: singleSeatTicketTypeId, quantity: 1 },
+      }),
+    ]);
+    assert.deepEqual(concurrentBookings.map(result => result.response.status).sort(), [201, 409],
+      'concurrent requests cannot book the same final seat');
 
     const draftToDelete = await request('/api/events', {
       method: 'POST',

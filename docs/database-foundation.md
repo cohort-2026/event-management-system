@@ -31,7 +31,7 @@ Event ──< Booking
 Event ──< Ticket
 Event ──< VendorApplication
 
-Booking ──── Ticket     (one-to-one)
+Booking ──< Ticket      (one booking → multiple tickets)
 Booking ──── Payment    (one-to-one)
 
 VendorApplication ──< VendorStaffMember
@@ -89,12 +89,24 @@ Records an attendee's registration for an event.
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PRIMARY KEY | — |
+| `reference` | TEXT | NOT NULL, UNIQUE | Public booking reference |
 | `ticket_type` | TicketTypes (enum) | NOT NULL, DEFAULT `GENERAL` | GENERAL, VIP, STAFF |
+| `quantity` | INTEGER | NOT NULL, DEFAULT `1` | Number of tickets in the booking |
+| `total_amount` | DECIMAL(10,2) | NOT NULL, DEFAULT `0` | Calculated from the selected ticket type |
 | `status` | BookingStatus (enum) | NOT NULL, DEFAULT `PENDING` | — |
 | `payment_status` | PaymentStatus (enum) | NOT NULL, DEFAULT `NOT_REQUIRED` | — |
+| `event_ticket_type_id` | UUID | NULLABLE, FK → event ticket types | Selected ticket type |
 | `event_id` | UUID | NOT NULL, FK → events | — |
 | `attendee_id` | UUID | NOT NULL, FK → users | — |
 | `created_at` | TIMESTAMPTZ | NOT NULL | — |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Auto-updated by Prisma |
+
+Free bookings are confirmed in a transaction that atomically decrements both event
+and ticket-type capacity by the requested quantity. Paid bookings are created as
+pending with a pending payment record, but do not reserve capacity or receive
+tickets. Payment processing must recheck and atomically claim capacity before
+confirming payment and issuing tickets; there is no timed reservation to expire.
+An individual booking is limited to 100 tickets to bound request and ticket-creation work.
 
 ---
 
@@ -106,12 +118,14 @@ Issued after a booking is confirmed.
 |---|---|---|---|
 | `id` | UUID | PRIMARY KEY | — |
 | `reference_number` | TEXT | NOT NULL, UNIQUE | Human-readable ticket ref |
+| `qr_payload` | TEXT | NOT NULL, UNIQUE | Opaque payload for ticket verification |
 | `type_of_ticket` | TypeOfTickets (enum) | NOT NULL, DEFAULT `FREE` | PAID or FREE |
 | `status` | TicketStatus (enum) | NOT NULL, DEFAULT `ACTIVE` | — |
-| `booking_id` | UUID | NOT NULL, UNIQUE, FK → bookings | One ticket per booking |
+| `booking_id` | UUID | NOT NULL, FK → bookings | Multiple tickets may belong to a booking |
 | `event_id` | UUID | NOT NULL, FK → events | — |
 | `holder_id` | UUID | NOT NULL, FK → users | — |
 | `issued_at` | TIMESTAMPTZ | NOT NULL | — |
+| `checked_in_at` | TIMESTAMPTZ | NULLABLE | Set when checked in |
 
 ---
 

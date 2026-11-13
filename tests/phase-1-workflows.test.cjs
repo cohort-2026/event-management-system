@@ -20,6 +20,13 @@ const bookingMigration = read(
   '20261112100000_link_bookings_to_event_ticket_types',
   'migration.sql',
 );
+const bookingCapacityMigration = read(
+  'backend',
+  'prisma',
+  'migrations',
+  '20261113130000_booking_quantities_and_ticket_qr',
+  'migration.sql',
+);
 const authController = read('backend', 'src', 'controllers', 'authController.ts');
 const authRoutes = read('backend', 'src', 'routes', 'authRoutes.ts');
 const authMiddleware = read('backend', 'src', 'middleware', 'auth.ts');
@@ -57,6 +64,19 @@ test('ticket-type link migration is additive and preserves existing bookings', (
   assert.match(bookingMigration, /ON DELETE SET NULL/);
   assert.doesNotMatch(bookingMigration, /\b(DELETE\s+FROM|TRUNCATE|DROP\s+TABLE)\b/i);
   assert.match(schema, /eventTicketTypeId\s+String\?\s+@map\("event_ticket_type_id"\)/);
+});
+
+test('booking capacity migration backfills records and permits multiple tickets per booking', () => {
+  assert.match(schema, /reference\s+String\s+@unique/);
+  assert.match(schema, /quantity\s+Int\s+@default\(1\)/);
+  assert.match(schema, /totalAmount\s+Decimal[\s\S]*@map\("total_amount"\)/);
+  assert.match(schema, /tickets\s+Ticket\[\]/);
+  assert.match(schema, /qrPayload\s+String\s+@unique/);
+  assert.match(bookingCapacityMigration, /UPDATE "bookings"[\s\S]*"quantity" = GREATEST/);
+  assert.match(bookingCapacityMigration, /"total_amount" = COALESCE/);
+  assert.match(bookingCapacityMigration, /UPDATE "tickets"[\s\S]*"qr_payload" = 'QR-' \|\| "reference_number"/);
+  assert.match(bookingCapacityMigration, /DROP INDEX "tickets_booking_id_key"/);
+  assert.doesNotMatch(bookingCapacityMigration, /\b(DELETE\s+FROM|TRUNCATE|DROP\s+TABLE)\b/i);
 });
 
 test('public registration excludes Admin in both backend validation and frontend types', () => {

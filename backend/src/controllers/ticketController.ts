@@ -46,36 +46,41 @@ export const checkInTicket = async (req: Request, res: Response, next: NextFunct
       res.status(400).json({ success: false, message: 'A valid ticket ID is required' });
       return;
     }
-    const ticket = await prisma.ticket.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        eventId: true,
-        status: true,
-        event: { select: { organizerId: true, startTime: true, endTime: true, status: true } },
-      },
+    const result = await prisma.$transaction(async transaction => {
+      await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "tickets" WHERE "id" = ${id} FOR UPDATE
+      `;
+      const ticket = await transaction.ticket.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          eventId: true,
+          status: true,
+          event: { select: { organizerId: true, startTime: true, endTime: true, status: true } },
+        },
+      });
+      if (!ticket || ticket.event.organizerId !== req.user!.id) return 'not_found' as const;
+      const now = new Date();
+      if (ticket.status !== TicketStatus.ACTIVE) return 'inactive' as const;
+      if (ticket.event.status !== EventStatus.PUBLISHED ||
+        ticket.event.startTime > now || ticket.event.endTime < now) return 'outside_event' as const;
+
+      const updated = await transaction.ticket.updateMany({
+        where: { id, eventId: ticket.eventId, status: TicketStatus.ACTIVE },
+        data: { status: TicketStatus.USED, checkedInAt: now },
+      });
+      return updated.count === 1 ? 'checked_in' as const : 'inactive' as const;
     });
-    if (!ticket || ticket.event.organizerId !== req.user!.id) {
+    if (result === 'not_found') {
       res.status(404).json({ success: false, message: 'Ticket not found for an event you organize' });
       return;
     }
-    const now = new Date();
-    if (ticket.status !== TicketStatus.ACTIVE) {
+    if (result === 'inactive') {
       res.status(409).json({ success: false, message: 'This ticket is not active or has already been checked in' });
       return;
     }
-    if (ticket.event.status !== EventStatus.PUBLISHED ||
-      ticket.event.startTime > now || ticket.event.endTime < now) {
+    if (result === 'outside_event') {
       res.status(409).json({ success: false, message: 'Tickets can only be checked in while the event is in progress' });
-      return;
-    }
-
-    const updated = await prisma.ticket.updateMany({
-      where: { id, eventId: ticket.eventId, status: TicketStatus.ACTIVE },
-      data: { status: TicketStatus.USED },
-    });
-    if (updated.count !== 1) {
-      res.status(409).json({ success: false, message: 'This ticket has already been checked in' });
       return;
     }
     res.json({ success: true, message: 'Ticket checked in.' });

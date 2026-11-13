@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { cancelBooking, createBooking, listMyBookings } from '../controllers/bookingController';
-import { validateUuidParam } from '../middleware/requestValidation';
+import {
+  validateBodyShape,
+  validatePaginationQuery,
+  validateUuidParam,
+} from '../middleware/requestValidation';
 
 const router = Router();
 router.param('id', validateUuidParam);
@@ -9,8 +13,8 @@ router.param('id', validateUuidParam);
 // POST  /api/bookings              Create a booking (attendees only)
 // GET   /api/bookings/me           View own bookings
 // PATCH /api/bookings/:id/cancel   Cancel own booking
-router.post('/',              requireAuth, requireRole('ATTENDEE'), createBooking);
-router.get('/me',             requireAuth, requireRole('ATTENDEE'), listMyBookings);
+router.post('/',              requireAuth, requireRole('ATTENDEE'), validateBodyShape, createBooking);
+router.get('/me',             requireAuth, requireRole('ATTENDEE'), validatePaginationQuery, listMyBookings);
 router.patch('/:id/cancel',   requireAuth, requireRole('ATTENDEE'), cancelBooking);
 
 export default router;

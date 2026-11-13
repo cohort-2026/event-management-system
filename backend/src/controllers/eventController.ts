@@ -1085,7 +1085,7 @@ export const listEventBookings = async (req: Request, res: Response, next: NextF
         where,
         include: {
           attendee: { select: { id: true, firstname: true, lastname: true, email: true } },
-          ticket: { select: { referenceNumber: true, type: true, status: true, issuedAt: true } },
+          tickets: { select: { referenceNumber: true, type: true, status: true, issuedAt: true } },
           payment: { select: { amount: true, currency: true, status: true, provider: true, createdAt: true } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
@@ -1095,7 +1095,7 @@ export const listEventBookings = async (req: Request, res: Response, next: NextF
     ]);
     res.json({
       success: true,
-      data: bookings,
+      data: bookings.map(booking => ({ ...booking, ticket: booking.tickets[0] ?? null })),
       ...(pagination ? { pagination: paginationMeta(pagination, total) } : {}),
     });
   } catch (err) {
