@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, ProfileApprovalStatus, VendorProfileStatus } from '@prisma/client';
+import { ProfileApprovalStatus, VendorProfileStatus } from '@prisma/client';
 import { config } from '../config/index';
+import { prisma } from '../lib/prisma';
+import { isUuid } from './requestValidation';
 import type { UserRole } from '../types/user';
-
-const prisma = new PrismaClient();
 
 declare global {
   namespace Express {
@@ -17,7 +17,10 @@ declare global {
 interface JwtPayload {
   sub: string;
   role: UserRole;
+  exp: number;
 }
+
+const USER_ROLES: UserRole[] = ['ATTENDEE', 'VENDOR', 'ORGANIZER', 'ADMIN'];
 
 // ─── requireAuth ─────────────────────────────────────────────────────────────
 // Verifies the signed JWT from the httpOnly cookie and attaches req.user.
@@ -33,7 +36,19 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
   let payload: JwtPayload;
   try {
-    payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    const verified = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
+    if (
+      typeof verified === 'string' ||
+      typeof verified.sub !== 'string' ||
+      !isUuid(verified.sub) ||
+      typeof verified.exp !== 'number' ||
+      typeof verified.role !== 'string' ||
+      !USER_ROLES.includes(verified.role as UserRole)
+    ) {
+      res.status(401).json({ success: false, message: 'Invalid or expired session' });
+      return;
+    }
+    payload = verified as JwtPayload;
   } catch {
     res.status(401).json({ success: false, message: 'Invalid or expired session' });
     return;

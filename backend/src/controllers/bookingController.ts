@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { BookingStatus, EventStatus, PaymentStatus, Prisma, PrismaClient, TicketStatus, TicketTypes, TypeOfTickets } from '@prisma/client';
+import { BookingStatus, EventStatus, PaymentStatus, Prisma, TicketStatus, TicketTypes, TypeOfTickets } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
+import { isUuid } from '../middleware/requestValidation';
 const bookingInclude = {
   event: { select: { id: true, title: true, startTime: true, endTime: true, venue: true } },
   eventTicketType: { select: { id: true, name: true, price: true } },
@@ -20,7 +20,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
   try {
     const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim() : '';
     const ticketChoice = typeof req.body?.ticketType === 'string' ? req.body.ticketType.trim() : '';
-    if (!eventId || !ticketChoice) {
+    if (!isUuid(eventId) || !ticketChoice) {
       res.status(400).json({ success: false, message: 'An event and ticket type are required' });
       return;
     }

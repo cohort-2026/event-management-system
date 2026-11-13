@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
+import { Prisma, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
@@ -9,9 +9,11 @@ import { config } from '../config/index';
 import { maxVendorDocuments, parseVendorPdf } from '../middleware/vendorDocumentUpload';
 import { notifyAdmins } from '../services/notificationService';
 import { sendVendorStandInvoice } from '../services/emailService';
+import { prisma } from '../lib/prisma';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
-const prisma = new PrismaClient();
+router.param('id', validateUuidParam);
 
 interface VendorDocumentRecord {
 	id: string;

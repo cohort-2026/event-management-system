@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { getEventReport, getEventReportById } from '../controllers/reportController';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
+router.param('id', validateUuidParam);
 
 // GET /api/reports/events        Aggregate report across all events
 // GET /api/reports/events/:id    Per-event report

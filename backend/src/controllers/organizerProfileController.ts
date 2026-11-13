@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { notifyAdmins } from '../services/notificationService';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ORGANIZER_PROFILE_SELECT = {

@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '../middleware/auth';
 import { checkInTicket, getTicket, listMyTickets } from '../controllers/ticketController';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
+router.param('id', validateUuidParam);
 
 // GET   /api/tickets/me          View own tickets (any authenticated user)
 // GET   /api/tickets/:id         View a single ticket (any authenticated user)

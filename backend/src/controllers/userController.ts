@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma, PrismaClient, Role, VendorProfileStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma, Role, VendorProfileStatus } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 const USER_SELECT = {
   id: true,
   firstname: true,

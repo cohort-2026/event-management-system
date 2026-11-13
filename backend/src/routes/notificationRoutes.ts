@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { prisma } from '../lib/prisma';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
-const prisma = new PrismaClient();
+router.param('id', validateUuidParam);
 
 router.get('/',           requireAuth, requireRole('ADMIN'), async (req, res) => {
   const recipientId = req.user!.id;

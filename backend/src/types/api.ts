@@ -12,5 +12,5 @@ export interface PaginationQuery {
 export interface ApiError {
   success: false;
   message: string;
-  errors?: Record<string, string[]>;
+  errors?: Array<{ field: string; message: string }>;
 }

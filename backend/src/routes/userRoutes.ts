@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { approveOrganizerProfile, createOrganizer, deleteOrganizerAccount, listOrganizers, rejectOrganizerProfile } from '../controllers/organizerController';
 import { deactivateUser, getUser, listUsers, updateUserRole } from '../controllers/userController';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
+router.param('id', validateUuidParam);
 
 router.get('/organizers',                        requireAuth, requireRole('ADMIN'), listOrganizers);
 router.post('/organizers',                       requireAuth, requireRole('ADMIN'), createOrganizer);

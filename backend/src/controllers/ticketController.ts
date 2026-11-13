@@ -1,7 +1,6 @@
-import { EventStatus, PrismaClient, TicketStatus } from '@prisma/client';
+import { EventStatus, TicketStatus } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 export const listMyTickets = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

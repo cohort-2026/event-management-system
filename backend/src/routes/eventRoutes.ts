@@ -17,8 +17,10 @@ import {
   publishEvent,
   updateEvent,
 } from '../controllers/eventController';
+import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
+router.param('id', validateUuidParam);
 
 // ── Public ────────────────────────────────────────────────────────────────────
 // GET  /api/events          Browse published events (no auth required)

@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import { Prisma, PrismaClient, Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { sendOrganizerInvitation } from '../services/emailService';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const listOrganizers = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {

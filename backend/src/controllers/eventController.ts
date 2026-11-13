@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { EventStatus, EventType, Prisma, PrismaClient } from '@prisma/client';
+import { EventStatus, EventType, Prisma } from '@prisma/client';
 import {
   sendEventCancellationNotification,
   sendEventChangeNotification,
 } from '../services/emailService';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const MAX_CAPACITY = 1_000_000;
 const MAX_TICKETS = 20;
 const MAX_PRICE = 99_999_999.99;

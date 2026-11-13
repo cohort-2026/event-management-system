@@ -66,15 +66,15 @@ test('public registration excludes Admin in both backend validation and frontend
   assert.match(frontendRoles, /RegistrationRole\s*=\s*Extract<UserRole,\s*'ATTENDEE'\s*\|\s*'VENDOR'\s*\|\s*'ORGANIZER'>/);
   assert.match(frontendRoles, /role:\s*RegistrationRole/);
   assert.match(frontendRegistration, /role:\s*'' as RegistrationRole/);
-  assert.match(authRoutes, /router\.post\('\/register',\s*register\)/);
+  assert.match(authRoutes, /router\.post\('\/register',\s*(?:\w+,\s*)*register\)/);
 });
 
 test('login and protected requests use cookie JWT authentication and active database roles', () => {
-  assert.match(authRoutes, /router\.post\('\/login',\s*login\)/);
+  assert.match(authRoutes, /router\.post\('\/login',\s*(?:\w+,\s*)*login\)/);
   assert.match(authController, /bcrypt\.compare\(password,\s*passwordHash\)/);
   assert.match(authController, /jwt\.sign\([\s\S]*user\.role/);
   assert.match(authMiddleware, /if \(!token\)[\s\S]*res\.status\(401\)/);
-  assert.match(authMiddleware, /jwt\.verify\(token,\s*config\.jwtSecret\)/);
+  assert.match(authMiddleware, /jwt\.verify\(token,\s*config\.jwtSecret(?:,\s*\{[^}]*\})?\)/);
   assert.match(authMiddleware, /role:\s*user\.role/);
 });
 
