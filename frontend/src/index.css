@@ -477,3 +477,132 @@ main.dashboard-shell {
 .dashboard-content .hover\:bg-neutral-100:hover {
   background-color: #242b41 !important;
 }
+
+main.dashboard-shell-light {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+  color: #111827;
+  box-shadow: 0 20px 60px rgb(15 23 42 / 0.1);
+}
+
+.dashboard-shell-light .dashboard-panel {
+  border-color: #e5e7eb;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.04);
+}
+
+.dashboard-content-light .dashboard-panel,
+.dashboard-content-light .bg-white,
+.dashboard-content-light .bg-neutral-50 {
+  border-color: #e5e7eb;
+  background-color: #fff !important;
+  color: #111827;
+}
+
+.dashboard-content-light .text-neutral-900,
+.dashboard-content-light .text-neutral-800,
+.dashboard-content-light .text-neutral-700 {
+  color: #1f2937 !important;
+}
+
+.dashboard-content-light .text-neutral-600,
+.dashboard-content-light .text-neutral-500 {
+  color: #6b7280 !important;
+}
+
+.dashboard-content-light .text-neutral-400 {
+  color: #9ca3af !important;
+}
+
+.dashboard-content-light .create-event-dark label,
+.dashboard-content-light .create-event-dark [id$="-helper"] {
+  color: #d5e3ef !important;
+}
+
+.dashboard-content-light #create-event-form #category,
+.dashboard-content-light #create-event-form #category option,
+.dashboard-content-light #create-event-form #event-type,
+.dashboard-content-light #create-event-form #event-type option,
+.dashboard-content-light #create-event-form #ticket-type,
+.dashboard-content-light #create-event-form #ticket-type option,
+.dashboard-content-light #create-event-form #description {
+  background-color: #fff !important;
+  color: #000 !important;
+}
+
+.dashboard-content-light .organizer-search-light-text input,
+.dashboard-content-light .organizer-search-light-text input::placeholder {
+  color: #fff !important;
+}
+
+.dashboard-content-light .organizer-profile-card .text-neutral-900:not(input):not(select),
+.dashboard-content-light .organizer-profile-card .text-neutral-700:not(input):not(select),
+.dashboard-content-light .organizer-profile-card .text-neutral-500,
+.dashboard-content-light .organizer-profile-card .text-neutral-400 {
+  color: #f4e3e7 !important;
+}
+
+.dashboard-content-light .organizer-profile-card .bg-neutral-50.text-neutral-700 {
+  color: #15100e !important;
+}
+
+.dashboard-content-light .organizer-profile-card input,
+.dashboard-content-light .organizer-profile-card select {
+  background-color: #fff !important;
+  color: #15100e !important;
+}
+
+.dashboard-content-light .organizer-profile-card .text-rose-600 {
+  color: #fecdd3;
+}
+
+.organizer-notification-card {
+  background-image:
+    radial-gradient(circle at 90% 15%, rgb(255 255 255 / 0.2) 0 18px, transparent 19px),
+    radial-gradient(circle at 4% 100%, rgb(255 210 137 / 0.45) 0 30px, transparent 31px),
+    linear-gradient(135deg, #ec5138, #f27938);
+}
+
+.organizer-events-card {
+  background-color: #671728;
+}
+
+.dashboard-content-light #organizer-events-table thead {
+  background: #420e19 !important;
+  color: #fff;
+}
+
+.dashboard-content-light #organizer-events-table tbody tr:hover {
+  background-color: #85243a !important;
+}
+
+.dashboard-content-light .text-brand-600,
+.dashboard-content-light .text-brand-700 {
+  color: #be123c !important;
+}
+
+.dashboard-content-light .border-neutral-100,
+.dashboard-content-light .border-neutral-200,
+.dashboard-content-light .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e5e7eb !important;
+}
+
+.dashboard-content-light .bg-brand-50 {
+  background-color: #fff1f2 !important;
+}
+
+.dashboard-content-light .bg-neutral-100 {
+  background-color: #f3f4f6 !important;
+}
+
+.dashboard-content-light .bg-emerald-50,
+.dashboard-content-light .bg-sky-50,
+.dashboard-content-light .bg-amber-50,
+.dashboard-content-light .bg-purple-50,
+.dashboard-content-light .bg-rose-50 {
+  filter: none;
+}
+
+.dashboard-content-light .dashboard-panel:hover {
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.08);
+}
