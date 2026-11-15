@@ -7,6 +7,7 @@ import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import OrganizerEventSearch from '@/components/layout/OrganizerEventSearch';
 import OrganizerNotificationsLink from '@/components/layout/OrganizerNotificationsLink';
+import OrganizerNotificationInbox from '@/components/layout/OrganizerNotificationInbox';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -480,7 +481,7 @@ export default function OrganizerDashboard() {
 
           {isNotificationsPage && (
             <div className="space-y-5">
-              <p className="text-sm text-slate-200">These alerts reflect current profile and event activity. They are not a read/unread notification inbox.</p>
+              <OrganizerNotificationInbox />
               <section className="organizer-notification-card overflow-hidden rounded-xl border border-black/20 text-[#15100e] shadow-sm" aria-labelledby="profile-activity-heading">
                 <h2 id="profile-activity-heading" className="border-b border-black/20 px-5 py-4 font-bold text-[#15100e]">Organization status</h2>
                 <ProfileActivity />

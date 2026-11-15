@@ -8,6 +8,26 @@ import type { Event } from '@/types/event';
 const errorMessage = (error: unknown, fallback: string) =>
   axios.isAxiosError<{ message?: string }>(error) ? error.response?.data?.message ?? fallback : fallback;
 
+const cameraErrorDetails = (error: unknown): string =>
+  error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+
+const isCameraUnavailable = (details: string): boolean =>
+  /NotFoundError|DevicesNotFoundError|OverconstrainedError|ConstraintNotSatisfiedError/i.test(details);
+
+const cameraStartMessage = (error: unknown): string => {
+  const details = cameraErrorDetails(error);
+  if (/NotAllowedError|PermissionDeniedError|permission denied/i.test(details)) {
+    return 'Camera permission was denied. Allow camera access in your browser and device settings, then try again.';
+  }
+  if (isCameraUnavailable(details)) {
+    return 'No compatible camera was found. Connect a camera or use guest search.';
+  }
+  if (/NotReadableError|TrackStartError/i.test(details)) {
+    return 'The camera is unavailable or in use by another app. Close other camera apps and try again.';
+  }
+  return 'The camera could not start. Check camera permissions and device settings, or use guest search.';
+};
+
 export default function CheckIn() {
   const { id = '' } = useParams();
   const [event, setEvent] = useState<Event | null>(null);
@@ -46,7 +66,7 @@ export default function CheckIn() {
             return;
           }
         }
-        if (scanner.isScanning) await scanner.stop();
+        await scanner.stop();
       } catch (error) {
         console.error('Could not stop the scanner camera:', error);
         if (mountedRef.current) setCameraError('The camera could not be stopped. Close this page to release it.');
@@ -111,24 +131,30 @@ export default function CheckIn() {
         verbose: false,
       });
       scannerRef.current = scanner;
-      const starting = scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: (width, height) => {
-          const size = Math.floor(Math.min(width, height) * 0.65);
-          return { width: size, height: size };
-        } },
-        decodedText => {
-          if (scannedRef.current || !mountedRef.current) return;
-          scannedRef.current = true;
-          const reference = decodedText.trim().toLowerCase();
-          const match = registrations.find(registration =>
-            registration.ticket?.referenceNumber.toLowerCase() === reference);
-          setSelected(match ?? null);
-          setUnmatched(!match);
-          void stopCamera();
-        },
-        () => {},
-      );
+      const onScan = (decodedText: string) => {
+        if (scannedRef.current || !mountedRef.current) return;
+        scannedRef.current = true;
+        const reference = decodedText.trim().toLowerCase();
+        const match = registrations.find(registration =>
+          registration.ticket?.referenceNumber.toLowerCase() === reference);
+        setSelected(match ?? null);
+        setUnmatched(!match);
+        void stopCamera();
+      };
+      const scanConfig = { fps: 10, qrbox: (width: number, height: number) => {
+        const size = Math.floor(Math.min(width, height) * 0.65);
+        return { width: size, height: size };
+      } };
+      const starting = (async () => {
+        try {
+          return await scanner.start({ facingMode: 'environment' }, scanConfig, onScan, () => {});
+        } catch (error) {
+          if (!isCameraUnavailable(cameraErrorDetails(error)) ||
+            !mountedRef.current || cameraGenerationRef.current !== generation) throw error;
+          console.warn('Preferred camera unavailable; trying the default camera:', error);
+          return scanner.start({ facingMode: 'environment' }, { ...scanConfig, videoConstraints: {} }, onScan, () => {});
+        }
+      })();
       startingRef.current = starting;
       await starting;
       if (!mountedRef.current || scannerRef.current !== scanner) return;
@@ -144,7 +170,7 @@ export default function CheckIn() {
     } catch (error) {
       console.error('Could not start the scanner camera:', error);
       if (mountedRef.current) {
-        setCameraError('The camera could not start. Check camera permission or use guest search.');
+        setCameraError(cameraStartMessage(error));
       }
       await stopCamera();
     } finally {

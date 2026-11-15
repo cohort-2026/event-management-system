@@ -26,11 +26,17 @@ Required role: `ORGANIZER`
 | Path | Page file | Notes |
 |---|---|---|
 | `/organizer` | `pages/organizer/OrganizerDashboard.tsx` | Overview of own events |
+| `/organizer/notifications` | `pages/organizer/OrganizerDashboard.tsx` | In-app inbox and current organization activity |
 | `/organizer/events/new` | `pages/organizer/CreateEvent.tsx` | Create event details and ticket tiers; save a draft or submit for approval |
 | `/organizer/events/:id/edit` | `pages/organizer/EditEvent.tsx` | Correct a draft or rejected event and resubmit it |
 | `/organizer/events/:id/registrations` | `pages/organizer/EventRegistrations.tsx` | View attendee registrations |
 | `/organizer/events/:id/vendors` | `pages/organizer/VendorApplications.tsx` | Review stand requests, assign stands, and approve/reject with feedback |
-| `/organizer/events/:id/check-in` | `pages/organizer/CheckIn.tsx` | Check attendees/vendor staff in on event day |
+| `/organizer/events/:id/check-in` | `pages/organizer/CheckIn.tsx` | Look up attendee ticket references using a camera or guest search; check-in is not implemented |
+
+Camera lookup requires browser camera permission and a secure context (HTTPS or
+localhost). The scanner prefers the rear camera and falls back to the default
+camera if that camera is unavailable. Scanning does not admit a guest or change
+ticket status.
 
 Organizer event creation uses `POST /api/events` and requires title,
 description, category, event format, start/end date and time, capacity, venue
@@ -49,6 +55,12 @@ approved vendors. Organizers can cancel their own published events through
 approved vendors. Admins review events through
 `GET /api/events/admin/approval-queue`, then use the approve/reject endpoints.
 Approval and rejection decisions trigger organizer email notifications.
+
+The organizer inbox records profile approvals and vendor stand submissions.
+Notifications are scoped to their recipient, can be marked read individually or
+all at once, and the inbox shows the 30 most recent entries. The unread count
+refreshes every 30 seconds. Attendee booking notifications remain pending until
+the booking workflow is implemented.
 
 ---
 

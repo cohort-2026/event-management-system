@@ -531,6 +531,8 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		where: { id: eventId },
 		select: {
 			id: true,
+			title: true,
+			organizerId: true,
 			status: true,
 			startTime: true,
 			vendorStandsAvailable: true,
@@ -574,28 +576,39 @@ router.post('/apply', requireAuth, requireRole('VENDOR'), async (req, res) => {
 	const standAreaSqm = Math.round(standWidth * standDepth * 100) / 100;
 	const quotedAmount = Math.round(standAreaSqm * standRatePerSqm * 100) / 100;
 
-	const application = await prisma.vendorApplication.create({
-		data: {
-			vendorId: userId,
-			eventId,
-			companyName: profile.businessName,
-			registrationNumber: profile.businessRegistrationNumber,
-			description: profile.businessDescription || profile.productsServices.join(', ') || profile.businessName,
-			requestedStandType,
-			requestedStandSize: `${standWidth}m x ${standDepth}m`,
-			standDescription,
-			supportingInformation: supportingInformation || null,
-			standAreaSqm,
-			standRatePerSqm,
-			quotedAmount,
-			staffMembers: {
-				create: staffMembers.map(member => ({
-					...member,
-					entryPassId: `VND-${randomUUID().slice(0, 8).toUpperCase()}`,
-				})),
+	const application = await prisma.$transaction(async transaction => {
+		const created = await transaction.vendorApplication.create({
+			data: {
+				vendorId: userId,
+				eventId,
+				companyName: profile.businessName,
+				registrationNumber: profile.businessRegistrationNumber,
+				description: profile.businessDescription || profile.productsServices.join(', ') || profile.businessName,
+				requestedStandType,
+				requestedStandSize: `${standWidth}m x ${standDepth}m`,
+				standDescription,
+				supportingInformation: supportingInformation || null,
+				standAreaSqm,
+				standRatePerSqm,
+				quotedAmount,
+				staffMembers: {
+					create: staffMembers.map(member => ({
+						...member,
+						entryPassId: `VND-${randomUUID().slice(0, 8).toUpperCase()}`,
+					})),
+				},
 			},
-		},
-		include: { staffMembers: true },
+			include: { staffMembers: true },
+		});
+		await transaction.notification.create({
+			data: {
+				recipientId: event.organizerId,
+				title: 'New stand request',
+				message: `${profile.businessName} applied for a stand at ${event.title}.`,
+				link: `/organizer/events/${event.id}/vendors`,
+			},
+		});
+		return created;
 	});
 	return res.status(201).json({ success: true, data: application });
 });
