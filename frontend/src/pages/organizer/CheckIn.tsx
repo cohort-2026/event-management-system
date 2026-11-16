@@ -43,6 +43,7 @@ export default function CheckIn() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<EventRegistration | null>(null);
   const [unmatched, setUnmatched] = useState(false);
+  const [scannedValue, setScannedValue] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const startingRef = useRef<Promise<null> | null>(null);
   const stoppingRef = useRef<Promise<void> | null>(null);
@@ -118,6 +119,7 @@ export default function CheckIn() {
     setCameraBusy(true);
     setCameraError('');
     setUnmatched(false);
+    setScannedValue(null);
     setSelected(null);
     scannedRef.current = false;
     const generation = ++cameraGenerationRef.current;
@@ -137,6 +139,7 @@ export default function CheckIn() {
         const reference = decodedText.trim().toLowerCase();
         const match = registrations.find(registration =>
           registration.ticket?.referenceNumber.toLowerCase() === reference);
+        setScannedValue(decodedText);
         setSelected(match ?? null);
         setUnmatched(!match);
         void stopCamera();
@@ -196,6 +199,7 @@ export default function CheckIn() {
     void stopCamera();
     setSelected(registration);
     setUnmatched(false);
+    setScannedValue(null);
     setSearch('');
   };
 
@@ -240,7 +244,7 @@ export default function CheckIn() {
               {!cameraActive && !cameraBusy && !selected && !unmatched && (
                 <div className="flex flex-col items-center px-5 py-10 text-center">
                   <div aria-hidden="true" className="flex h-44 w-44 items-center justify-center rounded-2xl border-4 border-orange-500 text-6xl text-white/30">▦</div>
-                  <p className="mt-6 text-sm text-white/80">Point the camera at a ticket QR code</p>
+                  <p className="mt-6 text-sm text-white/80">Point the camera at a QR code on the guest's phone</p>
                   <button type="button" disabled={cameraBusy} onClick={() => void startCamera()} className="mt-5 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50">
                     {cameraBusy ? 'Starting camera…' : 'Start camera'}
                   </button>
@@ -252,7 +256,10 @@ export default function CheckIn() {
 
             {(selected || unmatched) && (
               <section role="status" className="mt-4 rounded-xl border border-amber-500 bg-amber-950 p-4">
-                <h1 className="font-bold">{selected ? 'Guest found — lookup only' : 'No matching reference found'}</h1>
+                <h1 className="font-bold">{selected ? 'Guest found — lookup only' : 'QR code scanned — no matching ticket'}</h1>
+                {scannedValue !== null && (
+                  <p className="mt-2 break-all whitespace-pre-wrap text-sm">Scanned content: {scannedValue || '(empty)'}</p>
+                )}
                 {selected ? (
                   <>
                     <p className="mt-2 text-sm">{selected.attendee.firstname} {selected.attendee.lastname}</p>
@@ -260,7 +267,7 @@ export default function CheckIn() {
                     <p className="mt-2 text-sm text-amber-100">This lookup does not confirm admission or change ticket status.</p>
                   </>
                 ) : <p className="mt-2 text-sm text-amber-100">Only exact ticket references in this event’s guest list can be matched.</p>}
-                <button type="button" onClick={() => { setSelected(null); setUnmatched(false); }} className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-bold text-black">Scan or search next</button>
+                <button type="button" onClick={() => { setSelected(null); setUnmatched(false); setScannedValue(null); }} className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-bold text-black">Scan or search next</button>
               </section>
             )}
 

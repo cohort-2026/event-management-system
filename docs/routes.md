@@ -36,7 +36,8 @@ Required role: `ORGANIZER`
 Camera lookup requires browser camera permission and a secure context (HTTPS or
 localhost). The scanner prefers the rear camera and falls back to the default
 camera if that camera is unavailable. Scanning does not admit a guest or change
-ticket status.
+ticket status. The decoded QR content is displayed as text; only an exact ticket
+reference in the event's guest list matches a guest.
 
 Organizer event creation uses `POST /api/events` and requires title,
 description, category, event format, start/end date and time, capacity, venue
