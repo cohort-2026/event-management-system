@@ -510,8 +510,10 @@ main.organizer-shell {
 .dashboard-content-light .organizer-logout,
 .dashboard-content-light .organizer-nav-link:hover,
 .dashboard-content-light .organizer-nav-link:focus-visible,
-.dashboard-content-light .organizer-filter-button:hover,
-.dashboard-content-light .organizer-filter-button:focus-visible,
+.dashboard-content-light .organizer-action-link:not([aria-disabled="true"]):hover,
+.dashboard-content-light .organizer-action-link:not([aria-disabled="true"]):focus-visible,
+.organizer-shell .dashboard-content-light button:not(:disabled):not([aria-label="Close dashboard sidebar"]):hover,
+.organizer-shell .dashboard-content-light button:not(:disabled):not([aria-label="Close dashboard sidebar"]):focus-visible,
 .dashboard-content-light .organizer-profile-link:hover,
 .dashboard-content-light .organizer-profile-link:focus-visible {
   background-color: #09090b !important;
@@ -524,6 +526,12 @@ main.organizer-shell {
 
 .dashboard-content-light .organizer-nav-link:focus-visible {
   outline: 2px solid #c2410c;
+  outline-offset: 2px;
+}
+
+.dashboard-content-light .organizer-action-link:focus-visible,
+.organizer-shell .dashboard-content-light button:not(:disabled):focus-visible {
+  outline: 2px solid #800020;
   outline-offset: 2px;
 }
 

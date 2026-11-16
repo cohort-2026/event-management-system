@@ -19,7 +19,7 @@ export default function OrganizerNotificationsLink({
       onClick={event => {
         if (disabled || (confirmNavigation && !confirmNavigation())) event.preventDefault();
       }}
-      className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+      className={`organizer-action-link relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
       <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 8a6 6 0 0 0-12 0v5l-2 3h16l-2-3V8ZM10 19a2 2 0 0 0 4 0" />

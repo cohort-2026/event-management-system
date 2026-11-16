@@ -119,7 +119,7 @@ function BookingProgress({ event }: { event: Event }) {
 }
 
 function EventLinks({ event }: { event: Event }) {
-  const linkClass = 'inline-flex min-h-9 items-center rounded-lg border border-neutral-200 px-3 text-xs font-semibold text-neutral-700 transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600';
+  const linkClass = 'organizer-action-link inline-flex min-h-9 items-center rounded-lg border border-neutral-200 px-3 text-xs font-semibold text-neutral-700 transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600';
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <Link className={linkClass} to={`/organizer/events/${event.id}`} aria-label={`Open event hub for ${event.title}`}>
@@ -830,7 +830,7 @@ export default function OrganizerDashboard() {
                     type="button"
                     aria-pressed={eventFilter === filter.value}
                     onClick={() => setEventFilter(filter.value)}
-                    className={`organizer-filter-button shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                    className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
                       eventFilter === filter.value
                         ? 'border-rose-600 bg-rose-50 text-rose-700'
                         : 'border-transparent text-neutral-700'
