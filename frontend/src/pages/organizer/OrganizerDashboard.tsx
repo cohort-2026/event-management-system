@@ -459,7 +459,7 @@ export default function OrganizerDashboard() {
                     {user?.organizationName || 'Here is the latest activity across your events.'}
                   </p>
                 </div>
-                <Link to="/organizer/events/new" className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg bg-[#c2410c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#9a3412] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700">
+                <Link to="/organizer/events/new" className="organizer-create-button inline-flex w-fit shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold">
                   <span aria-hidden="true" className="text-base leading-none">+</span>
                   Create event
                 </Link>

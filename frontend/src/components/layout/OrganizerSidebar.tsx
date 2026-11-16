@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
+import organizerLogo from '@/assets/organizer-logo.png';
 
 const items = [
   { label: 'Overview', to: '/organizer', path: 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7' },
@@ -42,11 +43,7 @@ export default function OrganizerSidebar() {
       >
         <div className={`relative flex flex-col lg:min-h-screen ${mobileOpen ? 'min-h-full' : ''}`}>
           <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-600 to-orange-500 text-white">
-              <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 3v4m10-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1z" />
-              </svg>
-            </span>
+            <img src={organizerLogo} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
             <span className="text-base font-bold text-neutral-900">EventMS</span>
           </div>
           <nav aria-label="Organizer navigation" className="flex-1 px-3">
@@ -69,14 +66,14 @@ export default function OrganizerSidebar() {
             </div>
           </nav>
           <div className="space-y-2 p-3">
-            <Link to="/organizer/profile" onClick={navigation?.closeMobile} className="flex items-center gap-2.5 rounded-xl border border-neutral-200 p-2 text-neutral-900 hover:bg-neutral-100">
+            <Link to="/organizer/profile" onClick={navigation?.closeMobile} className="organizer-profile-link flex items-center gap-2.5 rounded-xl border border-neutral-200 p-2 text-neutral-900 transition-colors">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e11d48] text-xs font-bold text-white">{initials}</span>
               <span className="min-w-0">
                 <span className="block truncate text-xs font-bold">{user?.firstname} {user?.lastname}</span>
                 <span className="block truncate text-[11px] text-neutral-500">{user?.organizationName || 'Organizer'}</span>
               </span>
             </Link>
-            <button type="button" onClick={() => void handleLogout()} className="w-full rounded-lg px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100" title="Logout">
+            <button type="button" onClick={() => void handleLogout()} className="organizer-nav-link w-full rounded-lg px-2 py-1 text-xs text-neutral-700 transition-colors" title="Logout">
               Logout
             </button>
           </div>

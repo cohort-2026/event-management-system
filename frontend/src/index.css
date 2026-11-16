@@ -497,8 +497,28 @@ main.organizer-shell {
   box-shadow: none;
 }
 
+.dashboard-content-light .organizer-create-button {
+  background:
+    repeating-radial-gradient(circle at 5% 0%, transparent 0 7px, rgb(255 255 255 / 0.1) 8px 11px, transparent 12px 17px),
+    radial-gradient(circle at 100% 100%, #a32471 0 14%, transparent 15%),
+    linear-gradient(120deg, #7624ad, #972578);
+  color: #fff;
+}
+
+.dashboard-content-light .organizer-create-button:hover {
+  filter: brightness(0.9);
+  color: #fff;
+}
+
+.dashboard-content-light .organizer-create-button:focus-visible {
+  outline: 2px solid #7624ad;
+  outline-offset: 2px;
+}
+
 .dashboard-content-light .organizer-nav-link:hover,
-.dashboard-content-light .organizer-nav-link:focus-visible {
+.dashboard-content-light .organizer-nav-link:focus-visible,
+.dashboard-content-light .organizer-profile-link:hover,
+.dashboard-content-light .organizer-profile-link:focus-visible {
   background-color: #09090b !important;
   background-image:
     linear-gradient(90deg, transparent 32%, rgb(255 255 255 / 0.06) 33%, transparent 34%, transparent 65%, rgb(255 255 255 / 0.06) 66%, transparent 67%),
@@ -509,6 +529,16 @@ main.organizer-shell {
 
 .dashboard-content-light .organizer-nav-link:focus-visible {
   outline: 2px solid #c2410c;
+  outline-offset: 2px;
+}
+
+.dashboard-content-light .organizer-profile-link:hover span,
+.dashboard-content-light .organizer-profile-link:focus-visible span {
+  color: #fff !important;
+}
+
+.dashboard-content-light .organizer-profile-link:focus-visible {
+  outline: 2px solid #800020;
   outline-offset: 2px;
 }
 
