@@ -13,7 +13,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "pretest:phase1": "npm run build",
+    "test:phase1": "node --test ../tests/phase-1-workflows.test.cjs ../tests/phase-1-api.test.cjs ../tests/backend-foundation.test.cjs",
+    "test:phase1:api": "node --test ../tests/phase-1-api.test.cjs"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
@@ -29,6 +32,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.4",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.15",
     "multer": "^2.5.0",

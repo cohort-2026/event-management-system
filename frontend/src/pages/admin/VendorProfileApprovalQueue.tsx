@@ -31,8 +31,6 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 
 	useEffect(() => {
 		let active = true;
-		setLoading(true);
-		setError('');
 		getVendorProfilesByStatus(status)
 			.then(response => { if (active) setProfiles(response.data.data); })
 			.catch(loadError => {

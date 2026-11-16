@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
 import Spinner from '@/components/ui/Spinner';
+import type { UserRole } from '@/types/user';
 
 // Auth
 import Login from '@/pages/auth/Login';
@@ -40,14 +42,11 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
-import ApprovalQueue from '@/pages/admin/ApprovalQueue';
 import UserManagement from '@/pages/admin/UserManagement';
 import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
-
-// Platform Admin
-import PlatformSettings from '@/pages/platform-admin/PlatformSettings';
-import PlatformAuditHistory from '@/pages/platform-admin/PlatformAuditHistory';
+import AdminAccounts from '@/pages/admin/AdminAccounts';
+import AdminAuditHistory from '@/pages/admin/AdminAuditHistory';
 
 export default function App() {
   return (
@@ -109,7 +108,6 @@ export default function App() {
           {/* ── Admin ── */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/admin"            element={<AdminDashboard />} />
-            <Route path="/admin/approvals"  element={<ApprovalQueue />} />
             <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
             <Route path="/admin/users"      element={<Navigate to="/admin/users/organizers/pending" replace />} />
             <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />
@@ -117,9 +115,8 @@ export default function App() {
             <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
             <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
             <Route path="/admin/user-accounts" element={<UserAccounts />} />
-            <Route path="/platform-admin"                    element={<PlatformSettings />} />
-            <Route path="/platform-admin/admins"             element={<PlatformSettings />} />
-            <Route path="/platform-admin/audit"              element={<PlatformAuditHistory />} />
+            <Route path="/admin/accounts" element={<AdminAccounts />} />
+            <Route path="/admin/audit" element={<AdminAuditHistory />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
@@ -144,14 +141,14 @@ function RootRedirect() {
   if (user?.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   if (user) {
-    const dashboardPath: Record<string, string> = {
+    const dashboardPath: Record<UserRole, string> = {
       ORGANIZER: '/organizer',
       VENDOR: user.vendorProfileStatus === 'APPROVED' ? '/vendor' : '/vendor/profile',
       ADMIN: '/admin',
       ATTENDEE: '/attendee',
     };
 
-    return <Navigate to={dashboardPath[user.role] ?? '/events'} replace />;
+    return <Navigate to={dashboardPath[user.role]} replace />;
   }
 
   return <Navigate to="/landing" replace />;

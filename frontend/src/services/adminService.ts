@@ -29,5 +29,5 @@ export const getManagedAdmins = () => api.get<ApiResponse<ManagedAdmin[]>>('/pla
 export const createManagedAdmin = (data: { firstname: string; lastname: string; email: string }) =>
   api.post<ApiResponse<ManagedAdmin>>('/platform-admin/admins', data);
 export const updateManagedAdminStatus = (id: string, isActive: boolean) =>
-  api.patch(`/platform-admin/admins/${id}/status`, { isActive });
+  api.patch(`/platform-admin/admins/${encodeURIComponent(id)}/status`, { isActive });
 export const getAdminAuditHistory = () => api.get<ApiResponse<AdminAuditEvent[]>>('/platform-admin/audit-logs');

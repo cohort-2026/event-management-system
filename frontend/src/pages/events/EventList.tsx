@@ -5,7 +5,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import EventCard from '@/components/ui/EventCard';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getEvents } from '@/services/eventService';
 import { getMe } from '@/services/authService';
 import type { Event } from '@/types/event';

@@ -43,6 +43,19 @@ export default function ApplyForStand() {
         setProfile(profileResponse.data.data);
         setApplications(applicationsResponse.data.data);
         setEvent(eventResponse.data.data);
+        const latestRejected = applicationsResponse.data.data
+          .filter(application => application.eventId === eventId && application.status === 'REJECTED')
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
+        const hasActiveApplication = applicationsResponse.data.data.some(application =>
+          application.eventId === eventId && application.status !== 'REJECTED',
+        );
+        if (!hasActiveApplication && latestRejected) {
+          setRequestedStandType(latestRejected.requestedStandType);
+          setRequestedStandSize(latestRejected.requestedStandSize);
+          setStandDescription(latestRejected.standDescription);
+          setSupportingInformation(latestRejected.supportingInformation ?? '');
+          setStaffMembers(latestRejected.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        }
       })
       .catch(() => setError('Unable to load this event and your business profile.'))
       .finally(() => setLoading(false));
@@ -55,16 +68,6 @@ export default function ApplyForStand() {
     .filter(application => application.eventId === eventId && application.status === 'REJECTED')
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0],
   [applications, eventId]);
-
-  useEffect(() => {
-    if (!activeApplication && rejectedApplication) {
-      setRequestedStandType(rejectedApplication.requestedStandType);
-      setRequestedStandSize(rejectedApplication.requestedStandSize);
-      setStandDescription(rejectedApplication.standDescription);
-      setSupportingInformation(rejectedApplication.supportingInformation ?? '');
-      setStaffMembers(rejectedApplication.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
-    }
-  }, [activeApplication, rejectedApplication]);
 
   const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

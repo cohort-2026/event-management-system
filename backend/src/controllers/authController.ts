@@ -2,14 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
-import { Prisma, PrismaClient, VendorProfileStatus } from '@prisma/client';
+import { Prisma, VendorProfileStatus } from '@prisma/client';
 import { config } from '../config/index';
+import { prisma } from '../lib/prisma';
 import { sendPasswordResetCode, sendVerificationCode } from '../services/emailService';
 import { notifyAdmins } from '../services/notificationService';
+import { isValidEmail } from '../middleware/requestValidation';
 
-const prisma = new PrismaClient();
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COOKIE_NAME = 'auth_token';
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
@@ -20,9 +19,10 @@ const REGISTRATION_ROLES = ['ATTENDEE', 'VENDOR', 'ORGANIZER'] as const;
 
 const cookieOptions = {
   httpOnly: true,
-  secure: true, // always required with sameSite: 'none'
-  sameSite: 'none' as const, // cross-origin: frontend and backend are on different domains
-  maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day in ms
+  secure: config.nodeEnv === 'production',
+  sameSite: config.nodeEnv === 'production' ? ('none' as const) : ('lax' as const),
+  path: '/',
+  maxAge: 1 * 24 * 60 * 60 * 1000,
 };
 
 const USER_SELECT = {
@@ -63,7 +63,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       return;
     }
 
-    if (email.length > 254 || !EMAIL_REGEX.test(email)) {
+    if (!isValidEmail(email)) {
       res.status(400).json({ success: false, message: 'Enter a valid email address (254 characters or fewer)' });
       return;
     }
@@ -151,8 +151,9 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     const { email: rawEmail, password } = req.body;
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
-    if (!email || !password) {
-      res.status(400).json({ success: false, message: 'email and password are required' });
+    if (typeof email !== 'string' || !isValidEmail(email) ||
+      typeof password !== 'string' || !password) {
+      res.status(400).json({ success: false, message: 'A valid email and password are required' });
       return;
     }
 
@@ -216,7 +217,8 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
     const { email: rawEmail, code } = req.body;
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
-    if (!email || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+    if (typeof email !== 'string' || !isValidEmail(email) ||
+      typeof code !== 'string' || !/^\d{6}$/.test(code)) {
       res.status(400).json({ success: false, message: 'A valid email and six-digit code are required' });
       return;
     }
@@ -270,7 +272,7 @@ export const resendVerificationEmail = async (req: Request, res: Response, next:
     const rawEmail = req.body.email;
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!email || !isValidEmail(email)) {
       res.status(400).json({ success: false, message: 'A valid email address is required' });
       return;
     }
@@ -326,7 +328,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
     const rawEmail = req.body.email;
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!email || !isValidEmail(email)) {
       res.status(400).json({ success: false, message: 'A valid email address is required' });
       return;
     }
@@ -393,7 +395,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
     if (
       typeof email !== 'string' ||
-      !EMAIL_REGEX.test(email) ||
+      !isValidEmail(email) ||
       typeof code !== 'string' ||
       !/^\d{6}$/.test(code) ||
       typeof password !== 'string' ||
@@ -537,7 +539,7 @@ export const completeOrganizerPasswordSetup = async (req: Request, res: Response
     const { token, password } = req.body ?? {};
 
     if (
-      !EMAIL_REGEX.test(email) ||
+      !isValidEmail(email) ||
       typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
       typeof password !== 'string' || !STRONG_PASSWORD_REGEX.test(password) ||
       Buffer.byteLength(password, 'utf8') > 72

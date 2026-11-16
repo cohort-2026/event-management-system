@@ -78,6 +78,12 @@ enum VendorProfileStatus {
   REJECTED
 }
 
+enum VendorDocumentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum VendorInvoiceStatus {
   ISSUED
   PAID
@@ -115,6 +121,7 @@ model User {
   vendorApplicationDecisions VendorApplication[] @relation("VendorApplicationDecider")
   vendorProfile       VendorProfile?
   vendorDocuments     VendorDocument[]
+  reviewedVendorDocuments VendorDocument[] @relation("VendorDocumentReviewer")
   auditEvents         AuditLog[] @relation("AuditActor")
   notifications       Notification[] @relation("NotificationRecipient")
   organizationName   String? @map("organization_name")
@@ -239,6 +246,7 @@ model EventTicketType {
 
   eventId String @map("event_id")
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookings Booking[]
 
   @@index([eventId])
   @@map("event_ticket_types")
@@ -246,37 +254,47 @@ model EventTicketType {
 
 model Booking {
   id            String        @id @default(uuid())
+  reference     String        @unique
   ticketType    TicketTypes   @default(GENERAL) @map("ticket_type")
+  quantity      Int           @default(1)
+  totalAmount   Decimal       @default(0) @map("total_amount") @db.Decimal(10, 2)
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(NOT_REQUIRED) @map("payment_status")
   createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Relations
   eventId    String   @map("event_id")
   event      Event    @relation(fields: [eventId], references: [id])
+  eventTicketTypeId String? @map("event_ticket_type_id")
+  eventTicketType EventTicketType? @relation(fields: [eventTicketTypeId], references: [id], onDelete: SetNull)
   attendeeId String   @map("attendee_id")
   attendee   User     @relation(fields: [attendeeId], references: [id])
-  ticket     Ticket?
+  tickets    Ticket[]
   payment    Payment?
 
+  @@index([attendeeId, createdAt])
   @@map("bookings")
 }
 
 model Ticket {
   id              String       @id @default(uuid())
   referenceNumber String       @unique @map("reference_number")
+  qrPayload       String       @unique @map("qr_payload")
   type            TypeOfTickets @default(FREE) @map("type_of_ticket")
   status          TicketStatus @default(ACTIVE)
   issuedAt        DateTime     @default(now()) @map("issued_at")
+  checkedInAt     DateTime?    @map("checked_in_at")
 
   // Relations
-  bookingId String  @unique @map("booking_id")
+  bookingId String  @map("booking_id")
   booking   Booking @relation(fields: [bookingId], references: [id])
   eventId   String  @map("event_id")
   event     Event   @relation(fields: [eventId], references: [id])
   holderId  String  @map("holder_id")
   holder    User    @relation(fields: [holderId], references: [id])
 
+  @@index([bookingId])
   @@map("tickets")
 }
 
@@ -346,6 +364,8 @@ model VendorProfile {
   id                       String   @id @default(uuid())
   userId                   String   @unique @map("user_id")
   businessName             String   @default("") @map("business_name")
+  businessType             String   @default("") @map("business_type")
+  businessAddress          String   @default("") @map("business_address")
   businessDescription      String   @default("") @map("business_description")
   businessRegistrationNumber String  @default("") @map("business_registration_number")
   contactPerson            String   @default("") @map("contact_person")
@@ -371,11 +391,16 @@ model VendorDocument {
   storageName  String   @unique @map("storage_name")
   originalName String   @map("original_name")
   sizeBytes    Int      @map("size_bytes")
+  status       VendorDocumentStatus @default(PENDING_REVIEW)
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewedById String? @map("reviewed_by_id")
+  rejectionReason String? @map("rejection_reason")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor     User  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VendorDocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
-  @@index([vendorId])
+  @@index([vendorId, status])
   @@map("vendor_documents")
 }
 

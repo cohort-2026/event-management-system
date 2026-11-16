@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import type { UserRole } from "@/types/user";
 
 const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
@@ -17,9 +17,10 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Events", to: "/events" },
     { label: "Admin", to: "/admin" },
     { label: "User management", to: "/admin/users" },
+    { label: "Approved profiles", to: "/admin/user-accounts" },
+    { label: "Admin accounts", to: "/admin/accounts" },
+    { label: "Audit history", to: "/admin/audit" },
   ],
-  PLATFORM_ADMIN: [{ label: "Settings", to: "/platform-admin/settings" }],
-  MANAGEMENT: [{ label: "Reports", to: "/management/reports" }],
 };
 
 const publicLinks = [

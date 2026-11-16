@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
@@ -116,7 +116,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                   ) : (
                     <NavLink
                       to={item.to}
-                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events' || item.to === '/management/reports' || item.to === '/platform-admin' || item.to === '/platform-admin/settings'}
+                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events'}
                       onClick={navigation?.closeMobile}
                       title={collapsed && !mobileOpen ? item.label : undefined}
                       className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}

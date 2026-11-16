@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { register } from '@/services/authService';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import type { UserRole } from '@/types/user';
+import type { RegistrationRole } from '@/types/user';
 import axios from 'axios';
 
 interface FieldErrors {
@@ -14,8 +14,6 @@ interface FieldErrors {
   confirmPassword?: string;
   role?: string;
 }
-
-type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
 
 const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Browse and register for events' },
@@ -40,7 +38,7 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: '' as UserRole | '',
+    role: '' as RegistrationRole | '',
   });
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
@@ -105,7 +103,7 @@ export default function Register() {
         lastname: form.lastname,
         email: form.email,
         password: form.password,
-        role: form.role as UserRole,
+        role,
       });
       navigate('/verify-email', { replace: true, state: { email: form.email } });
     } catch (err) {

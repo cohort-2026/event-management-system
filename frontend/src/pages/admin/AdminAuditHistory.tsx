@@ -3,9 +3,9 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Spinner from '@/components/ui/Spinner';
-import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/platformAdminService';
+import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
 
-export default function PlatformAuditHistory() {
+export default function AdminAuditHistory() {
   const [events, setEvents] = useState<AdminAuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,13 +22,17 @@ export default function PlatformAuditHistory() {
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row gap-8">
-        <DashboardSidebar title="Platform Admin" subtitle="Administration" items={[
-          { label: 'Dashboard', to: '/platform-admin', icon: <span aria-hidden="true">⌂</span> },
-          { label: 'Register admins', to: '/platform-admin/admins', icon: <span aria-hidden="true">♙</span> },
-          { label: 'Audit history', to: '/platform-admin/audit', icon: <span aria-hidden="true">≡</span> },
+        <DashboardSidebar title="Admin" subtitle="Administration" items={[
+          { label: 'Overview', to: '/admin', icon: <span aria-hidden="true">⌂</span> },
+          { label: 'Administrator accounts', to: '/admin/accounts', icon: <span aria-hidden="true">♙</span> },
+          { label: 'Audit history', to: '/admin/audit', icon: <span aria-hidden="true">≡</span> },
         ]} />
         <section className="flex-1 min-w-0">
-          <DashboardHeader title="Administrative audit history" subtitle="Recent sensitive administrator actions" />
+          <DashboardHeader
+            title="Administrative audit history"
+            subtitle="Recent sensitive administrator actions"
+            breadcrumbs={[{ label: 'Dashboard', to: '/admin' }, { label: 'Audit history' }]}
+          />
           <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-10 flex justify-center"><Spinner /></div>

@@ -4,7 +4,7 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getEventById } from '@/services/eventService';
 import type { Event } from '@/types/event';
 
