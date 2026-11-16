@@ -817,11 +817,9 @@ export default function OrganizerDashboard() {
                     className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
                 </label>
-                <Link to="/organizer/events/new" className="shrink-0">
-                  <Button size="sm">
-                    <PlusIcon />
-                    Create event
-                  </Button>
+                <Link to="/organizer/events/new" className="organizer-create-button inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm">
+                  <PlusIcon />
+                  Create event
                 </Link>
               </div>
 
