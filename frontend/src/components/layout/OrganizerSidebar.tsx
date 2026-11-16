@@ -73,7 +73,7 @@ export default function OrganizerSidebar() {
                 <span className="block truncate text-[11px] text-neutral-500">{user?.organizationName || 'Organizer'}</span>
               </span>
             </Link>
-            <button type="button" onClick={() => void handleLogout()} className="organizer-nav-link w-full rounded-lg px-2 py-1 text-xs text-neutral-700 transition-colors" title="Logout">
+            <button type="button" onClick={() => void handleLogout()} className="organizer-nav-link organizer-logout w-full rounded-lg px-2 py-1 text-xs transition-colors" title="Logout">
               Logout
             </button>
           </div>
