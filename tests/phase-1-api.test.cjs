@@ -24,9 +24,12 @@ if (!testDatabaseUrl) {
 
   const { PrismaClient, Role, ProfileApprovalStatus, VendorProfileStatus } = require(path.join(backend, 'node_modules', '@prisma', 'client'));
   const bcrypt = require(path.join(backend, 'node_modules', 'bcryptjs'));
+  const { loginLimiter, registrationLimiter } = require(path.join(backend, 'dist', 'middleware', 'rateLimiter.js'));
   const emailService = require(path.join(backend, 'dist', 'services', 'emailService.js'));
   const verificationCodes = new Map();
-  emailService.sendVerificationCode = async (email, code) => verificationCodes.set(email, code);
+  emailService.sendVerificationCode = async (email, code) => {
+    verificationCodes.set(email.toLowerCase(), code);
+  };
   emailService.sendEventChangeNotification = async () => {};
   emailService.sendEventCancellationNotification = async () => {};
   emailService.sendVendorApplicationSubmitted = async () => {};
@@ -51,6 +54,9 @@ if (!testDatabaseUrl) {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
+    const routePath = new URL(url, apiBase).pathname;
+    if (routePath === '/api/auth/register') registrationLimiter.resetKey('127.0.0.1');
+    if (routePath === '/api/auth/login') loginLimiter.resetKey('127.0.0.1');
     const text = await response.text();
     return {
       response,
@@ -60,14 +66,14 @@ if (!testDatabaseUrl) {
   }
 
   async function registerAndLogin(role, key) {
-    const email = `phase1-${key}-${unique}@example.test`;
+    const email = `phase1-${key}-${unique}@example.test`.toLowerCase();
     const registration = await request('/api/auth/register', {
       method: 'POST',
       body: { firstname: key, lastname: 'Test', email, password, role },
     });
     assert.equal(registration.response.status, 201, `${role} registration`);
 
-    const code = verificationCodes.get(email);
+    const code = verificationCodes.get(email.toLowerCase());
     assert.ok(code, `${role} verification code was captured by the test mail stub`);
     const verification = await request('/api/auth/verify-email', {
       method: 'POST',
@@ -510,7 +516,7 @@ if (!testDatabaseUrl) {
       body: { eventId, ticketTypeId, quantity: 1 },
     })).response.status, 404, 'attendees cannot book cancelled events');
 
-    const freeEventInput = eventInput('Phase 1 Free Booking Event');
+    const freeEventInput = eventInput(`Phase 1 Free Booking Event ${unique}`);
     freeEventInput.vendorStandsAvailable = 2;
     freeEventInput.vendorStandRatePerSqm = 50;
     const freeEvent = await request('/api/events', {
@@ -560,7 +566,7 @@ if (!testDatabaseUrl) {
     assert.equal((await prisma.ticket.findUnique({ where: { id: managedHistoryTicketId } })).status, 'CANCELLED',
       'account deactivation preserves ticket and booking history');
 
-    const browsableVendorEvents = await request('/api/vendors/events?search=Free%20Booking&location=Test%20Hall&page=1&limit=5', {
+    const browsableVendorEvents = await request(`/api/vendors/events?search=${encodeURIComponent(unique)}&location=Test%20Hall&page=1&limit=5`, {
       cookie: accounts.vendor.cookie,
     });
     assert.equal(browsableVendorEvents.response.status, 200);
@@ -714,18 +720,17 @@ if (!testDatabaseUrl) {
     })).response.status, 404, 'organizers cannot view another organizer event bookings');
 
     const vendor = await prisma.user.findUnique({ where: { email: accounts.vendor.email } });
-    await prisma.vendorApplication.create({
-      data: {
-        companyName: 'Phase 1 Vendor',
-        registrationNumber: '2026/123456/07',
-        description: 'Vendor application for event access testing.',
-        requestedStandType: 'Food',
-        requestedStandSize: 'Small',
-        standDescription: 'One demonstration stand.',
+    const additionalVendorApplication = await request('/api/vendors/applications', {
+      method: 'POST',
+      cookie: accounts.otherVendor.cookie,
+      body: {
         eventId: bookableEventId,
-        vendorId: vendor.id,
+        requestedStandType: 'Food',
+        requestedStandSize: '3m x 3m',
+        standDescription: 'A second demonstration stand.',
       },
     });
+    assert.equal(additionalVendorApplication.response.status, 201);
     const organizerApplications = await request(`/api/events/${bookableEventId}/vendors?page=1&limit=1`, {
       cookie: accounts.organizer.cookie,
     });
@@ -772,7 +777,7 @@ if (!testDatabaseUrl) {
       data: { status: 'PUBLISHED' },
     });
 
-    const onlineInput = eventInput('Private Meeting Link Event');
+    const onlineInput = eventInput(`Private Meeting Link Event ${unique}`);
     onlineInput.eventType = 'ONLINE';
     onlineInput.venue = 'Online';
     onlineInput.meetingDetails = 'https://meeting.example.test/secret-room';
@@ -793,7 +798,7 @@ if (!testDatabaseUrl) {
 
     const startDate = new Date(onlinePublicEvent.data.data.startTime).toISOString().slice(0, 10);
     const filteredEvents = await request(
-      `/api/events?search=Private%20Meeting&category=Workshop&location=Online&startDate=${startDate}&endDate=${startDate}&page=1&limit=1`,
+      `/api/events?search=${encodeURIComponent(unique)}&category=Workshop&location=Online&startDate=${startDate}&endDate=${startDate}&page=1&limit=1`,
     );
     assert.equal(filteredEvents.response.status, 200);
     assert.equal(filteredEvents.data.data.length, 1);
@@ -1120,10 +1125,14 @@ if (!testDatabaseUrl) {
     })).response.status, 200, 'repeated failed payment returns the existing result');
     assert.equal((await prisma.ticket.count({ where: { bookingId: failedBooking.data.data.id } })), 0);
     const failedBookingTestTicket = await createSyntheticTicketForBooking(failedBooking.data.data.id);
-    assert.equal((await request(`/api/tickets/${failedBookingTestTicket.id}/checkin`, {
-      method: 'PATCH',
-      cookie: accounts.organizer.cookie,
-    })).response.status, 409, 'tickets attached to failed payments cannot be checked in');
+    try {
+      assert.equal((await request(`/api/tickets/${failedBookingTestTicket.id}/checkin`, {
+        method: 'PATCH',
+        cookie: accounts.organizer.cookie,
+      })).response.status, 409, 'tickets attached to failed payments cannot be checked in');
+    } finally {
+      await prisma.ticket.delete({ where: { id: failedBookingTestTicket.id } });
+    }
 
     const unconfirmedBooking = await request('/api/bookings', {
       method: 'POST',
@@ -1132,10 +1141,14 @@ if (!testDatabaseUrl) {
     });
     assert.equal(unconfirmedBooking.response.status, 201);
     const unconfirmedBookingTestTicket = await createSyntheticTicketForBooking(unconfirmedBooking.data.data.id);
-    assert.equal((await request(`/api/tickets/${unconfirmedBookingTestTicket.id}/checkin`, {
-      method: 'PATCH',
-      cookie: accounts.organizer.cookie,
-    })).response.status, 409, 'tickets attached to unconfirmed bookings cannot be checked in');
+    try {
+      assert.equal((await request(`/api/tickets/${unconfirmedBookingTestTicket.id}/checkin`, {
+        method: 'PATCH',
+        cookie: accounts.organizer.cookie,
+      })).response.status, 409, 'tickets attached to unconfirmed bookings cannot be checked in');
+    } finally {
+      await prisma.ticket.delete({ where: { id: unconfirmedBookingTestTicket.id } });
+    }
 
     const paidCheckInInput = eventInput('Phase 1 Paid Ticket Check-in Event');
     paidCheckInInput.ticketTypes[0].price = 10;
