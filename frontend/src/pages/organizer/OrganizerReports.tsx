@@ -9,43 +9,63 @@ import { getEventRegistrations, getMyEvents, type EventRegistration } from '@/se
 import type { Event, EventStatus } from '@/types/event';
 
 const statuses: Array<{ status: EventStatus; label: string; color: string }> = [
-  { status: 'PUBLISHED', label: 'Published', color: '#10b981' },
-  { status: 'DRAFT', label: 'Draft', color: '#f59e0b' },
-  { status: 'COMPLETED', label: 'Completed', color: '#3b82f6' },
-  { status: 'CANCELLED', label: 'Cancelled', color: '#e11d48' },
+  { status: 'PUBLISHED', label: 'Published', color: '#a3cc85' },
+  { status: 'DRAFT', label: 'Draft', color: '#8faadb' },
+  { status: 'COMPLETED', label: 'Completed', color: '#fbe165' },
+  { status: 'CANCELLED', label: 'Cancelled', color: '#ffbd00' },
 ];
 
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
+const formatPercent = (percent: number) => {
+  if (percent > 0 && percent < 0.1) return '<0.1%';
+  if (percent > 99.9 && percent < 100) return '>99.9%';
+  return `${Number(percent.toFixed(1))}%`;
+};
 
 function StatusChart({ events }: { events: Event[] }) {
-  const counts = statuses.map(item => ({ ...item, count: events.filter(event => event.status === item.status).length }));
-  const segments = counts.filter(item => item.count > 0).reduce<{ parts: string[]; accumulated: number }>((result, item) => {
-    const start = result.accumulated / events.length * 100;
-    const accumulated = result.accumulated + item.count;
-    return { parts: [...result.parts, `${item.color} ${start}% ${accumulated / events.length * 100}%`], accumulated };
-  }, { parts: [], accumulated: 0 }).parts;
+  const counts = statuses.map(item => {
+    const count = events.filter(event => event.status === item.status).length;
+    const percent = events.length ? count / events.length * 100 : 0;
+    return { ...item, count, percent, angle: percent * 3.6 };
+  });
+  const slices = counts.filter(item => item.count > 0).reduce<Array<(typeof counts)[number] & { start: number }>>((result, item) => {
+    const previous = result[result.length - 1];
+    return [...result, { ...item, start: previous ? previous.start + previous.angle : 0 }];
+  }, []);
+  const segments = slices.map(item => `${item.color} ${item.start}deg ${item.start + item.angle}deg`);
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-status">
       <h2 id="report-status" className="font-bold text-neutral-900">Event status</h2>
-      <p className="mt-1 text-sm text-neutral-500">All events by their current status.</p>
+      <p className="mt-1 text-sm text-neutral-500">All events by their current status. Total: {events.length}.</p>
       {events.length === 0 ? <p className="mt-6 text-sm text-neutral-500">No events to report yet.</p> : (
         <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row">
-          <div
-            aria-hidden="true"
-            className="flex h-40 w-40 shrink-0 items-center justify-center rounded-full"
-            style={{ background: `conic-gradient(${segments.join(', ')})` }}
-          >
-            <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white">
-              <span className="text-2xl font-bold text-neutral-900">{events.length}</span>
-              <span className="text-xs text-neutral-500">events</span>
-            </div>
+          <div aria-hidden="true" className="relative h-[116px] w-48 shrink-0">
+            <div
+              className="absolute left-0 top-0 h-48 w-48 rounded-full"
+              style={{ background: `conic-gradient(${segments.join(', ')})`, transform: 'translateY(20px) scaleY(0.5)', transformOrigin: 'top', filter: 'brightness(0.6)' }}
+            />
+            <div
+              className="absolute left-0 top-0 h-48 w-48 rounded-full"
+              style={{ background: `conic-gradient(${segments.join(', ')})`, transform: 'scaleY(0.5)', transformOrigin: 'top' }}
+            />
+            <svg viewBox="0 0 192 116" className="absolute inset-0 h-full w-full">
+              {slices.filter(item => item.angle >= 36).map(item => {
+                const radians = (item.start + item.angle / 2) * Math.PI / 180;
+                const radius = slices.length === 1 ? 0 : 62;
+                return (
+                  <text key={item.status} x={96 + radius * Math.sin(radians)} y={48 - radius / 2 * Math.cos(radians)} textAnchor="middle" dominantBaseline="middle" fill="#171717" className="text-xs font-bold">
+                    {formatPercent(item.percent)}
+                  </text>
+                );
+              })}
+            </svg>
           </div>
           <ul className="w-full space-y-3">
             {counts.map(item => (
               <li key={item.status} className="flex items-center justify-between gap-3 text-sm text-neutral-700">
                 <span className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />{item.label}</span>
-                <span className="font-bold">{item.count}</span>
+                <span className="font-bold">{item.count} <span className="font-normal">({formatPercent(item.percent)})</span></span>
               </li>
             ))}
           </ul>
@@ -60,22 +80,52 @@ function CategoryChart({ events }: { events: Event[] }) {
   for (const event of events) counts.set(event.category, (counts.get(event.category) ?? 0) + 1);
   const categories = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const maximum = Math.max(1, ...categories.map(([, count]) => count));
+  const step = Math.max(1, Math.ceil(maximum / 4));
+  const tickCount = Math.ceil(maximum / step);
+  const scaleMaximum = tickCount * step;
+  const axisWidth = Math.max(40, String(scaleMaximum).length * 9 + 8);
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
+  const barColors = ['#80a6d7', '#baa2ee', '#f47d82', '#e6cc54'];
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-categories">
+    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-categories">
       <h2 id="report-categories" className="font-bold text-neutral-900">Events by category</h2>
       <p className="mt-1 text-sm text-neutral-500">Number of events in each category.</p>
       {categories.length === 0 ? <p className="mt-6 text-sm text-neutral-500">No events to report yet.</p> : (
-        <ul className="mt-6 space-y-4">
-          {categories.map(([category, count]) => (
-            <li key={category}>
-              <div className="mb-1 flex justify-between gap-3 text-sm text-neutral-700"><span className="break-words">{category}</span><span className="font-bold">{count}</span></div>
-              <div aria-hidden="true" className="h-3 overflow-hidden rounded-full bg-neutral-100">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#8b20b3] to-[#bb287b]" style={{ width: `${count / maximum * 100}%` }} />
+        <div className="mt-6 overflow-x-auto">
+          <div style={{ minWidth: `${Math.max(300, categories.length * 80 + axisWidth)}px` }}>
+            <p className="mb-5 text-xs font-semibold text-neutral-700">Number of events</p>
+            <div className="flex">
+              <div aria-hidden="true" className="relative h-48 shrink-0" style={{ width: axisWidth }}>
+                {ticks.map(tick => (
+                  <span key={tick} className="absolute right-2 translate-y-1/2 text-xs text-neutral-500" style={{ bottom: `${tick / scaleMaximum * 100}%` }}>
+                    {tick}
+                  </span>
+                ))}
               </div>
-            </li>
-          ))}
-        </ul>
+              <div className="relative h-48 flex-1 border-b border-l border-neutral-400">
+                {ticks.filter(tick => tick > 0).map(tick => (
+                  <div key={tick} aria-hidden="true" className="absolute left-0 right-0 border-t border-neutral-200" style={{ bottom: `${tick / scaleMaximum * 100}%` }} />
+                ))}
+                <ul className="relative flex h-full" aria-label="Events by category">
+                  {categories.map(([category, count], index) => (
+                    <li key={category} className="relative flex h-full flex-1 items-end justify-center">
+                      <span className="sr-only">{category}: {count} {count === 1 ? 'event' : 'events'}</span>
+                      <span aria-hidden="true" className="absolute mb-1 text-xs font-semibold text-neutral-700" style={{ bottom: `${count / scaleMaximum * 100}%` }}>{count}</span>
+                      <div aria-hidden="true" className="w-12 max-w-[70%]" style={{ height: `${count / scaleMaximum * 100}%`, backgroundColor: barColors[index % barColors.length] }} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div aria-hidden="true" className="flex" style={{ marginLeft: axisWidth }}>
+              {categories.map(([category]) => (
+                <span key={category} className="flex-1 break-words px-1 pt-2 text-center text-xs text-neutral-700">{category}</span>
+              ))}
+            </div>
+            <p className="mt-3 text-center text-xs font-semibold text-neutral-700" style={{ marginLeft: axisWidth }}>Event category</p>
+          </div>
+        </div>
       )}
     </section>
   );
@@ -96,17 +146,46 @@ function BookingChart({ registrations }: { registrations: EventRegistration[] })
     if (month) month.count += 1;
   }
   const maximum = Math.max(1, ...months.map(month => month.count));
-  const points = months.map((month, index) => ({ x: 30 + index * 68, y: 170 - month.count / maximum * 135 }));
+  const step = Math.max(1, Math.ceil(maximum / 4));
+  const tickCount = Math.ceil(maximum / step);
+  const scaleMaximum = tickCount * step;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
+  const left = Math.max(55, String(scaleMaximum).length * 7 + 12);
+  const right = 570;
+  const top = 30;
+  const bottom = 170;
+  const points = months.map((month, index) => ({
+    x: left + index * (right - left) / (months.length - 1),
+    y: bottom - month.count / scaleMaximum * (bottom - top),
+  }));
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-bookings">
+    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-bookings">
       <h2 id="report-bookings" className="font-bold text-neutral-900">Booking trend</h2>
       <p className="mt-1 text-sm text-neutral-500">Currently non-cancelled registrations, grouped by booking month over the last six months.</p>
-      <svg aria-hidden="true" viewBox="0 0 400 190" className="mt-5 h-44 w-full">
-        <line x1="30" y1="170" x2="370" y2="170" stroke="#cbd5e1" />
-        <polyline points={points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="#d43f22" strokeWidth="4" strokeLinejoin="round" />
-        {points.map((point, index) => <circle key={months[index].key} cx={point.x} cy={point.y} r="5" fill="#d43f22" />)}
-      </svg>
+      <div className="mt-5 overflow-x-auto">
+        <svg aria-hidden="true" viewBox="0 0 600 220" className="block w-full min-w-[600px]">
+          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
+          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
+          {ticks.map(tick => {
+            const y = bottom - tick / scaleMaximum * (bottom - top);
+            return (
+              <g key={tick}>
+                <line x1={left - 4} y1={y} x2={left} y2={y} stroke="#a3a3a3" />
+                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
+              </g>
+            );
+          })}
+          {points.map((point, index) => (
+            <g key={months[index].key}>
+              <line x1={point.x} y1={bottom} x2={point.x} y2={bottom + 4} stroke="#a3a3a3" />
+              <text x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{months[index].label}</text>
+            </g>
+          ))}
+          <polyline points={points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="#111111" strokeWidth="3" strokeLinejoin="round" />
+          {points.map((point, index) => <circle key={months[index].key} cx={point.x} cy={point.y} r="5.5" fill="#111111" />)}
+        </svg>
+      </div>
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} bookings</span></li>)}
       </ul>
