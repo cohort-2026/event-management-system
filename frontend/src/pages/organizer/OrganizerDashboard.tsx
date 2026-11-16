@@ -830,10 +830,10 @@ export default function OrganizerDashboard() {
                     type="button"
                     aria-pressed={eventFilter === filter.value}
                     onClick={() => setEventFilter(filter.value)}
-                    className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                    className={`organizer-filter-button shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
                       eventFilter === filter.value
                         ? 'border-rose-600 bg-rose-50 text-rose-700'
-                        : 'border-transparent text-neutral-700 hover:bg-neutral-100'
+                        : 'border-transparent text-neutral-700'
                     }`}
                   >
                     {filter.label}

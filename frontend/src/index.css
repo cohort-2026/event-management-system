@@ -510,6 +510,8 @@ main.organizer-shell {
 .dashboard-content-light .organizer-logout,
 .dashboard-content-light .organizer-nav-link:hover,
 .dashboard-content-light .organizer-nav-link:focus-visible,
+.dashboard-content-light .organizer-filter-button:hover,
+.dashboard-content-light .organizer-filter-button:focus-visible,
 .dashboard-content-light .organizer-profile-link:hover,
 .dashboard-content-light .organizer-profile-link:focus-visible {
   background-color: #09090b !important;
