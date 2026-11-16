@@ -14,7 +14,6 @@ const PERMANENT_PASSWORD_RULES = [
   { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
   { label: 'One number', test: (value: string) => /\d/.test(value) },
   { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
-  { label: 'No more than 72 UTF-8 bytes', test: (value: string) => new TextEncoder().encode(value).length <= 72 },
 ];
 
 export default function ChangePassword() {
@@ -29,8 +28,8 @@ export default function ChangePassword() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
-    if (newPassword.length < 8 || new TextEncoder().encode(newPassword).length > 72) {
-      setError('Your new password must be between 8 and 72 UTF-8 bytes.');
+    if (newPassword.length < 8) {
+      setError('Your new password must be at least 8 characters.');
       return;
     }
     if (user?.mustChangePassword && !PERMANENT_PASSWORD_RULES.every(rule => rule.test(newPassword))) {
@@ -61,10 +60,13 @@ export default function ChangePassword() {
       {user?.mustChangePassword && <div role="status" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">You signed in with a temporary password. Choose your own to continue.</div>}
       {error && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">{error}</p>}
       <form onSubmit={submit} className="space-y-4">
-        <Input label="Current password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} required />
-        <Input label="New password" type="password" autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} required minLength={8} />
-        <Input label="Confirm new password" type="password" autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} required minLength={8} />
-        {user?.mustChangePassword && <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-neutral-600">{PERMANENT_PASSWORD_RULES.map(rule => <li key={rule.label}>{rule.label}</li>)}</ul>}
+        <Input label="Current password" type="password" autoComplete="current-password" showPasswordToggle value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} required />
+        <Input label="New password" type="password" autoComplete="new-password" showPasswordToggle value={newPassword} onChange={event => setNewPassword(event.target.value)} required minLength={8} />
+        {user?.mustChangePassword && <ul aria-live="polite" className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">{PERMANENT_PASSWORD_RULES.map(rule => {
+          const passed = rule.test(newPassword);
+          return <li key={rule.label} className={passed ? 'font-medium text-emerald-700' : 'text-neutral-500'}>{passed ? '✓' : '○'} {rule.label}</li>;
+        })}</ul>}
+        <Input label="Confirm new password" type="password" autoComplete="new-password" showPasswordToggle value={confirmation} onChange={event => setConfirmation(event.target.value)} required minLength={8} />
         <Button type="submit" loading={loading} className="h-10 w-full !bg-neutral-950 !text-white hover:!bg-neutral-800">Update password</Button>
       </form>
     </AuthCard>

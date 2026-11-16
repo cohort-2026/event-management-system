@@ -147,10 +147,7 @@ export default function Login() {
               {errors.email && <p id="login-email-error" role="alert" className="text-xs font-medium text-rose-600">{errors.email}</p>}
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="login-password" className="text-xs font-medium text-neutral-900">Password</Label>
-                <Link to="/forgot-password" className="text-xs font-semibold !text-rose-600 hover:underline">Forgot password?</Link>
-              </div>
+              <Label htmlFor="login-password" className="text-xs font-medium text-neutral-900">Password</Label>
               <div className="relative">
                 <Input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "login-password-error" : undefined} placeholder="Enter your password" className="h-10 border-neutral-300 bg-white pr-11 text-sm focus-visible:border-neutral-500 focus-visible:ring-neutral-900/10" />
                 <button type="button" onClick={() => setShowPassword(visible => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-neutral-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-700">
@@ -158,6 +155,13 @@ export default function Login() {
                 </button>
               </div>
               {errors.password && <p id="login-password-error" role="alert" className="text-xs font-medium text-rose-600">{errors.password}</p>}
+              <div className="flex items-center justify-between gap-3 pt-0.5">
+                <label htmlFor="keep-signed-in" className="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-700">
+                  <input id="keep-signed-in" type="checkbox" className="size-3 accent-rose-600" />
+                  Keep me signed in
+                </label>
+                <Link to="/forgot-password" className="text-xs font-semibold !text-rose-600 hover:underline">Forgot password?</Link>
+              </div>
             </div>
             <Button type="submit" size="lg" disabled={loading} className="h-10 w-full !bg-neutral-950 px-4 text-sm font-semibold !text-white shadow-none hover:!bg-neutral-800">
               <span>{loading ? "Signing you in..." : "Sign in"}</span>

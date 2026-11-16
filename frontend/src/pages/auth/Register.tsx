@@ -30,7 +30,6 @@ const PASSWORD_RULES = [
   { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
   { label: 'One number', test: (value: string) => /\d/.test(value) },
   { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
-  { label: 'No more than 72 UTF-8 bytes', test: (value: string) => new TextEncoder().encode(value).length <= 72 },
 ];
 
 export default function Register() {
@@ -166,14 +165,14 @@ export default function Register() {
               <Input label="Last name" autoComplete="family-name" maxLength={80} required value={form.lastname} onChange={set('lastname')} error={errors.lastname} placeholder="e.g. Khoza" />
             </div>
             <Input label="Email" type="email" autoComplete="email" maxLength={254} required value={form.email} onChange={set('email')} error={errors.email} placeholder="you@example.com" />
-            <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle maxLength={72} required value={form.password} onChange={handlePasswordChange} error={errors.password} placeholder="Create a password" />
+            <Input label="Password" type="password" autoComplete="new-password" showPasswordToggle required value={form.password} onChange={handlePasswordChange} error={errors.password} placeholder="Create a password" />
             <div className="-mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]" aria-live="polite">
               {PASSWORD_RULES.map(rule => {
                 const passed = rule.test(form.password);
                 return <span key={rule.label} className={passed ? 'font-medium text-emerald-700' : 'text-neutral-500'}>{passed ? '✓' : '○'} {rule.label}</span>;
               })}
             </div>
-            <Input label="Confirm password" type="password" autoComplete="new-password" showPasswordToggle maxLength={72} required value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword} helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
+            <Input label="Confirm password" type="password" autoComplete="new-password" showPasswordToggle required value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword} helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
           </div>
 
           <p className="mt-3 text-xs text-neutral-500">A verification code will be sent to your email.</p>

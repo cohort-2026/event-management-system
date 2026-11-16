@@ -13,7 +13,6 @@ const PASSWORD_RULES = [
   { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
   { label: 'One number', test: (value: string) => /\d/.test(value) },
   { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
-  { label: 'No more than 72 UTF-8 bytes', test: (value: string) => new TextEncoder().encode(value).length <= 72 },
 ];
 
 export default function SetupPassword() {
