@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
-import UserManagementNav from '@/components/admin/UserManagementNav';
 import {
   approveOrganizerProfile,
   deleteOrganizerAccount,
@@ -117,9 +115,8 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="grid grid-cols-1">
-        {profileStatus !== 'APPROVED' && <UserManagementNav />}
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
         {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
@@ -301,6 +298,6 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
           </div>
         </div>
       </Modal>
-    </PageWrapper>
+    </>
   );
 }

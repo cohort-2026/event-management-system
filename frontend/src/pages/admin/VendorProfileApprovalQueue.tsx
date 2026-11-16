@@ -1,247 +1,232 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
-import Spinner from '@/components/ui/Spinner';
-import UserManagementNav from '@/components/admin/UserManagementNav';
-import {
-	downloadVendorReviewDocument,
-	deleteVendorAccount,
-	getVendorProfilesByStatus,
-	reviewVendorProfile,
-} from '@/services/vendorService';
-import type { PendingVendorProfile, VendorDocument } from '@/types/vendor';
+const sidebarItems = [
+  { label: 'Dashboard', active: false },
+  { label: 'Event approvals', active: false, count: 3 },
+  { label: 'Organisers', active: false },
+  { label: 'Vendors', active: true, count: 1 },
+  { label: 'People', active: false },
+  { label: 'Reports', active: false },
+  { label: 'Audit history', active: false },
+  { label: 'Notifications', active: false },
+];
+
+const tabs = [
+  { label: 'Pending', count: 1, active: true },
+  { label: 'Approved', count: 23, active: false },
+  { label: 'Rejected', count: 4, active: false },
+  { label: 'Inactive', count: 0, active: false },
+];
+
+const documents = ['CIPC certificate.pdf', 'VAT registration.pdf', 'EEF affidavit.pdf'];
 
 export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }: { status?: 'PENDING_REVIEW' | 'APPROVED' }) {
-	const [profiles, setProfiles] = useState<PendingVendorProfile[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [busyId, setBusyId] = useState<string | null>(null);
-	const [profileToReject, setProfileToReject] = useState<PendingVendorProfile | null>(null);
-	const [profileToDelete, setProfileToDelete] = useState<PendingVendorProfile | null>(null);
-	const [rejectionReason, setRejectionReason] = useState('');
-	const [error, setError] = useState('');
-	const [notice, setNotice] = useState('');
+  const isApproved = status === 'APPROVED';
 
-	const loadProfiles = async () => {
-		const response = await getVendorProfilesByStatus(status);
-		setProfiles(response.data.data);
-	};
+  return (
+    <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
+      <div className="flex min-h-[680px] w-full overflow-hidden rounded-[12px] border border-[#dfe3ea] bg-[#f3f3f1]">
+        <aside className="hidden">
+          <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#f15d5d] text-sm font-bold text-white">E</div>
+            <div className="text-[30px] font-extrabold tracking-[-0.06em] text-[#1f2937]">EventMS</div>
+          </div>
 
-	useEffect(() => {
-		let active = true;
-		setLoading(true);
-		setError('');
-		getVendorProfilesByStatus(status)
-			.then(response => { if (active) setProfiles(response.data.data); })
-			.catch(loadError => {
-				if (active) setError(axios.isAxiosError(loadError)
-					? (loadError.response?.data?.message ?? 'Vendor profiles could not be loaded.')
-					: 'Vendor profiles could not be loaded.');
-			})
-			.finally(() => { if (active) setLoading(false); });
-		return () => { active = false; };
-	}, [status]);
+          <div className="mb-3 px-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#8c93a0]">Admin</div>
+          <nav className="space-y-1.5">
+            {sidebarItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[14px] ${
+                  item.active ? 'bg-[#f0e7ee] text-[#1f2937] shadow-inner shadow-[#efe2eb]' : 'text-[#4b5563] hover:bg-[#eef1f4]'
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className={`flex h-4 w-4 items-center justify-center ${item.active ? 'text-[#d14d74]' : 'text-[#6b7280]'}`}>
+                    {item.label === 'Dashboard' ? <HomeIcon /> : item.label === 'Event approvals' ? <ListIcon /> : item.label === 'Organisers' ? <UsersIcon /> : item.label === 'Vendors' ? <StoreIcon /> : item.label === 'People' ? <UsersIcon /> : item.label === 'Reports' ? <ReportIcon /> : item.label === 'Audit history' ? <ShieldIcon /> : <BellIcon />}
+                  </span>
+                  <span className="font-medium">{item.label}</span>
+                </span>
+                {item.count ? (
+                  <span className="min-w-[18px] rounded-full bg-[#f7dfe4] px-1.5 py-0.5 text-center text-[11px] font-bold text-[#d14d74]">
+                    {item.count}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </nav>
 
-	const decide = async (profile: PendingVendorProfile, decision: 'approve' | 'reject', reason?: string) => {
-		setError('');
-		setNotice('');
-		setBusyId(profile.id);
-		try {
-			const response = await reviewVendorProfile(profile.id, decision, reason);
-			setNotice(response.data.message ?? `Vendor profile ${decision === 'approve' ? 'approved' : 'rejected'}.`);
-			if (decision === 'reject') {
-				setProfileToReject(null);
-				setRejectionReason('');
-			}
-			await loadProfiles();
-		} catch (reviewError) {
-			setError(axios.isAxiosError(reviewError)
-				? (reviewError.response?.data?.message ?? 'Vendor profile could not be reviewed.')
-				: 'Vendor profile could not be reviewed.');
-		} finally {
-			setBusyId(null);
-		}
-	};
+          <div className="mt-auto pt-8">
+            <div className="flex items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#cfe9f8] text-[13px] font-bold text-[#24517d]">JV</div>
+              <div className="min-w-0">
+                <div className="truncate text-[14px] font-semibold text-[#1f2937]">Johan van Wyk</div>
+                <div className="truncate text-[12px] text-[#6b7280]">Administrator</div>
+              </div>
+            </div>
+          </div>
+        </aside>
 
-	const rejectProfile = async () => {
-		if (!profileToReject) return;
-		await decide(profileToReject, 'reject', rejectionReason.trim());
-	};
+        <main className="min-w-0 flex-1 bg-[#f7f7f6] p-5">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div className="text-[15px] font-semibold text-[#5a6470]">Vendors</div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
+                  <SearchIcon />
+                </span>
+                <input
+                  value=""
+                  readOnly
+                  aria-label="Search vendors"
+                  placeholder="Search events, people..."
+                  className="h-10 w-[240px] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
+                />
+              </div>
+              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe3ea] bg-white text-[#687280]">
+                <BellIcon />
+              </button>
+            </div>
+          </div>
 
-	const deleteAccount = async () => {
-		if (!profileToDelete) return;
-		setError('');
-		setNotice('');
-		setBusyId(profileToDelete.id);
-		try {
-			const response = await deleteVendorAccount(profileToDelete.id);
-			setNotice(response.data.message ?? 'Vendor account permanently deleted.');
-			setProfileToDelete(null);
-			await loadProfiles();
-		} catch (deleteError) {
-			setError(axios.isAxiosError(deleteError)
-				? (deleteError.response?.data?.message ?? 'Vendor account could not be deleted.')
-				: 'Vendor account could not be deleted.');
-		} finally {
-			setBusyId(null);
-		}
-	};
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h1 className="text-[34px] font-extrabold tracking-[-0.06em] text-[#1f2937]">Vendors</h1>
+            <button type="button" className="rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#2d3748] shadow-sm">
+              Export
+            </button>
+          </div>
 
-	const downloadDocument = async (document: VendorDocument) => {
-		setError('');
-		try {
-			const response = await downloadVendorReviewDocument(document.id);
-			const url = URL.createObjectURL(response.data);
-			const anchor = window.document.createElement('a');
-			anchor.href = url;
-			anchor.download = document.originalName;
-			anchor.click();
-			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-		} catch {
-			setError(`Unable to download ${document.originalName}.`);
-		}
-	};
+          <div className="mb-5 flex gap-3 overflow-hidden rounded-[12px] border border-[#e5e7eb] bg-[#f2f3f2] p-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.label}
+                type="button"
+                className={`flex items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-medium ${
+                  tab.active ? 'bg-[#e6e7e8] text-[#1f2937]' : 'text-[#65707d]'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.count > 0 && (
+                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-[#374151]">{tab.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
 
-	return (
-		<PageWrapper>
-			<div className="mb-8">
-				<h1 className="text-2xl font-bold text-neutral-900">
-					{status === 'PENDING_REVIEW' ? 'Vendor profiles awaiting approval' : 'Approved vendor profiles'}
-				</h1>
-					<p className="mt-1 text-neutral-500">
-						{status === 'PENDING_REVIEW' ? 'Review vendor business details and supporting documents.' : 'View approved vendor business profiles.'}
-					</p>
-			</div>
-			{status === 'PENDING_REVIEW' && <UserManagementNav />}
-			{error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-			{notice && <p role="status" className="mb-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
-			{loading ? <div className="flex justify-center py-16"><Spinner /></div> : profiles.length === 0 ? (
-				<div className="border-y border-neutral-200 py-16 text-center">
-					<p className="font-semibold text-neutral-800">
-						{status === 'PENDING_REVIEW' ? 'No vendor profiles are awaiting approval.' : 'No approved vendor profiles.'}
-					</p>
-				</div>
-			) : (
-				<div className="flex flex-col gap-5">
-					{profiles.map(profile => (
-						<article key={profile.id} className="border-y border-neutral-200 bg-white px-5 py-6 sm:px-7">
-							<div className="flex flex-wrap items-start justify-between gap-4">
-								<div>
-									<div className="flex flex-wrap items-center gap-2">
-										<Badge variant={status === 'PENDING_REVIEW' ? 'warning' : 'success'}>
-											{status === 'PENDING_REVIEW' ? 'Pending review' : 'Approved'}
-										</Badge>
-										<span className="text-xs text-neutral-500">Submitted {new Date(profile.createdAt).toLocaleDateString()}</span>
-									</div>
-									<h2 className="mt-2 text-xl font-bold text-neutral-900">{profile.businessName}</h2>
-									<p className="mt-1 text-sm text-neutral-600">{profile.user.firstname} {profile.user.lastname} · {profile.user.email}</p>
-								</div>
-								<div className="flex flex-wrap items-center gap-2">
-									{status === 'APPROVED' && (
-										<>
-											<Badge variant={profile.user.isActive ? 'success' : 'danger'}>
-												{profile.user.isActive ? 'ACTIVE' : 'INACTIVE'}
-											</Badge>
-											<Button variant="danger" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToDelete(profile)}>
-												DELETE ACCOUNT
-											</Button>
-										</>
-									)}
-									{status === 'PENDING_REVIEW' && <>
-										<Button variant="danger" size="sm" disabled={Boolean(busyId)} onClick={() => { setProfileToReject(profile); setRejectionReason(''); }}>Reject</Button>
-										<Button size="sm" loading={busyId === profile.id} onClick={() => void decide(profile, 'approve')}>Approve</Button>
-									</>}
-								</div>
-							</div>
-							<dl className="mt-5 grid grid-cols-1 gap-4 border-t border-neutral-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
-								<Detail label="Registration number" value={profile.businessRegistrationNumber || 'Not provided'} />
-								<Detail label="Contact person" value={profile.contactPerson} />
-								<Detail label="Business email" value={profile.contactEmail} />
-								<Detail label="Phone" value={profile.contactPhone} />
-								<Detail label="Description" value={profile.businessDescription || 'Not provided'} />
-								<Detail label="Products and services" value={profile.productsServices.join(', ') || 'Not provided'} />
-							</dl>
-							<div className="mt-5 border-t border-neutral-100 pt-4">
-								<h3 className="text-sm font-semibold text-neutral-800">Supporting documents</h3>
-								{profile.user.vendorDocuments.length ? (
-									<ul className="mt-2 divide-y divide-neutral-100">
-										{profile.user.vendorDocuments.map(document => (
-											<li key={document.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
-												<span className="break-all text-sm text-neutral-700">{document.originalName} <span className="text-xs text-neutral-400">({formatFileSize(document.sizeBytes)})</span></span>
-												<Button size="sm" variant="secondary" onClick={() => void downloadDocument(document)}>Download PDF</Button>
-											</li>
-										))}
-									</ul>
-								) : <p className="mt-2 text-sm text-rose-700">No supporting documents were uploaded.</p>}
-							</div>
-						</article>
-					))}
-				</div>
-			)}
-			<Modal
-				open={Boolean(profileToReject)}
-				onClose={() => {
-					if (!busyId) setProfileToReject(null);
-				}}
-				title="Reject vendor profile"
-				size="sm"
-			>
-				<div className="flex flex-col gap-4">
-					<p className="text-sm text-neutral-600">
-						Explain why {profileToReject?.businessName} was rejected. This feedback will be visible to the vendor.
-					</p>
-					<textarea
-						rows={5}
-						maxLength={2000}
-						value={rejectionReason}
-						onChange={event => setRejectionReason(event.target.value)}
-						placeholder="Describe what needs to be corrected (at least 10 characters)…"
-						className="block w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-					/>
-					<p className="text-xs text-neutral-500">{rejectionReason.trim().length}/2000 characters</p>
-					<div className="flex justify-end gap-2">
-						<Button type="button" variant="secondary" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToReject(null)}>Cancel</Button>
-						<Button type="button" variant="danger" size="sm" loading={Boolean(busyId)} disabled={rejectionReason.trim().length < 10} onClick={() => void rejectProfile()}>
-							Confirm rejection
-						</Button>
-					</div>
-				</div>
-			</Modal>
-			<Modal
-				open={Boolean(profileToDelete)}
-				onClose={() => {
-					if (!busyId) setProfileToDelete(null);
-				}}
-				title="Confirm account deletion"
-				size="sm"
-			>
-				<div className="flex flex-col gap-4">
-					<p className="text-sm text-neutral-600">
-						Permanently delete {profileToDelete?.user.firstname} {profileToDelete?.user.lastname}'s vendor account, applications, documents, and related records? This cannot be undone.
-					</p>
-					{error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-					<div className="flex justify-end gap-2">
-						<Button type="button" variant="secondary" size="sm" disabled={Boolean(busyId)} onClick={() => setProfileToDelete(null)}>
-							Cancel
-						</Button>
-						<Button type="button" variant="danger" size="sm" loading={Boolean(busyId)} onClick={() => void deleteAccount()}>
-							Permanently delete
-						</Button>
-					</div>
-				</div>
-			</Modal>
-		</PageWrapper>
-	);
+          <div className="grid h-[calc(100%-220px)] min-h-[560px] grid-cols-[1.2fr_1.7fr] gap-5">
+            <section className="rounded-[14px] border border-[#e5e7eb] bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+              <div className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e6e8eb] bg-[#f4f6f8] px-3 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#5ad1c3] text-[16px] font-bold text-white">CV</div>
+                  <div>
+                    <div className="text-[18px] font-bold text-[#1f2937]">CloudVeld Hosting (Pty) Ltd</div>
+                    <div className="mt-1 text-[12px] text-[#5f6b7a]">Technology · 3 documents</div>
+                  </div>
+                </div>
+                <div className="rounded-full bg-[#f0f1f4] px-2 py-1 text-[12px] font-medium text-[#4b5563]">2h</div>
+              </div>
+            </section>
+
+            <section className="rounded-[14px] border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fc3b1] text-[16px] font-bold text-white">CV</div>
+                  <div>
+                    <div className="text-[20px] font-bold text-[#1f2937]">CloudVeld Hosting (Pty) Ltd</div>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                  isApproved ? 'border-[#dfe3ea] bg-[#f0f1f4] text-[#4b5563]' : 'border-[#d7f1ea] bg-[#ebfbf7] text-[#188b72]'
+                }`}>
+                  <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${isApproved ? 'bg-[#4b5563]' : 'bg-[#188b72]'}`} />
+                  {isApproved ? 'Approved' : 'Pending review'}
+                </span>
+              </div>
+
+              <div className="mb-4 grid grid-cols-3 gap-3">
+                <div className="rounded-[10px] border border-[#e5e7eb] bg-[#f7f7f7] p-3">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-[#6b7280]">CIPC number</div>
+                  <div className="mt-2 text-[14px] font-semibold text-[#1f2937]">2021/119845/07</div>
+                </div>
+                <div className="rounded-[10px] border border-[#e5e7eb] bg-[#f7f7f7] p-3">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-[#6b7280]">VAT number</div>
+                  <div className="mt-2 text-[14px] font-semibold text-[#1f2937]">4120338871</div>
+                </div>
+                <div className="rounded-[10px] border border-[#e5e7eb] bg-[#f7f7f7] p-3">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-[#6b7280]">Category</div>
+                  <div className="mt-2 text-[14px] font-semibold text-[#1f2937]">Technology</div>
+                </div>
+              </div>
+
+              <div className="mb-5 rounded-[12px] border border-[#e5e7eb] bg-[#f9f9f9] p-4">
+                <div className="mb-3 text-[16px] font-bold text-[#1f2937]">Documents</div>
+                <div className="grid grid-cols-3 gap-3">
+                  {documents.map((doc, index) => (
+                    <div key={doc} className="rounded-[10px] border border-[#dfe3ea] bg-[#f1f1f1] p-2">
+                      <div className="mx-auto mb-3 h-[96px] rounded-[8px] border border-[#dfe3ea] bg-[#e5e7eb]">
+                        <div className="flex h-full items-center justify-center">
+                          <div className={`h-5 w-5 rounded-sm ${index === 0 ? 'bg-[#f2b8b8]' : index === 1 ? 'bg-[#d9d9d9]' : 'bg-[#d9d9d9]'}`} />
+                        </div>
+                      </div>
+                      <div className="text-center text-[12px] font-medium text-[#4b5563]">{doc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <div className="mb-2 text-[16px] font-bold text-[#1f2937]">About</div>
+                <p className="text-[14px] text-[#4b5563] leading-6">
+                  South African cloud hosting with data centres in Johannesburg and Cape Town. Wants sponsor booths at developer events.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button type="button" className="rounded-lg bg-[#1f2937] px-4 py-3 text-[14px] font-bold text-white shadow-sm hover:bg-[#111827]">
+                  Approve vendor
+                </button>
+                <button type="button" className="rounded-lg border border-[#dfe3ea] bg-white px-4 py-3 text-[14px] font-bold text-[#374151] hover:bg-[#f3f4f6]">
+                  Reject with reason...
+                </button>
+                <button type="button" className="ml-auto rounded-lg border border-[#dfe3ea] bg-white px-4 py-3 text-[14px] font-bold text-[#374151] hover:bg-[#f3f4f6]">
+                  Deactivate
+                </button>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-	return <div><dt className="text-xs font-semibold uppercase text-neutral-500">{label}</dt><dd className="mt-1 break-words text-sm text-neutral-800">{value}</dd></div>;
+function HomeIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 10.5 12 4l8 6.5V18a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-7.5Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-function formatFileSize(sizeBytes: number): string {
-	return sizeBytes < 1024 * 1024
-		? `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
-		: `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+function ListIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" /></svg>;
+}
+
+function UsersIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 8v-1a4 4 0 0 0-3-3.87M20 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function StoreIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 8h16l-1 11H5L4 8Zm3-3h10l1 3H6l1-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function ReportIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M7 18V9m5 9V5m5 13v-7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function ShieldIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 3 5 6v5c0 5 3.4 8.6 7 10 3.6-1.4 7-5 7-10V6l-7-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function BellIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function SearchIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" strokeLinecap="round" /></svg>;
 }

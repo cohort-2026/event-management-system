@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Spinner from '@/components/ui/Spinner';
 import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
 
@@ -20,14 +19,9 @@ export default function AdminAuditHistory() {
   }, []);
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
-        <DashboardSidebar title="Admin" subtitle="Administration" items={[
-          { label: 'Overview', to: '/admin', icon: <span aria-hidden="true">⌂</span> },
-          { label: 'Administrator accounts', to: '/admin/accounts', icon: <span aria-hidden="true">♙</span> },
-          { label: 'Audit history', to: '/admin/audit', icon: <span aria-hidden="true">≡</span> },
-        ]} />
-        <section className="flex-1 min-w-0">
+    <>
+      <div>
+        <section className="min-w-0">
           <DashboardHeader
             title="Administrative audit history"
             subtitle="Recent sensitive administrator actions"
@@ -67,6 +61,6 @@ export default function AdminAuditHistory() {
           </div>
         </section>
       </div>
-    </PageWrapper>
+    </>
   );
 }
