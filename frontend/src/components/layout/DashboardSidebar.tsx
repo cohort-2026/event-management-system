@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
-import OrganizerNotificationsLink from '@/components/layout/OrganizerNotificationsLink';
+import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 
 export interface SidebarItem {
   label: string;
@@ -213,7 +213,29 @@ export function DashboardHeader({
   const analyticsAppearance = appearance === 'analytics';
   const showOrganizerNotifications = user?.role === 'ORGANIZER' &&
     (pathname === '/organizer' || pathname.startsWith('/organizer/'));
-  const hasActions = Boolean(actions) || showOrganizerNotifications;
+  const hasActions = Boolean(actions);
+
+  if (showOrganizerNotifications) {
+    return (
+      <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
+        <OrganizerTopBar title={title} confirmNavigation={confirmNotificationNavigation} disabled={notificationsDisabled} />
+        <div className="px-5 py-4">
+          {showNavigation && breadcrumbs.length > 0 && (
+            <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+              {breadcrumbs.map((crumb, index) => (
+                <span key={crumb.label} className="flex items-center gap-2">
+                  {index > 0 && <span aria-hidden="true">/</span>}
+                  {crumb.to ? <Link to={crumb.to} className="hover:underline">{crumb.label}</Link> : <span>{crumb.label}</span>}
+                </span>
+              ))}
+            </nav>
+          )}
+          <h1 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`gap-4 rounded-2xl border px-5 py-4 shadow-sm mb-6 sm:px-6 ${
@@ -247,7 +269,6 @@ export function DashboardHeader({
       {hasActions && (
         <div className="col-span-2 row-start-2 flex min-w-0 items-center justify-end gap-3 sm:col-span-1 sm:col-start-2 sm:row-start-1">
           {actions}
-          {showOrganizerNotifications && <OrganizerNotificationsLink confirmNavigation={confirmNotificationNavigation} disabled={notificationsDisabled} />}
         </div>
       )}
       <div className={`flex shrink-0 items-center gap-3 border-l border-slate-200 pl-3 ${hasActions ? 'col-start-2 row-start-1 ml-auto sm:col-start-3' : ''}`}>

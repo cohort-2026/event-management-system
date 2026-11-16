@@ -17,7 +17,6 @@ export default function OrganizerSidebar() {
   const navigate = useNavigate();
   const navigation = useDashboardNavigation();
   const mobileOpen = navigation?.mobileOpen ?? false;
-  const compact = Boolean(navigation?.collapsed && !mobileOpen);
   const initials = `${user?.firstname?.[0] ?? ''}${user?.lastname?.[0] ?? ''}`.toUpperCase() || 'OR';
 
   const handleLogout = async () => {
@@ -27,57 +26,58 @@ export default function OrganizerSidebar() {
 
   return (
     <>
+      {navigation && (
+        <button type="button" onClick={navigation.toggle} aria-expanded={mobileOpen} aria-controls="dashboard-sidebar" className="m-3 mb-0 w-fit rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 shadow-sm lg:hidden">
+          Menu
+        </button>
+      )}
       {mobileOpen && <button type="button" aria-label="Close dashboard sidebar" onClick={navigation?.closeMobile} className="fixed inset-0 z-40 bg-black/50 lg:hidden" />}
       <aside
         id="dashboard-sidebar"
-        className={`shrink-0 self-start overflow-hidden rounded-xl border border-[#8b20b3] bg-gradient-to-br from-[#8b20b3] to-[#bb287b] text-white ${
+        className={`shrink-0 self-start overflow-hidden border-r border-neutral-200 bg-white text-neutral-900 ${
           mobileOpen
-            ? 'fixed inset-y-3 left-3 z-50 w-64 overflow-y-auto lg:sticky lg:inset-auto lg:top-4 lg:z-auto'
-            : `relative w-full lg:sticky lg:top-4 ${compact ? 'lg:w-20' : 'lg:w-60'}`
+            ? 'fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto shadow-xl lg:sticky lg:inset-auto lg:top-0 lg:z-auto'
+            : 'hidden lg:sticky lg:top-0 lg:block lg:w-60'
         }`}
       >
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-20 -top-20 h-52 w-52 rounded-full border-[18px] border-white/10" />
-          <div className="absolute -bottom-12 -right-12 h-32 w-32 rounded-full bg-white/10" />
-        </div>
-        <div className={`relative flex flex-col lg:min-h-[min(42rem,calc(100dvh-2rem))] ${mobileOpen ? 'min-h-full' : ''}`}>
-          <div className={`flex items-center py-5 ${compact ? 'justify-center px-2' : 'gap-2.5 px-5'}`}>
+        <div className={`relative flex flex-col lg:min-h-screen ${mobileOpen ? 'min-h-full' : ''}`}>
+          <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-600 to-orange-500 text-white">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 3v4m10-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1z" />
               </svg>
             </span>
-            {!compact && <span className="text-base font-bold text-white">EventMS</span>}
+            <span className="text-base font-bold text-neutral-900">EventMS</span>
           </div>
           <nav aria-label="Organizer navigation" className="flex-1 px-3">
-            {!compact && <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-wide text-white">Organizer</p>}
+            <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-wide text-neutral-500">Organizer</p>
             <div className="space-y-1">
               {items.map(item => {
                 const active = item.to === '/organizer/events'
                   ? pathname === item.to || (pathname.startsWith(`${item.to}/`) && pathname !== '/organizer/events/new')
                   : pathname === item.to;
-                const classes = `flex w-full items-center gap-3 rounded-lg py-2.5 text-left text-sm transition-colors ${compact ? 'justify-center px-2' : 'px-3'} ${
-                  active ? 'bg-[#ffffff] font-semibold text-[#7921ac]' : 'text-white hover:bg-white/10'
+                const classes = `organizer-nav-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  active ? 'bg-rose-50 font-semibold text-rose-700' : 'text-neutral-700'
                 }`;
                 const icon = <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.7"><path strokeLinecap="round" strokeLinejoin="round" d={item.path} /></svg>;
                 return (
-                  <Link key={item.to} to={item.to} aria-current={active ? 'page' : undefined} onClick={navigation?.closeMobile} title={compact ? item.label : undefined} className={classes}>
-                    {icon}{!compact && <span>{item.label}</span>}
+                  <Link key={item.to} to={item.to} aria-current={active ? 'page' : undefined} onClick={navigation?.closeMobile} className={classes}>
+                    {icon}<span>{item.label}</span>
                   </Link>
                 );
               })}
             </div>
           </nav>
           <div className="space-y-2 p-3">
-            <Link to="/organizer/profile" onClick={navigation?.closeMobile} title={compact ? 'Profile Organization' : undefined} className={`flex items-center rounded-xl border border-white/40 p-2 text-white hover:bg-white/10 ${compact ? 'justify-center' : 'gap-2.5'}`}>
+            <Link to="/organizer/profile" onClick={navigation?.closeMobile} className="flex items-center gap-2.5 rounded-xl border border-neutral-200 p-2 text-neutral-900 hover:bg-neutral-100">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e11d48] text-xs font-bold text-white">{initials}</span>
-              {!compact && <span className="min-w-0">
+              <span className="min-w-0">
                 <span className="block truncate text-xs font-bold">{user?.firstname} {user?.lastname}</span>
-                <span className="block truncate text-[11px] text-white">{user?.organizationName || 'Organizer'}</span>
-              </span>}
+                <span className="block truncate text-[11px] text-neutral-500">{user?.organizationName || 'Organizer'}</span>
+              </span>
             </Link>
-            <button type="button" onClick={() => void handleLogout()} className="w-full rounded-lg px-2 py-1 text-xs text-white hover:bg-white/10" title="Logout">
-              {compact ? '↪' : 'Logout'}
+            <button type="button" onClick={() => void handleLogout()} className="w-full rounded-lg px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100" title="Logout">
+              Logout
             </button>
           </div>
         </div>

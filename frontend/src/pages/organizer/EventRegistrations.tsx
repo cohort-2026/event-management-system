@@ -28,10 +28,10 @@ export default function EventRegistrations() {
   }, [id]);
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader title="Event registrations" subtitle="Attendees and ticket status for your event" breadcrumbs={[{ label: 'My events', to: '/organizer/events' }, { label: 'Registrations' }]} />
           {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {loading ? <div className="flex justify-center py-16"><Spinner /></div> : registrations.length === 0 ? (

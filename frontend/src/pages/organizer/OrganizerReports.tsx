@@ -157,28 +157,28 @@ export default function OrganizerReports() {
 
   return (
     <PageWrapper appearance="light">
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className="min-w-0 flex-1 rounded-2xl bg-[#0b2440] p-4 sm:p-6">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader title="Reports" subtitle="Insights across your events and registrations." showNavigation={false} />
           {error ? (
             <div role="alert" className="rounded-xl bg-rose-50 p-5 text-rose-800">
               <p>{error}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>
             </div>
           ) : !events ? (
-            <div role="status" className="flex items-center gap-3 py-12 text-white"><Spinner /> Loading reports…</div>
+            <div role="status" className="flex items-center gap-3 py-12 text-neutral-700"><Spinner /> Loading reports…</div>
           ) : (
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-[#123456] p-5 text-white"><p className="text-sm">Total events</p><p className="mt-1 text-2xl font-bold">{events.length}</p></div>
-                <div className="rounded-xl bg-[#123456] p-5 text-white"><p className="text-sm">Published events</p><p className="mt-1 text-2xl font-bold">{events.filter(event => event.status === 'PUBLISHED').length}</p></div>
-                <div className="rounded-xl bg-[#123456] p-5 text-white"><p className="text-sm">Booked places / capacity</p><p className="mt-1 text-2xl font-bold">{booked} / {capacity}</p><p className="mt-1 text-xs">Across all events, including cancelled events</p></div>
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Total events</p><p className="mt-1 text-2xl font-bold text-neutral-900">{events.length}</p></div>
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Published events</p><p className="mt-1 text-2xl font-bold text-neutral-900">{events.filter(event => event.status === 'PUBLISHED').length}</p></div>
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Booked places / capacity</p><p className="mt-1 text-2xl font-bold text-neutral-900">{booked} / {capacity}</p><p className="mt-1 text-xs text-neutral-500">Across all events, including cancelled events</p></div>
               </div>
               <div className="grid gap-5 xl:grid-cols-2"><StatusChart events={events} /><CategoryChart events={events} /></div>
               {bookingError ? (
                 <div role="alert" className="rounded-xl bg-rose-50 p-5 text-sm text-rose-800"><p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button></div>
               ) : registrations ? <BookingChart registrations={registrations} /> : (
-                <div role="status" className="flex items-center gap-3 rounded-xl bg-[#123456] p-5 text-white"><Spinner /> Loading booking trend…</div>
+                <div role="status" className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-5 text-neutral-700 shadow-sm"><Spinner /> Loading booking trend…</div>
               )}
             </div>
           )}

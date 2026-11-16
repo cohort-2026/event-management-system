@@ -216,7 +216,7 @@ export default function CheckIn() {
   return (
     <main className="min-h-dvh bg-black text-white">
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col px-4 pb-8 pt-5">
-        <header className="flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 bg-black px-4">
           <Link to={id ? `/organizer/events/${id}` : '/organizer/events'} aria-label="Close scanner" className="rounded-lg p-2 text-2xl text-white hover:bg-white/10">×</Link>
           <div className="text-center">
             <p className="text-xl font-bold">{checkedIn ?? '—'}<span className="text-sm text-white/70"> / {tickets?.length ?? '—'}</span></p>

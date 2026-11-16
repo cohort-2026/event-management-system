@@ -30,7 +30,7 @@ export default function OrganizerNotificationInbox() {
         <ul className="divide-y divide-black/20">
           {notifications.map(notification => (
             <li key={notification.id}>
-              <button type="button" disabled={busy} onClick={() => void openNotification(notification)} className={`w-full px-5 py-4 text-left hover:bg-black/5 disabled:opacity-50 ${notification.readAt ? '' : 'bg-white/30'}`}>
+              <button type="button" disabled={busy} onClick={() => void openNotification(notification)} className={`w-full px-5 py-4 text-left hover:bg-black/5 disabled:opacity-50 ${notification.readAt ? '' : 'bg-rose-50'}`}>
                 <span className="block font-semibold">{notification.title}{!notification.readAt && ' (unread)'}</span>
                 <span className="mt-1 block text-sm">{notification.message}</span>
                 <span className="mt-1 block text-xs">{new Date(notification.createdAt).toLocaleString()}</span>

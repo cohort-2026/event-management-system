@@ -3,7 +3,6 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import OrganizerEventSearch from '@/components/layout/OrganizerEventSearch';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import type { ApiError } from '@/types/api';
@@ -165,7 +164,9 @@ export default function OrganizerProfile() {
       setProfileApprovalStatus(response.data.data.profileApprovalStatus);
       setProfileRejectionReason(response.data.data.profileRejectionReason);
       setIsRequestingChange(false);
-      setSaveMessage(response.data.message ?? 'Organizer profile saved.');
+      setSaveMessage(response.data.data.profileApprovalStatus === 'PENDING_APPROVAL'
+        ? 'Organizer profile is created, waiting for Admin approval.'
+        : 'Organizer profile updated.');
     } catch (error) {
       if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
         setFieldErrors(Object.fromEntries(
@@ -190,16 +191,15 @@ export default function OrganizerProfile() {
 
   return (
     <PageWrapper appearance="light">
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className="min-w-0 flex-1 rounded-2xl bg-[#0b2440] p-4 sm:p-6">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title="Organization profile"
             subtitle="Manage the organization details used when your events are reviewed."
             showNavigation={false}
             confirmNotificationNavigation={confirmLeave}
             notificationsDisabled={saving}
-            actions={<OrganizerEventSearch confirmSearch={confirmLeave} disabled={saving} />}
           />
 
           {profileApprovalStatus && (
@@ -214,20 +214,20 @@ export default function OrganizerProfile() {
               }`}
             >
               <div>
-                <p className="font-semibold">
+                <p className={`font-semibold ${isApproved ? '!text-emerald-800' : ''}`}>
                   {profileApprovalStatus === 'APPROVED'
-                    ? 'Your organization is approved'
+                    ? 'Your organization profile is approved'
                     : profileApprovalStatus === 'REJECTED'
                       ? 'Your organization needs an update'
                       : 'Your organization is awaiting approval'}
                 </p>
-                <p className="mt-1">
-                  {profileApprovalStatus === 'APPROVED'
-                    ? 'You can submit events for approval.'
-                    : profileApprovalStatus === 'REJECTED'
+                {!isApproved && (
+                  <p className="mt-1">
+                    {profileApprovalStatus === 'REJECTED'
                       ? 'Review the feedback below and update your details to resubmit.'
                       : 'Profile changes will be reviewed before you can submit events.'}
-                </p>
+                  </p>
+                )}
               </div>
               {isApproved && !isRequestingChange && (
                 <Button type="button" variant="secondary" onClick={() => setIsRequestingChange(true)}>
@@ -249,11 +249,11 @@ export default function OrganizerProfile() {
           )}
 
           {loading ? (
-            <p role="status" className="py-12 text-center text-sm text-slate-200">Loading your profile…</p>
+            <p role="status" className="py-12 text-center text-sm text-neutral-500">Loading your profile…</p>
           ) : loadError ? (
             <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError}</p>
           ) : (
-            <form onSubmit={saveProfile} className="organizer-profile-card rounded-xl border border-[#5c2634] bg-[radial-gradient(ellipse_at_68%_18%,#8d102d_0%,#3b0b16_32%,#0b090c_70%)] p-5 shadow-sm sm:p-6">
+            <form onSubmit={saveProfile} className="organizer-profile-card rounded-xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
               <section aria-labelledby="organization-heading" className="grid gap-5 border-b border-neutral-200 pb-6 lg:grid-cols-[minmax(150px,0.55fr)_minmax(0,1.45fr)] lg:gap-8">
                 <div>
                   <h2 id="organization-heading" className="text-base font-bold text-neutral-900">Organization</h2>
@@ -401,7 +401,7 @@ export default function OrganizerProfile() {
               </section>
 
               {saveError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{saveError}</p>}
-              {saveMessage && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{saveMessage}</p>}
+              {saveMessage && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{saveMessage}</p>}
 
               {canEdit && (
                 <div className="flex justify-end">

@@ -96,10 +96,10 @@ export default function VendorApplications() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title="Stand requests"
             subtitle="Review vendor profiles, requested setups, and supporting information."

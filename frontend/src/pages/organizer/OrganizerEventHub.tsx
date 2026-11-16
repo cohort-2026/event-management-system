@@ -38,11 +38,11 @@ const dateKey = (date: Date) => (
 
 function StatCard({ label, value, detail, accent }: { label: string; value: string | number; detail: string; accent: string }) {
   return (
-    <article className="rounded-xl border border-[#5c2634] bg-[radial-gradient(ellipse_at_68%_18%,#8d102d_0%,#3b0b16_32%,#0b090c_70%)] p-4 shadow-sm sm:p-5">
+    <article className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
       <div className={`mb-3 h-1 w-10 rounded-full ${accent}`} aria-hidden="true" />
-      <p className="text-xs font-medium text-white">{label}</p>
-      <p className="mt-1 text-2xl font-black tracking-tight text-white">{value}</p>
-      <p className="mt-1 text-xs text-[#f4e3e7]">{detail}</p>
+      <p className="text-xs font-medium text-neutral-600">{label}</p>
+      <p className="mt-1 text-2xl font-black tracking-tight text-neutral-900">{value}</p>
+      <p className="mt-1 text-xs text-neutral-600">{detail}</p>
     </article>
   );
 }
@@ -209,9 +209,9 @@ export default function OrganizerEventHub() {
 
   return (
     <PageWrapper appearance="light">
-      <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title={event?.title ?? 'Event hub'}
             subtitle="Event information and the actions available to you."

@@ -121,7 +121,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
       <div className="grid grid-cols-1">
         {profileStatus !== 'APPROVED' && <UserManagementNav />}
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-        {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+        {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>}
 
         <section className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">

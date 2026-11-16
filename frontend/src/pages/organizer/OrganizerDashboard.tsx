@@ -5,8 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import OrganizerEventSearch from '@/components/layout/OrganizerEventSearch';
-import OrganizerNotificationsLink from '@/components/layout/OrganizerNotificationsLink';
+import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 import OrganizerNotificationInbox from '@/components/layout/OrganizerNotificationInbox';
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
@@ -180,7 +179,7 @@ function ProfileActivity() {
 
   return (
     <div className="px-5 py-4">
-      <p className="font-semibold text-[#15100e]">
+      <p className={`font-semibold ${profile.profileApprovalStatus === 'APPROVED' ? '!text-emerald-800' : 'text-[#15100e]'}`}>
         {profile.profileApprovalStatus === 'APPROVED'
           ? 'Organization profile approved'
           : profile.profileApprovalStatus === 'REJECTED'
@@ -430,10 +429,10 @@ export default function OrganizerDashboard() {
 
   return (
     <PageWrapper appearance="light">
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
 
-        <section className="min-w-0 flex-1 rounded-2xl bg-[#0b2440] p-4 sm:p-6">
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           {isNotificationsPage ? (
             <DashboardHeader
               title="Notifications"
@@ -448,27 +447,24 @@ export default function OrganizerDashboard() {
               appearance="analytics"
             />
           ) : (
-            <header className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#123456] bg-[#123456] px-5 py-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Organizer overview</p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                  Good {greeting}, {user?.firstname || 'there'}
-                </h1>
-                <p className="mt-1 text-sm text-slate-200">
-                  {user?.organizationName || 'Here is the latest activity across your events.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="organizer-search-light-text">
-                  <OrganizerEventSearch onSearch={() => setEventFilter('ALL')} />
+            <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
+              <OrganizerTopBar title="Overview" onSearch={() => setEventFilter('ALL')} />
+              <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-700">Organizer overview</p>
+                  <h1 className="mt-1 text-2xl font-black tracking-tight text-neutral-900 sm:text-3xl">
+                    Good {greeting}, {user?.firstname || 'there'}
+                  </h1>
+                  <p className="mt-1 text-sm text-neutral-500">
+                    {user?.organizationName || 'Here is the latest activity across your events.'}
+                  </p>
                 </div>
-                <OrganizerNotificationsLink inverse />
-                <Link to="/organizer/events/new" className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#c2410c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#9a3412] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                <Link to="/organizer/events/new" className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg bg-[#c2410c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#9a3412] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700">
                   <span aria-hidden="true" className="text-base leading-none">+</span>
                   Create event
                 </Link>
               </div>
-            </header>
+            </div>
           )}
 
           {error && (
@@ -477,7 +473,7 @@ export default function OrganizerDashboard() {
               <Button variant="secondary" size="sm" onClick={retryLoad}>Try again</Button>
             </div>
           )}
-          {notice && <p role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+          {notice && <p role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>}
 
           {isNotificationsPage && (
             <div className="space-y-5">
@@ -548,7 +544,6 @@ export default function OrganizerDashboard() {
                       value={loading ? '—' : upcomingEvents.length}
                       sub="Not cancelled or completed"
                       icon={<CalendarIcon />}
-                      appearance="organizer-warm"
                       color="brand"
                 />
                 <StatCard
@@ -556,7 +551,6 @@ export default function OrganizerDashboard() {
                       value={bookingsLoading || bookingsError ? '—' : bookingsThisMonth}
                       sub={bookingsError ? 'Could not load booking totals' : 'New registrations'}
                       icon={<TicketIcon />}
-                      appearance="organizer-blue"
                   color="emerald"
                 />
                 <StatCard
@@ -564,7 +558,6 @@ export default function OrganizerDashboard() {
                       value={loading || totalCapacity === 0 ? '—' : `${averageCapacityFilled}%`}
                       sub="Booked places across your events"
                       icon={<ChartIcon />}
-                      appearance="organizer-purple"
                   color="amber"
                 />
                 <StatCard
@@ -572,7 +565,6 @@ export default function OrganizerDashboard() {
                       value={standRequestsLoading || standRequestsError ? '—' : pendingRequests.length}
                       sub={standRequestsError ? 'Could not load request statuses' : 'Awaiting your review'}
                       icon={<StandIcon />}
-                      appearance="organizer-dark"
                   color="purple"
                 />
               </div>
@@ -808,8 +800,8 @@ export default function OrganizerDashboard() {
           )}
 
           {isMyEventsPage && (
-            <section className="organizer-events-card overflow-hidden rounded-xl border border-white/25 text-white shadow-sm" aria-labelledby="my-events-heading">
-              <div className="flex flex-col gap-3 border-b border-white/25 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <section className="organizer-events-card overflow-hidden rounded-xl border border-neutral-200 bg-white text-neutral-900 shadow-sm" aria-labelledby="my-events-heading">
+              <div className="flex flex-col gap-3 border-b border-neutral-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <h2 id="my-events-heading" className="sr-only">My events</h2>
                 <label className="relative block w-full sm:max-w-xs">
                   <span className="sr-only">Search events by name, venue, or category</span>
@@ -822,18 +814,18 @@ export default function OrganizerDashboard() {
                     value={eventSearch}
                     onChange={event => setEventSearch(event.target.value)}
                     placeholder="Search events"
-                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-white outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
                 </label>
                 <Link to="/organizer/events/new" className="shrink-0">
-                  <Button size="sm" className="ring-1 ring-white/70">
+                  <Button size="sm">
                     <PlusIcon />
                     Create event
                   </Button>
                 </Link>
               </div>
 
-              <div role="group" aria-label="Filter events by status" className="flex gap-1 overflow-x-auto border-b border-white/25 px-4 pt-3">
+              <div role="group" aria-label="Filter events by status" className="flex gap-1 overflow-x-auto border-b border-neutral-200 px-4 pt-3">
                 {eventFilters.map(filter => (
                   <button
                     key={filter.value}
@@ -842,12 +834,12 @@ export default function OrganizerDashboard() {
                     onClick={() => setEventFilter(filter.value)}
                     className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
                       eventFilter === filter.value
-                        ? 'border-white bg-[#85243a] text-white'
-                        : 'border-transparent text-white hover:bg-[#85243a]'
+                        ? 'border-rose-600 bg-rose-50 text-rose-700'
+                        : 'border-transparent text-neutral-700 hover:bg-neutral-100'
                     }`}
                   >
                     {filter.label}
-                    <span className="ml-1.5 text-white">
+                    <span className="ml-1.5">
                       {eventFilterCounts[filter.value]}
                     </span>
                   </button>
@@ -858,30 +850,30 @@ export default function OrganizerDashboard() {
                 <div role="status" className="flex justify-center py-12"><Spinner /></div>
               ) : events.length === 0 ? (
                 <div className="px-5 py-12 text-center">
-                  <p className="font-semibold text-white">{error ? 'Events could not be displayed' : 'No events yet'}</p>
-                  <p className="mt-1 text-sm text-white">{error ? 'Try again after the connection is restored.' : 'Create your first event to get started.'}</p>
+                  <p className="font-semibold text-neutral-900">{error ? 'Events could not be displayed' : 'No events yet'}</p>
+                  <p className="mt-1 text-sm text-neutral-600">{error ? 'Try again after the connection is restored.' : 'Create your first event to get started.'}</p>
                   {!error && <Link to="/organizer/events/new" className="mt-4 inline-flex"><Button size="sm">Create your first event</Button></Link>}
                 </div>
               ) : matchingEvents.length === 0 ? (
                 <div className="px-5 py-12 text-center">
-                  <p className="font-semibold text-white">No events match this search</p>
-                  <p className="mt-1 text-sm text-white">Try another search or choose a different status.</p>
+                  <p className="font-semibold text-neutral-900">No events match this search</p>
+                  <p className="mt-1 text-sm text-neutral-600">Try another search or choose a different status.</p>
                   <button
                     type="button"
                     onClick={() => { setEventSearch(''); setEventFilter('ALL'); }}
-                    className="mt-3 text-sm font-semibold text-white underline underline-offset-4"
+                    className="mt-3 text-sm font-semibold text-brand-700 underline underline-offset-4"
                   >
                     Clear filters
                   </button>
                 </div>
               ) : (
                 <>
-                  <p className="px-5 py-3 text-xs text-white" aria-live="polite">
+                  <p className="px-5 py-3 text-xs text-neutral-600" aria-live="polite">
                     Showing {matchingEvents.length} of {events.length} events
                   </p>
                   <div id="organizer-events-table" className="overflow-x-auto">
                     <table className="min-w-[850px] w-full text-left text-sm">
-                      <thead className="border-y border-white/25 text-[11px] font-bold uppercase tracking-wide text-white">
+                      <thead className="border-y border-neutral-200 text-[11px] font-bold uppercase tracking-wide text-neutral-700">
                         <tr>
                           <th scope="col" className="px-5 py-3">Event</th>
                           <th scope="col" className="px-4 py-3">Status</th>
@@ -890,7 +882,7 @@ export default function OrganizerDashboard() {
                           <th scope="col" className="px-5 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/25">
+                      <tbody className="divide-y divide-neutral-100">
                         {matchingEvents.map(event => {
                           const booked = bookedPlaces(event);
                           const allocatedStands = Math.max(0, event.vendorStandsAvailable - event.availableVendorStands);
@@ -908,10 +900,10 @@ export default function OrganizerDashboard() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <Link to={eventHref} className="block truncate font-semibold text-white hover:underline">
+                                    <Link to={eventHref} className="block truncate font-semibold text-neutral-900 hover:underline">
                                       {event.title}
                                     </Link>
-                                    <p className="mt-0.5 truncate text-xs text-white">
+                                    <p className="mt-0.5 truncate text-xs text-neutral-600">
                                       {formatEventDate(event.startTime)} · {event.venue}
                                     </p>
                                   </div>
@@ -922,10 +914,10 @@ export default function OrganizerDashboard() {
                               </td>
                               <td className="px-4 py-3">
                                 {event.status === 'DRAFT' ? (
-                                  <span className="text-xs text-white">Not open yet</span>
+                                  <span className="text-xs text-neutral-600">Not open yet</span>
                                 ) : (
                                   <div className="w-28">
-                                    <p className="whitespace-nowrap text-xs font-semibold text-white">{booked} / {event.capacity}</p>
+                                    <p className="whitespace-nowrap text-xs font-semibold text-neutral-900">{booked} / {event.capacity}</p>
                                     <div
                                       role="progressbar"
                                       aria-label={`Places booked for ${event.title}`}
@@ -944,10 +936,10 @@ export default function OrganizerDashboard() {
                               </td>
                               <td className="px-4 py-3">
                                 {event.vendorStandsAvailable > 0 ? (
-                                  <Link to={`/organizer/events/${event.id}/vendors`} className="whitespace-nowrap text-xs font-semibold text-white hover:underline">
+                                  <Link to={`/organizer/events/${event.id}/vendors`} className="whitespace-nowrap text-xs font-semibold text-neutral-900 hover:underline">
                                     {allocatedStands} / {event.vendorStandsAvailable}
                                   </Link>
-                                ) : <span className="text-white">—</span>}
+                                ) : <span className="text-neutral-600">—</span>}
                               </td>
                               <td className="px-5 py-3">
                                 <div className="flex min-w-56 flex-wrap justify-end gap-2">
@@ -980,10 +972,10 @@ export default function OrganizerDashboard() {
                                     </Link>
                                   )}
                                   <div className="flex w-full justify-end gap-3">
-                                    <Link to={`/organizer/events/${event.id}/registrations`} className="text-xs font-semibold text-white underline underline-offset-4">
+                                    <Link to={`/organizer/events/${event.id}/registrations`} className="text-xs font-semibold text-brand-700 underline underline-offset-4">
                                       Guest list
                                     </Link>
-                                    <Link to={`/organizer/events/${event.id}/vendors`} className="text-xs font-semibold text-white underline underline-offset-4">
+                                    <Link to={`/organizer/events/${event.id}/vendors`} className="text-xs font-semibold text-brand-700 underline underline-offset-4">
                                       Stand requests
                                     </Link>
                                   </div>

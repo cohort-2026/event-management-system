@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import OrganizerEventSearch from '@/components/layout/OrganizerEventSearch';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -66,6 +65,20 @@ const EMPTY_FORM: EventForm = {
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
 
+function EventStatusPage({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
+        <OrganizerSidebar />
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
+          <DashboardHeader title={title} showNavigation={false} />
+          {children}
+        </section>
+      </div>
+    </PageWrapper>
+  );
+}
+
 const asLocalDateTime = (iso: string): string => {
   const date = new Date(iso);
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
@@ -121,6 +134,7 @@ export default function CreateEvent() {
   const [profileCheckError, setProfileCheckError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   const [completed, setCompleted] = useState(false);
   const [step, setStep] = useState(0);
@@ -235,25 +249,35 @@ export default function CreateEvent() {
 
   const validateStep = (): boolean => {
     setError('');
-    if (!formRef.current?.reportValidity()) return false;
+    const controls = Array.from(formRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea') ?? []);
+    const errors: Record<string, string> = {};
+    for (const control of controls) {
+      if (!control.willValidate || !control.id) continue;
+      const label = control.labels?.[0]?.textContent?.trim() || 'This field';
+      const value = control.value.trim();
+      if (control.required && !value) {
+        errors[control.id] = `${label} is required.`;
+      } else if (value && 'minLength' in control && control.minLength > 0 && value.length < control.minLength) {
+        errors[control.id] = `${label} must contain at least ${control.minLength} characters.`;
+      } else if (!control.validity.valid) {
+        errors[control.id] = `${label}: ${control.validationMessage}`;
+      }
+    }
 
     if (step === 1) {
       const startTime = new Date(form.startTime);
       const endTime = new Date(form.endTime);
-      if (!Number.isFinite(startTime.getTime()) || startTime <= new Date()) {
-        setError('Event start date and time must be in the future.');
-        return false;
+      if (!errors['start-date-and-time'] && (!Number.isFinite(startTime.getTime()) || startTime <= new Date())) {
+        errors['start-date-and-time'] = 'Event start date and time must be in the future.';
       }
-      if (!Number.isFinite(endTime.getTime()) || endTime <= startTime) {
-        setError('Event end date and time must be after the start date and time.');
-        return false;
+      if (!errors['end-date-and-time'] && !errors['start-date-and-time'] && (!Number.isFinite(endTime.getTime()) || endTime <= startTime)) {
+        errors['end-date-and-time'] = 'Event end date and time must be after the start date and time.';
       }
       const minimumCapacity = existingEvent
         ? Math.max(1, existingEvent.capacity - existingEvent.availableCapacity)
         : 1;
-      if (!Number.isInteger(Number(form.capacity)) || Number(form.capacity) < minimumCapacity) {
-        setError(`Event capacity cannot be less than ${minimumCapacity}.`);
-        return false;
+      if (!errors['event-capacity'] && (!Number.isInteger(Number(form.capacity)) || Number(form.capacity) < minimumCapacity)) {
+        errors['event-capacity'] = `Event capacity cannot be less than ${minimumCapacity}.`;
       }
     }
 
@@ -265,19 +289,27 @@ export default function CreateEvent() {
         isFree: ticket.isFree,
         soldQuantity: ticket.soldQuantity,
       }));
-      if (ticketTypes.some(ticket =>
-        !ticket.name || !Number.isFinite(ticket.price) || ticket.price < 0 || (!ticket.isFree && ticket.price <= 0) ||
-        !Number.isInteger(ticket.quantity) || ticket.quantity < 1 || ticket.quantity < ticket.soldQuantity)) {
-        setError('Enter a valid name, price, and quantity for each ticket type.');
-        return false;
-      }
-      if (ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== Number(form.capacity)) {
-        setError('The total quantity of all ticket types must equal the event capacity.');
-        return false;
+      ticketTypes.forEach((ticket, index) => {
+        if (!ticket.name && !errors[`ticket-type-${index}`]) errors[`ticket-type-${index}`] = 'Ticket type is required.';
+        if (!ticket.isFree && (!Number.isFinite(ticket.price) || ticket.price <= 0) && !errors[`ticket-price-${index}`]) {
+          errors[`ticket-price-${index}`] = 'Price must be greater than zero.';
+        }
+        if ((!Number.isInteger(ticket.quantity) || ticket.quantity < 1 || ticket.quantity < ticket.soldQuantity) && !errors[`ticket-quantity-${index}`]) {
+          errors[`ticket-quantity-${index}`] = `Quantity must be at least ${Math.max(1, ticket.soldQuantity)}.`;
+        }
+      });
+      if (Object.keys(errors).length === 0 && ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== Number(form.capacity)) {
+        errors['ticket-quantity-0'] = 'The total quantity of all ticket types must equal the event capacity.';
       }
     }
 
-    return true;
+    setFieldErrors(errors);
+    const firstInvalid = controls.find(control => errors[control.id]);
+    if (firstInvalid) {
+      firstInvalid.focus({ preventScroll: true });
+      firstInvalid.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    return Object.keys(errors).length === 0;
   };
 
   const goToNextStep = () => {
@@ -288,6 +320,7 @@ export default function CreateEvent() {
 
   const goToPreviousStep = () => {
     setError('');
+    setFieldErrors({});
     setStep(current => Math.max(current - 1, 0));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -325,17 +358,27 @@ export default function CreateEvent() {
       goToNextStep();
       return;
     }
+    if (!validateStep()) {
+      reviewConfirmed.current = false;
+      return;
+    }
     setError('');
     setNotice('');
 
+    const showEarlierStepError = (targetStep: number, field: string, message: string) => {
+      reviewConfirmed.current = false;
+      setFieldErrors({ [field]: message });
+      setStep(targetStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
     const startTime = new Date(form.startTime);
     const endTime = new Date(form.endTime);
     if (!Number.isFinite(startTime.getTime()) || startTime <= new Date()) {
-      setError('Event start date and time must be in the future.');
+      showEarlierStepError(1, 'start-date-and-time', 'Event start date and time must be in the future.');
       return;
     }
     if (!Number.isFinite(endTime.getTime()) || endTime <= startTime) {
-      setError('Event end date and time must be after the start date and time.');
+      showEarlierStepError(1, 'end-date-and-time', 'Event end date and time must be after the start date and time.');
       return;
     }
     const capacity = Number(form.capacity);
@@ -349,22 +392,29 @@ export default function CreateEvent() {
     const minimumCapacity = existingEvent
       ? Math.max(1, existingEvent.capacity - existingEvent.availableCapacity)
       : 1;
-    if (!Number.isInteger(capacity) || capacity < minimumCapacity || ticketTypes.some((ticket, index) =>
+    if (!Number.isInteger(capacity) || capacity < minimumCapacity) {
+      showEarlierStepError(1, 'event-capacity', `Event capacity cannot be less than ${minimumCapacity}.`);
+      return;
+    }
+    const invalidTicketIndex = ticketTypes.findIndex((ticket, index) =>
       !ticket.name || !Number.isFinite(ticket.price) || ticket.price < 0 || (!ticket.isFree && ticket.price <= 0) ||
-      !Number.isInteger(ticket.quantity) || ticket.quantity < 1 || ticket.quantity < form.ticketTypes[index].soldQuantity)) {
-      setError('Enter a valid capacity and valid name, price and quantity for each ticket type.');
+      !Number.isInteger(ticket.quantity) || ticket.quantity < 1 || ticket.quantity < form.ticketTypes[index].soldQuantity);
+    if (invalidTicketIndex !== -1) {
+      const ticket = ticketTypes[invalidTicketIndex];
+      const field = !ticket.name ? 'type' : !ticket.isFree && (!Number.isFinite(ticket.price) || ticket.price <= 0) ? 'price' : 'quantity';
+      showEarlierStepError(2, `ticket-${field}-${invalidTicketIndex}`, 'Enter a valid value for this ticket type.');
       return;
     }
     if (ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0) !== capacity) {
-      setError('The total quantity of all ticket types must equal the event capacity.');
+      showEarlierStepError(2, 'ticket-quantity-0', 'The total quantity of all ticket types must equal the event capacity.');
       return;
     }
     if (form.eventType !== 'IN_PERSON' && !form.meetingDetails.trim()) {
-      setError('Add online meeting details for online or hybrid events.');
+      showEarlierStepError(1, 'online-meeting-details', 'Add online meeting details for online or hybrid events.');
       return;
     }
     if (form.category === 'other' && !form.categoryOther.trim()) {
-      setError('Enter a category when selecting other.');
+      showEarlierStepError(0, 'specify-category', 'Enter a category when selecting other.');
       return;
     }
     if (!bannerImageFile && form.bannerImageUrl.trim()) {
@@ -458,14 +508,14 @@ export default function CreateEvent() {
   );
 
   if (loadingEvent) {
-    return <PageWrapper appearance="light"><p className="py-16 text-center text-neutral-500">Loading event…</p></PageWrapper>;
+    return <EventStatusPage title="Edit event"><p className="py-16 text-center text-neutral-500">Loading event…</p></EventStatusPage>;
   }
   if (loadingProfile) {
-    return <PageWrapper appearance="light"><p role="status" className="py-16 text-center text-neutral-500">Checking your organizer profile…</p></PageWrapper>;
+    return <EventStatusPage title={isEditing ? 'Edit event' : 'Create event'}><p role="status" className="py-16 text-center text-neutral-500">Checking your organizer profile…</p></EventStatusPage>;
   }
   if (!isEditing && (profileCheckError || profileApprovalStatus !== 'APPROVED')) {
     return (
-      <PageWrapper appearance="light">
+      <EventStatusPage title="Create event">
         <div className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h1 className="text-xl font-bold text-neutral-900">Event creation unavailable</h1>
           <p role={profileCheckError ? 'alert' : 'status'} className="mt-3 text-sm text-amber-900">
@@ -484,7 +534,7 @@ export default function CreateEvent() {
             <Button type="button">Complete your profile</Button>
           </Link>
         </div>
-      </PageWrapper>
+      </EventStatusPage>
     );
   }
 
@@ -493,36 +543,28 @@ export default function CreateEvent() {
   }
 
   if (isEditing && error && !existingEvent) {
-    return <PageWrapper appearance="light"><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></PageWrapper>;
+    return <EventStatusPage title="Edit event"><p role="alert" className="rounded-lg bg-rose-50 p-4 text-rose-700">{error}</p></EventStatusPage>;
   }
   if (isEditing && existingEvent && !['DRAFT', 'PUBLISHED'].includes(existingEvent.status)) {
     return (
-      <PageWrapper appearance="light">
+      <EventStatusPage title="Edit event">
         <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-800">This event can no longer be edited.</p>
         <Link to="/organizer" className="mt-4 inline-block text-brand-700">Back to dashboard</Link>
-      </PageWrapper>
+      </EventStatusPage>
     );
   }
 
   return (
     <PageWrapper appearance="light">
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
-        <section className={`flex-1 min-w-0 ${!isEditing ? 'rounded-2xl bg-[#0b2440] p-4 sm:p-6' : ''}`}>
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title={isEditing ? 'Edit event' : 'Create event'}
             subtitle="Complete the event details, ticket tiers, and venue information."
             showNavigation={isEditing}
             confirmNotificationNavigation={confirmLeave}
             notificationsDisabled={saving}
-            actions={!isEditing && (
-              <div className="organizer-search-light-text min-w-0 w-full sm:w-64">
-                <OrganizerEventSearch
-                  disabled={saving}
-                  confirmSearch={confirmLeave}
-                />
-              </div>
-            )}
             breadcrumbs={[
               { label: 'Dashboard', to: '/organizer' },
               { label: isEditing ? 'Edit event' : 'Create event', to: isEditing ? '/organizer/events' : '/organizer/events/new' },
@@ -547,17 +589,36 @@ export default function CreateEvent() {
           {error && <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {completed ? (
             <section role="status" className="max-w-3xl rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm">
-              <h2 className="text-xl font-black text-neutral-900">
+              <h2 className="text-xl font-black !text-emerald-800">
                 {isEditing ? 'Event changes saved' : existingEvent?.status === 'PUBLISHED' ? 'Event published' : 'Event saved'}
               </h2>
-              <p className="mt-2 text-sm text-neutral-600">{notice}</p>
+              <p className="mt-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/organizer"><Button type="button">Back to my events</Button></Link>
                 <Button type="button" variant="secondary" onClick={() => setCompleted(false)}>Continue editing</Button>
               </div>
             </section>
           ) : (
-            <form ref={formRef} id="create-event-form" onSubmit={handleSubmit} className={`rounded-2xl border shadow-sm ${isEditing ? 'border-neutral-200 bg-white' : 'create-event-dark border-[#31516b] bg-[#123456] text-white'}`}>
+            <form
+              ref={formRef}
+              id="create-event-form"
+              noValidate
+              onSubmit={handleSubmit}
+              onChange={event => {
+                const target = event.target;
+                if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) || !target.id) return;
+                setFieldErrors(current => {
+                  const allocationError = 'The total quantity of all ticket types must equal the event capacity.';
+                  const clearAllocation = target.id.startsWith('ticket-quantity-') && current['ticket-quantity-0'] === allocationError;
+                  if (!current[target.id] && !clearAllocation) return current;
+                  const next = { ...current };
+                  delete next[target.id];
+                  if (clearAllocation) delete next['ticket-quantity-0'];
+                  return next;
+                });
+              }}
+              className="rounded-2xl border border-neutral-200 bg-white shadow-sm"
+            >
               <ol aria-label="Event creation steps" className="grid grid-cols-2 gap-3 border-b border-neutral-100 px-5 py-5 sm:grid-cols-4 sm:px-7">
                 {CREATE_STEPS.map((label, index) => (
                   <li key={label}>
@@ -568,13 +629,12 @@ export default function CreateEvent() {
                       onClick={() => {
                         if (index < step) {
                           setError('');
+                          setFieldErrors({});
                           setStep(index);
                         }
                       }}
                       className={`flex w-full items-center gap-2 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-                        isEditing
-                          ? index === step ? 'text-rose-700' : index < step ? 'text-neutral-700' : 'text-neutral-400'
-                          : index === step ? 'text-orange-300' : 'text-[#d5e3ef]'
+                        index === step ? 'text-rose-700' : index < step ? 'text-neutral-700' : 'text-neutral-400'
                       }`}
                     >
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
@@ -596,20 +656,33 @@ export default function CreateEvent() {
               </ol>
 
               <div className="p-5 sm:p-7">
+                {Object.keys(fieldErrors).length > 0 && (
+                  <p role="alert" className="mb-5 rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                    Please correct the highlighted fields.
+                  </p>
+                )}
                 {step === 0 && (
                   <section aria-labelledby="basics-heading">
                     <div className="mb-6">
-                      <h2 id="basics-heading" className={`text-xl font-bold ${isEditing ? 'text-neutral-900' : 'text-white'}`}>Event basics</h2>
-                      <p className={`mt-1 text-sm ${isEditing ? 'text-neutral-500' : 'text-[#d5e3ef]'}`}>Give your event a clear title and tell attendees what to expect.</p>
+                      <h2 id="basics-heading" className="text-xl font-bold text-neutral-900">Event basics</h2>
+                      <p className="mt-1 text-sm text-neutral-500">Give your event a clear title and tell attendees what to expect.</p>
                     </div>
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                       <div className="md:col-span-2">
-                        <Input label="Event title" value={form.title} onChange={event => updateForm('title', event.target.value)} minLength={3} maxLength={150} required />
+                        <Input label="Event title" value={form.title} onChange={event => updateForm('title', event.target.value)} error={fieldErrors['event-title']} minLength={3} maxLength={150} required />
                       </div>
                       <Select
                         label="Category"
                         value={form.category}
-                        onChange={event => updateForm('category', event.target.value)}
+                        error={fieldErrors.category}
+                        onChange={event => {
+                          updateForm('category', event.target.value);
+                          setFieldErrors(current => {
+                            const next = { ...current };
+                            delete next['specify-category'];
+                            return next;
+                          });
+                        }}
                         options={EVENT_CATEGORIES.map(category => ({ value: category, label: category }))}
                         placeholder="Choose a category"
                         required
@@ -618,6 +691,7 @@ export default function CreateEvent() {
                         <Input
                           label="Specify category"
                           value={form.categoryOther}
+                          error={fieldErrors['specify-category']}
                           onChange={event => updateForm('categoryOther', event.target.value)}
                           minLength={2}
                           maxLength={80}
@@ -625,7 +699,7 @@ export default function CreateEvent() {
                         />
                       )}
                       <div className="md:col-span-2">
-                        <Textarea label="Description" value={form.description} onChange={event => updateForm('description', event.target.value)} minLength={20} maxLength={5000} required helperText="Describe what attendees can expect." />
+                        <Textarea label="Description" value={form.description} onChange={event => updateForm('description', event.target.value)} error={fieldErrors.description} minLength={20} maxLength={5000} required helperText="Describe what attendees can expect." />
                       </div>
                       <div className="md:col-span-2">
                         <Input
@@ -636,9 +710,9 @@ export default function CreateEvent() {
                           helperText="JPG, PNG, or WebP; maximum file size 5 MB."
                         />
                         {bannerImageFile && (
-                          <div className={`mt-2 flex items-center justify-between gap-3 text-xs ${isEditing ? 'text-neutral-500' : 'text-[#d5e3ef]'}`}>
+                          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-neutral-500">
                             <span className="truncate">{bannerImageFile.name}</span>
-                            <button type="button" className={`shrink-0 font-semibold hover:underline ${isEditing ? 'text-rose-700' : 'text-orange-300'}`} onClick={() => setBannerImageFile(null)}>
+                            <button type="button" className="shrink-0 font-semibold text-rose-700 hover:underline" onClick={() => setBannerImageFile(null)}>
                               Remove image
                             </button>
                           </div>
@@ -659,14 +733,22 @@ export default function CreateEvent() {
                 {step === 1 && (
                   <section aria-labelledby="when-where-heading">
                     <div className="mb-6">
-                      <h2 id="when-where-heading" className={`text-xl font-bold ${isEditing ? 'text-neutral-900' : 'text-white'}`}>When &amp; where</h2>
-                      <p className={`mt-1 text-sm ${isEditing ? 'text-neutral-500' : 'text-[#d5e3ef]'}`}>Set the event format, location, dates, and total attendee capacity.</p>
+                      <h2 id="when-where-heading" className="text-xl font-bold text-neutral-900">When &amp; where</h2>
+                      <p className="mt-1 text-sm text-neutral-500">Set the event format, location, dates, and total attendee capacity.</p>
                     </div>
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                       <Select
                         label="Event type"
                         value={form.eventType}
-                        onChange={event => updateForm('eventType', event.target.value as EventType)}
+                        onChange={event => {
+                          updateForm('eventType', event.target.value as EventType);
+                          setFieldErrors(current => {
+                            const next = { ...current };
+                            delete next.venue;
+                            delete next['online-meeting-details'];
+                            return next;
+                          });
+                        }}
                         options={[
                           { value: 'IN_PERSON', label: 'In person' },
                           { value: 'ONLINE', label: 'Online' },
@@ -674,15 +756,15 @@ export default function CreateEvent() {
                         ]}
                       />
                       {form.eventType !== 'ONLINE' && (
-                        <Input label="Venue" value={form.venue} onChange={event => updateForm('venue', event.target.value)} maxLength={250} required />
+                        <Input label="Venue" value={form.venue} onChange={event => updateForm('venue', event.target.value)} error={fieldErrors.venue} maxLength={250} required />
                       )}
                       {form.eventType !== 'IN_PERSON' && (
                         <div className="md:col-span-2">
-                          <Textarea label="Online meeting details" value={form.meetingDetails} onChange={event => updateForm('meetingDetails', event.target.value)} maxLength={2000} required helperText="Add the meeting URL or access instructions." />
+                          <Textarea label="Online meeting details" value={form.meetingDetails} onChange={event => updateForm('meetingDetails', event.target.value)} error={fieldErrors['online-meeting-details']} maxLength={2000} required helperText="Add the meeting URL or access instructions." />
                         </div>
                       )}
-                      <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} required />
-                      <Input label="End date and time" type="datetime-local" min={form.startTime} value={form.endTime} onChange={event => updateForm('endTime', event.target.value)} required />
+                      <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} error={fieldErrors['start-date-and-time']} required />
+                      <Input label="End date and time" type="datetime-local" min={form.startTime} value={form.endTime} onChange={event => updateForm('endTime', event.target.value)} error={fieldErrors['end-date-and-time']} required />
                       <div className="md:col-span-2">
                         <Input
                           label="Event capacity"
@@ -691,6 +773,7 @@ export default function CreateEvent() {
                           max={1_000_000}
                           step={1}
                           value={form.capacity}
+                          error={fieldErrors['event-capacity']}
                           onChange={event => updateForm('capacity', event.target.value)}
                           helperText={`The total ticket quantities must equal capacity.${existingEvent && existingEvent.capacity !== existingEvent.availableCapacity ? ` At least ${existingEvent.capacity - existingEvent.availableCapacity} places are already booked.` : ''}`}
                           required
@@ -703,8 +786,8 @@ export default function CreateEvent() {
                 {step === 2 && (
                   <section aria-labelledby="tickets-heading">
                     <div className="mb-6">
-                      <h2 id="tickets-heading" className={`text-xl font-bold ${isEditing ? 'text-neutral-900' : 'text-white'}`}>Tickets</h2>
-                      <p className={`mt-1 text-sm ${isEditing ? 'text-neutral-500' : 'text-[#d5e3ef]'}`}>Set ticket prices and allocate the full event capacity across ticket types.</p>
+                      <h2 id="tickets-heading" className="text-xl font-bold text-neutral-900">Tickets</h2>
+                      <p className="mt-1 text-sm text-neutral-500">Set ticket prices and allocate the full event capacity across ticket types.</p>
                     </div>
                     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(17rem,0.8fr)]">
                       <div>
@@ -739,16 +822,19 @@ export default function CreateEvent() {
                           {form.ticketTypes.map((ticket, index) => (
                             <article key={index} className="rounded-xl border border-neutral-200 p-4 sm:p-5">
                               <div className="mb-4 flex items-center justify-between gap-3">
-                                <h3 className={`font-semibold ${isEditing ? 'text-neutral-900' : 'text-white'}`}>Ticket type {index + 1}</h3>
+                                <h3 className="font-semibold text-neutral-900">Ticket type {index + 1}</h3>
                                 {form.ticketTypes.length > 1 && (
                                   <button
                                     type="button"
                                     disabled={ticket.soldQuantity > 0}
-                                    className={`text-xs font-semibold hover:underline disabled:cursor-not-allowed disabled:text-neutral-400 disabled:no-underline ${isEditing ? 'text-rose-700' : 'text-orange-300'}`}
-                                    onClick={() => setForm(current => ({
-                                      ...current,
-                                      ticketTypes: current.ticketTypes.filter((_, ticketIndex) => ticketIndex !== index),
-                                    }))}
+                                    className="text-xs font-semibold text-rose-700 hover:underline disabled:cursor-not-allowed disabled:text-neutral-400 disabled:no-underline"
+                                    onClick={() => {
+                                      setForm(current => ({
+                                        ...current,
+                                        ticketTypes: current.ticketTypes.filter((_, ticketIndex) => ticketIndex !== index),
+                                      }));
+                                      setFieldErrors({});
+                                    }}
                                     title={ticket.soldQuantity > 0 ? 'Ticket types with bookings cannot be removed.' : undefined}
                                   >
                                     Remove
@@ -757,8 +843,10 @@ export default function CreateEvent() {
                               </div>
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <Select
+                                  id={`ticket-type-${index}`}
                                   label="Ticket type"
                                   value={ticket.name}
+                                  error={fieldErrors[`ticket-type-${index}`]}
                                   onChange={event => updateTicket(index, { name: event.target.value })}
                                   disabled={ticket.soldQuantity > 0}
                                   options={[
@@ -770,12 +858,19 @@ export default function CreateEvent() {
                                   required
                                 />
                                 <div>
-                                  <span className={`mb-1.5 block text-sm font-semibold ${isEditing ? 'text-neutral-700' : 'text-[#d5e3ef]'}`}>Price type</span>
+                                  <span className="mb-1.5 block text-sm font-semibold text-neutral-700">Price type</span>
                                   <div role="group" aria-label={`${ticket.name} price type`} className="inline-flex rounded-lg border border-neutral-200 bg-neutral-50 p-1">
                                     <button
                                       type="button"
                                       aria-pressed={ticket.isFree}
-                                      onClick={() => updateTicket(index, { isFree: true })}
+                                      onClick={() => {
+                                        updateTicket(index, { isFree: true });
+                                        setFieldErrors(current => {
+                                          const next = { ...current };
+                                          delete next[`ticket-price-${index}`];
+                                          return next;
+                                        });
+                                      }}
                                       className={`rounded-md px-4 py-2 text-xs font-semibold ${ticket.isFree ? 'bg-white text-rose-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}
                                     >
                                       Free
@@ -793,26 +888,30 @@ export default function CreateEvent() {
                                     </button>
                                   </div>
                                 </div>
-                                <Textarea label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
+                                <Textarea id={`ticket-description-${index}`} label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
                                 {!ticket.isFree && (
                                   <Input
+                                    id={`ticket-price-${index}`}
                                     label="Price (ZAR)"
                                     type="number"
                                     min={0.01}
                                     max={99_999_999.99}
                                     step={0.01}
                                     value={ticket.price}
+                                    error={fieldErrors[`ticket-price-${index}`]}
                                     onChange={event => updateTicket(index, { price: event.target.value })}
                                     required
                                   />
                                 )}
                                 <Input
+                                  id={`ticket-quantity-${index}`}
                                   label="Quantity"
                                   type="number"
                                   min={Math.max(1, ticket.soldQuantity)}
                                   max={1_000_000}
                                   step={1}
                                   value={ticket.quantity}
+                                  error={fieldErrors[`ticket-quantity-${index}`]}
                                   onChange={event => updateTicket(index, { quantity: event.target.value })}
                                   helperText={ticket.soldQuantity > 0 ? `${ticket.soldQuantity} places already booked; quantity cannot be lower.` : undefined}
                                   required
@@ -869,8 +968,8 @@ export default function CreateEvent() {
                 {step === 3 && (
                   <section aria-labelledby="stands-review-heading">
                     <div className="mb-6">
-                      <h2 id="stands-review-heading" className={`text-xl font-bold ${isEditing ? 'text-neutral-900' : 'text-white'}`}>Stands &amp; review</h2>
-                      <p className={`mt-1 text-sm ${isEditing ? 'text-neutral-500' : 'text-[#d5e3ef]'}`}>Set the number of vendor stands and confirm the event details before saving.</p>
+                      <h2 id="stands-review-heading" className="text-xl font-bold text-neutral-900">Stands &amp; review</h2>
+                      <p className="mt-1 text-sm text-neutral-500">Set the number of vendor stands and confirm the event details before saving.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                       <div>
@@ -881,6 +980,7 @@ export default function CreateEvent() {
                           max={1_000_000}
                           step={1}
                           value={form.vendorStandsAvailable}
+                          error={fieldErrors['vendor-stands-available']}
                           onChange={event => updateForm('vendorStandsAvailable', event.target.value)}
                           helperText="Informational only; this number does not limit vendor applications."
                           required
@@ -917,9 +1017,9 @@ export default function CreateEvent() {
                           </div>
                         </dl>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setStep(0)} className="text-xs font-semibold text-brand-700 hover:underline">Edit basics</button>
-                          <button type="button" onClick={() => setStep(1)} className="text-xs font-semibold text-brand-700 hover:underline">Edit date &amp; venue</button>
-                          <button type="button" onClick={() => setStep(2)} className="text-xs font-semibold text-brand-700 hover:underline">Edit tickets</button>
+                          <button type="button" onClick={() => { setFieldErrors({}); setStep(0); }} className="text-xs font-semibold text-brand-700 hover:underline">Edit basics</button>
+                          <button type="button" onClick={() => { setFieldErrors({}); setStep(1); }} className="text-xs font-semibold text-brand-700 hover:underline">Edit date &amp; venue</button>
+                          <button type="button" onClick={() => { setFieldErrors({}); setStep(2); }} className="text-xs font-semibold text-brand-700 hover:underline">Edit tickets</button>
                         </div>
                       </div>
                     </div>
