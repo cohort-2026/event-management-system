@@ -3,7 +3,6 @@ import axios from 'axios';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
-import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
 import {
   approveOrganizerProfile,
@@ -14,9 +13,15 @@ import {
 } from '@/services/organizerService';
 import type { ProfileApprovalStatus } from '@/types/user';
 
+type OrganizerTab = 'Pending' | 'Approved' | 'Rejected' | 'Inactive';
+
+const organizerTabs: OrganizerTab[] = ['Pending', 'Approved', 'Rejected', 'Inactive'];
+
 export default function UserManagement({ profileStatus }: { profileStatus?: ProfileApprovalStatus }) {
   const [organizers, setOrganizers] = useState<ManagedOrganizer[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedTab, setSelectedTab] = useState<OrganizerTab>(profileStatus === 'APPROVED' ? 'Approved' : 'Pending');
+  const [selectedOrganizerId, setSelectedOrganizerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -51,9 +56,24 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
     const query = search.trim().toLowerCase();
     return organizers.filter(person =>
       `${person.firstname} ${person.lastname}`.toLowerCase().includes(query) ||
-      person.email.toLowerCase().includes(query),
-    ).filter(person => !profileStatus || person.profileApprovalStatus === profileStatus);
-  }, [organizers, profileStatus, search]);
+      person.email.toLowerCase().includes(query) ||
+      person.organizationName?.toLowerCase().includes(query),
+    ).filter(person => {
+      if (selectedTab === 'Pending') return person.profileApprovalStatus === 'PENDING_APPROVAL';
+      if (selectedTab === 'Rejected') return person.profileApprovalStatus === 'REJECTED';
+      if (selectedTab === 'Inactive') return person.profileApprovalStatus === 'APPROVED' && !person.isActive;
+      return person.profileApprovalStatus === 'APPROVED' && person.isActive;
+    });
+  }, [organizers, search, selectedTab]);
+
+  const selectedOrganizer = filteredOrganizers.find(person => person.id === selectedOrganizerId) ?? filteredOrganizers[0] ?? null;
+
+  const tabCounts: Record<OrganizerTab, number> = {
+    Pending: organizers.filter(person => person.profileApprovalStatus === 'PENDING_APPROVAL').length,
+    Approved: organizers.filter(person => person.profileApprovalStatus === 'APPROVED' && person.isActive).length,
+    Rejected: organizers.filter(person => person.profileApprovalStatus === 'REJECTED').length,
+    Inactive: organizers.filter(person => person.profileApprovalStatus === 'APPROVED' && !person.isActive).length,
+  };
 
   const handleApproveProfile = async (person: ManagedOrganizer) => {
     setError('');
@@ -116,107 +136,181 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
 
   return (
     <>
-      <div className="grid grid-cols-1">
+      <div className="min-w-0">
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
         {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
-        <section className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-            <div>
-              <span className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-500">Accounts</span>
-              <h2 className="text-xl font-black text-neutral-900 mt-1">
-                {profileStatus === 'PENDING_APPROVAL'
-                  ? 'Organizer profiles awaiting approval'
-                  : profileStatus === 'APPROVED' ? 'Approved organizer profiles' : 'Organizer directory'}
-              </h2>
-            </div>
-            <div className="w-full sm:w-64">
+        <div className="mb-5 flex flex-wrap gap-2 rounded-[16px] border border-[#e5e7eb] bg-[#f2f3f2] p-1.5" role="tablist" aria-label="Organizer status">
+          {organizerTabs.map(tab => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={selectedTab === tab}
+              onClick={() => {
+                setSelectedTab(tab);
+                setSearch('');
+                setSelectedOrganizerId(null);
+              }}
+              className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[15px] font-medium transition-colors ${
+                selectedTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'
+              }`}
+            >
+              <span>{tab}</span>
+              {tabCounts[tab] > 0 && (
+                <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-bold text-[#374151]">{tabCounts[tab]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid min-h-[560px] grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)]">
+          <section aria-label={`${selectedTab} organizers`} className="min-w-0 rounded-[20px] border border-[#e5e7eb] bg-white p-3">
+            <div className="mb-3 px-1">
               <Input
                 aria-label="Search organizers"
-                placeholder="Search name or email"
+                placeholder="Search organizers"
                 value={search}
-                onChange={event => setSearch(event.target.value)}
+                onChange={event => {
+                  setSearch(event.target.value);
+                  setSelectedOrganizerId(null);
+                }}
               />
             </div>
-          </div>
+            {loading ? <div className="flex justify-center py-8"><Spinner /></div> : filteredOrganizers.length === 0 ? (
+              <p className="px-3 py-8 text-sm text-neutral-500">
+                {search ? 'No organizers match your search.' : `No ${selectedTab.toLowerCase()} organizers.`}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {filteredOrganizers.map(person => (
+                  <button
+                    key={person.id}
+                    type="button"
+                    aria-pressed={selectedOrganizer?.id === person.id}
+                    onClick={() => setSelectedOrganizerId(person.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-[16px] border p-3.5 text-left transition-colors ${
+                      selectedOrganizer?.id === person.id
+                        ? 'border-[#e1e5e9] bg-[#f4f6f8]'
+                        : 'border-transparent bg-white hover:border-[#e1e5e9] hover:bg-[#f8f9fa]'
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#5ad1c3] text-[16px] font-bold text-white">
+                        {getInitials(person.organizationName || `${person.firstname} ${person.lastname}`)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[17px] font-bold text-[#1f2937]">
+                          {person.organizationName?.trim() || `${person.firstname} ${person.lastname}`}
+                        </span>
+                        <span className="mt-1 block truncate text-[13px] text-[#5f6b7a]">
+                          {person.organizationEmail || person.email}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-[#f0f1f4] px-2.5 py-1 text-[12px] font-medium text-[#4b5563]">
+                      {formatAge(person.createdAt)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
 
-          {loading ? <div className="py-8 flex justify-center"><Spinner /></div> : profileStatus === 'PENDING_APPROVAL' && filteredOrganizers.length === 0 ? (
-            <p className="py-8 text-sm text-neutral-500">No organizer profiles are awaiting approval.</p>
-          ) : profileStatus === 'APPROVED' && filteredOrganizers.length === 0 ? (
-            <p className="py-8 text-sm text-neutral-500">No approved organizer profiles.</p>
-          ) : !profileStatus && organizers.length === 0 ? (
-            <p className="py-8 text-sm text-neutral-500">No organizer accounts yet.</p>
-          ) : filteredOrganizers.length === 0 ? (
-            <p className="py-8 text-sm text-neutral-500">No organizers match your search.</p>
-          ) : (
-            <div className="divide-y divide-neutral-100">
-              {filteredOrganizers.map(person => (
-                <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-neutral-900 truncate">{person.firstname} {person.lastname}</p>
-                    <p className="text-sm text-neutral-500 truncate">{person.email}</p>
-                    <p className="mt-1 text-sm text-neutral-700">
-                      Organization: {person.organizationName?.trim() || 'Not provided'}
-                    </p>
-                    {person.organizationEmail && (
-                      <p className="text-sm text-neutral-500">
-                        Organization email: {person.organizationEmail}
+          <section aria-label="Organizer details" className="min-w-0 rounded-[20px] border border-[#e5e7eb] bg-white p-5 sm:p-6">
+            {selectedOrganizer ? (
+              <>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#4fc3b1] text-[18px] font-bold text-white">
+                      {getInitials(selectedOrganizer.organizationName || `${selectedOrganizer.firstname} ${selectedOrganizer.lastname}`)}
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-[22px] font-bold text-[#1f2937]">
+                        {selectedOrganizer.organizationName?.trim() || `${selectedOrganizer.firstname} ${selectedOrganizer.lastname}`}
+                      </h2>
+                      <p className="mt-1 truncate text-sm text-[#5f6b7a]">
+                        {selectedOrganizer.firstname} {selectedOrganizer.lastname} · {selectedOrganizer.email}
                       </p>
-                    )}
-                    {person.organizationRegistrationNumber && (
-                      <p className="text-sm text-neutral-500">
-                        Registration number: {person.organizationRegistrationNumber}
-                      </p>
-                    )}
-                    {person.phone && <p className="text-sm text-neutral-500">Phone: {person.phone}</p>}
-                    {person.organizationDescription && (
-                      <p className="mt-1 max-w-prose text-sm text-neutral-500">{person.organizationDescription}</p>
-                    )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {profileStatus === 'APPROVED' && (
-                      <>
-                        <Badge variant={person.isActive ? 'success' : 'danger'}>
-                          {person.isActive ? 'ACTIVE' : 'INACTIVE'}
-                        </Badge>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          loading={deletingId === person.id}
-                          disabled={Boolean(deletingId)}
-                          onClick={() => setOrganizerToDelete(person)}
-                        >
-                          DELETE ACCOUNT
-                        </Button>
-                      </>
-                    )}
-                    {profileStatus !== 'APPROVED' && person.profileApprovalStatus === 'PENDING_APPROVAL' && (
-                      <>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          loading={rejectingId === person.id}
-                          disabled={Boolean(approvingId || rejectingId)}
-                          onClick={() => { setOrganizerToReject(person); setRejectionReason(''); }}
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          loading={approvingId === person.id}
-                          disabled={!person.organizationName?.trim() || Boolean(approvingId || rejectingId)}
-                          onClick={() => void handleApproveProfile(person)}
-                        >
-                          Approve
-                        </Button>
-                      </>
-                    )}
+                  <span className="inline-flex items-center rounded-full border border-[#dfe3ea] bg-[#f0f1f4] px-3 py-1.5 text-[12px] font-semibold text-[#4b5563]">
+                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#4b5563]" />
+                    {selectedOrganizer.profileApprovalStatus === 'PENDING_APPROVAL'
+                      ? 'Pending review'
+                      : selectedOrganizer.profileApprovalStatus === 'REJECTED'
+                        ? 'Rejected'
+                        : selectedOrganizer.isActive ? 'Approved' : 'Inactive'}
+                  </span>
+                </div>
+
+                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <OrganizerInfo label="Registration number" value={selectedOrganizer.organizationRegistrationNumber} />
+                  <OrganizerInfo label="Organization email" value={selectedOrganizer.organizationEmail} />
+                  <OrganizerInfo label="Phone" value={selectedOrganizer.phone} />
+                </div>
+
+                <div className="mb-5 rounded-[16px] border border-[#e5e7eb] bg-[#f9f9f9] p-4">
+                  <h3 className="mb-3 text-[18px] font-bold text-[#1f2937]">Documents</h3>
+                  <div className="flex min-h-[150px] items-center justify-center rounded-[12px] border border-dashed border-[#dfe3ea] bg-white px-4 text-center text-sm text-[#6b7280]">
+                    No organization documents have been submitted.
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                <div className="mb-6">
+                  <h3 className="mb-2 text-[18px] font-bold text-[#1f2937]">About</h3>
+                  <p className="text-[14px] leading-6 text-[#4b5563]">
+                    {selectedOrganizer.organizationDescription?.trim() || 'No organization description provided.'}
+                  </p>
+                </div>
+
+                {selectedTab === 'Pending' && selectedOrganizer.profileApprovalStatus === 'PENDING_APPROVAL' && (
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-20 w-40 rounded-xl bg-black px-6 text-base font-bold leading-6 text-white shadow-sm hover:bg-neutral-500 focus-visible:ring-black"
+                      loading={approvingId === selectedOrganizer.id}
+                      disabled={Boolean(approvingId || rejectingId)}
+                      onClick={() => void handleApproveProfile(selectedOrganizer)}
+                    >
+                      Approve organizer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="min-h-20 w-48 rounded-xl border border-[#d9e0ea] px-6 text-base font-bold leading-6 text-[#26354b] shadow-none hover:bg-neutral-50"
+                      loading={rejectingId === selectedOrganizer.id}
+                      disabled={Boolean(approvingId || rejectingId)}
+                      onClick={() => { setOrganizerToReject(selectedOrganizer); setRejectionReason(''); }}
+                    >
+                      Reject with reason...
+                    </Button>
+                  </div>
+                )}
+                {(selectedTab === 'Approved' || selectedTab === 'Inactive') && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    loading={deletingId === selectedOrganizer.id}
+                    disabled={Boolean(deletingId)}
+                    onClick={() => setOrganizerToDelete(selectedOrganizer)}
+                  >
+                    Delete account
+                  </Button>
+                )}
+              </>
+            ) : loading ? (
+              <div className="flex h-full min-h-[240px] items-center justify-center"><Spinner /></div>
+            ) : (
+              <div className="flex h-full min-h-[240px] items-center justify-center text-center text-sm text-[#6b7280]">
+                Select an organizer to view their profile.
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       <Modal
@@ -300,4 +394,28 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
       </Modal>
     </>
   );
+}
+
+function OrganizerInfo({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="min-w-0 rounded-[12px] border border-[#e5e7eb] bg-[#f7f7f7] p-3.5">
+      <div className="truncate text-[11px] uppercase tracking-[0.08em] text-[#6b7280]">{label}</div>
+      <div className="mt-2 truncate text-[14px] font-semibold text-[#1f2937]">{value?.trim() || 'Not provided'}</div>
+    </div>
+  );
+}
+
+function getInitials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
+}
+
+function formatAge(createdAt: string) {
+  const timestamp = new Date(createdAt).getTime();
+  if (Number.isNaN(timestamp)) return '—';
+
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
 }

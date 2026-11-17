@@ -184,14 +184,14 @@ export default function VendorApplications() {
                             Assign stand identifier
                             <input required maxLength={80} value={assignedStands[application.id] ?? ''} onChange={event => setAssignedStands(current => ({ ...current, [application.id]: event.target.value }))} placeholder="e.g. A-12" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                           </label>
-                          <Button type="submit" size="sm" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve, assign and invoice</Button>
+                          <Button type="submit" size="sm" className="min-h-20 w-full max-w-40 rounded-xl bg-black px-6 text-base font-bold leading-6 text-white shadow-sm hover:bg-neutral-900" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve vendor</Button>
                         </form>
                         <form className="space-y-3" onSubmit={event => void reject(event, application.id)}>
                           <label className="block text-sm font-medium text-neutral-700">
                             Rejection reason (required)
                             <textarea required minLength={5} maxLength={1000} rows={2} value={rejectionReasons[application.id] ?? ''} onChange={event => setRejectionReasons(current => ({ ...current, [application.id]: event.target.value }))} placeholder="Explain what the vendor should change." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                           </label>
-                          <Button type="submit" variant="danger" size="sm" loading={rejectingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Reject request</Button>
+                          <Button type="submit" variant="secondary" size="sm" className="min-h-20 w-full max-w-48 rounded-xl border border-[#d9e0ea] px-6 text-base font-bold leading-6 text-[#26354b] shadow-none hover:bg-neutral-50" loading={rejectingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Reject with reason...</Button>
                         </form>
                       </div>
                     ) : (

@@ -21,12 +21,25 @@ const people = [
   { name: 'Test Org 2', email: 'test@east.com', role: 'Organizer', org: 'Test Org 2', status: 'Deactivated', lastActive: '6 Nov', initials: 'TO', tone: 'bg-[#f0f0f0] text-[#404b5a]' },
 ];
 
-const roleTabs = ['All roles', 'Attendees 181', 'Organisers 12', 'Vendors 24', 'Management 3', 'Admins 4'];
+const roleTabs = [
+  { label: 'All roles', role: null },
+  { label: 'Attendees 181', role: 'Attendee' },
+  { label: 'Organisers 12', role: 'Organizer' },
+  { label: 'Vendors 24', role: 'Vendor' },
+  { label: 'Management 3', role: 'Management' },
+  { label: 'Admins 4', role: 'Admin' },
+];
 
 export default function UserAccounts() {
   const navigate = useNavigate();
-  const [inviteOpen, setInviteOpen] = useState(true);
-  const [form, setForm] = useState({ name: 'Noma Mahlangu', role: 'Management', email: 'noma@client.co.za' });
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const filteredPeople = people.filter((person) => {
+    const matchesRole = selectedRole === null || person.role === selectedRole;
+    const query = search.trim().toLowerCase();
+    const matchesSearch = !query || person.name.toLowerCase().includes(query) || person.email.toLowerCase().includes(query);
+    return matchesRole && matchesSearch;
+  });
 
   return (
     <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
@@ -107,13 +120,6 @@ export default function UserAccounts() {
               <h1 className="text-[33px] font-extrabold tracking-[-0.06em] text-[#1f2937]">People</h1>
               <div className="mt-1 text-[14px] text-[#5f6b7a]">1 046 accounts</div>
             </div>
-            <button type="button" onClick={() => navigate('/admin')} className="inline-flex items-center gap-2 rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-[12px] font-semibold text-[#374151] shadow-sm hover:bg-[#f3f4f6]">
-              <BackIcon />
-              Back
-            </button>
-            <button type="button" onClick={() => setInviteOpen(true)} className="rounded-lg bg-[#1f2937] px-4 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-[#111827]">
-              + Invite person
-            </button>
           </div>
 
           <div className="mb-4 flex items-center gap-2 overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f5f5f4] p-1">
@@ -122,19 +128,24 @@ export default function UserAccounts() {
                 <SearchIcon />
               </span>
               <input
-                readOnly
-                value=""
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                aria-label="Filter by name or email"
                 placeholder="Name or email"
-                className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
+                className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none focus:ring-2 focus:ring-[#9aa3af]"
               />
             </div>
             {roleTabs.map((tab) => (
               <button
-                key={tab}
+                key={tab.label}
                 type="button"
-                className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium ${tab.startsWith('All') ? 'bg-[#1f2937] text-white' : 'text-[#526071]'}`}
+                aria-pressed={selectedRole === tab.role}
+                onClick={() => setSelectedRole(tab.role)}
+                className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
+                  selectedRole === tab.role ? 'bg-[#1f2937] text-white' : 'text-[#526071] hover:bg-white hover:text-[#1f2937]'
+                }`}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -150,7 +161,7 @@ export default function UserAccounts() {
             </div>
 
             <div className="divide-y divide-[#e5e7eb]">
-              {people.map((person) => (
+              {filteredPeople.map((person) => (
                 <div key={person.email} className="grid grid-cols-[1.6fr_1.1fr_1.2fr_0.9fr_0.7fr_36px] items-center gap-3 px-4 py-3 text-[13px] text-[#1f2937]">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold ${person.tone}`}>
@@ -176,70 +187,14 @@ export default function UserAccounts() {
                   </button>
                 </div>
               ))}
+              {filteredPeople.length === 0 && (
+                <p className="px-4 py-8 text-center text-sm text-[#6b7280]">No people match the selected filters.</p>
+              )}
             </div>
           </div>
         </main>
       </div>
 
-      {inviteOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-[#111827]/10 backdrop-blur-[1px]">
-          <div className="w-[440px] rounded-[16px] border border-[#e5e7eb] bg-white p-5 shadow-[0_18px_38px_rgba(15,23,42,0.18)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-[18px] font-bold text-[#1f2937]">Invite a person</h2>
-              <button type="button" onClick={() => setInviteOpen(false)} className="text-[#6b7280] hover:text-[#1f2937]">
-                <CloseIcon />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-2 block text-[12px] font-semibold text-[#4b5563]">Name</label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="h-11 w-full rounded-lg border border-[#dfe3ea] bg-white px-3 text-[13px] text-[#1f2937] outline-none focus:border-[#8ea0b5]"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-[12px] font-semibold text-[#4b5563]">Role</label>
-                  <select
-                    value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
-                    className="h-11 w-full rounded-lg border border-[#dfe3ea] bg-white px-3 text-[13px] text-[#1f2937] outline-none focus:border-[#8ea0b5]"
-                  >
-                    <option>Management</option>
-                    <option>Organizer</option>
-                    <option>Vendor</option>
-                    <option>Attendee</option>
-                    <option>Admin</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-[12px] font-semibold text-[#4b5563]">Email</label>
-                <input
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="h-11 w-full rounded-lg border border-[#dfe3ea] bg-white px-3 text-[13px] text-[#1f2937] outline-none focus:border-[#8ea0b5]"
-                />
-              </div>
-
-              <div className="text-[12px] text-[#667084]">They get a one-time link to set their own password. It expires in 48 hours.</div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setInviteOpen(false)} className="rounded-lg border border-[#dfe3ea] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#374151] hover:bg-[#f3f4f6]">
-                  Cancel
-                </button>
-                <button type="button" onClick={() => setInviteOpen(false)} className="rounded-lg bg-[#1f2937] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#111827]">
-                  Send invite
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -280,10 +235,4 @@ function MoreIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>;
 }
 
-function CloseIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" /></svg>;
-}
 
-function BackIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M15 18 9 12l6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}

@@ -28,25 +28,10 @@ export default function AdminDashboard() {
     { label: 'Attendance, last 30 days', value: '79%' },
   ];
 
-  const statuses = [
-    { label: 'Draft', value: 6, color: '#d1d5db' },
-    { label: 'Submitted', value: 3, color: '#f3c768' },
-    { label: 'Published', value: 14, color: '#4ec5ad' },
-    { label: 'Completed', value: 20, color: '#1f2937' },
-    { label: 'Cancelled', value: 2, color: '#f87070' },
-  ];
-
-  const activity = [
-    { name: 'You approved Joburg Tech Summit 2026', date: '24 Oct', initials: 'JV', tone: 'bg-[#5b9cf7] text-white' },
-    { name: 'Lerato Mokoena submitted Excel for Finance Teams', date: '9 Nov', initials: 'LM', tone: 'bg-[#f27272] text-white' },
-    { name: 'Karabo Dube rejected vendor QuickPrint SA: “CIPC certificate expired”', date: '8 Nov', initials: 'KD', tone: 'bg-[#28b1a1] text-white' },
-    { name: 'You deactivated organiser Test Org 2', date: '6 Nov', initials: 'JV', tone: 'bg-[#5b9cf7] text-white' },
-  ];
-
   return (
     <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
       <div className="w-full overflow-hidden rounded-[12px] border border-[#dfe3ea] bg-[#f4f4f2]">
-        <div className="flex min-h-[680px]">
+        <div className="flex">
           <aside className="hidden">
             <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#f15d5d] text-sm font-bold text-white">E</div>
@@ -206,44 +191,6 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_1fr]">
-              <div className="rounded-[12px] border border-[#e5e7eb] bg-white p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-[17px] font-bold text-[#1f2937]">Events by status</h2>
-                </div>
-                <div className="space-y-3">
-                  {statuses.map((status) => (
-                    <div key={status.label} className="grid grid-cols-[90px_1fr_40px] items-center gap-3 text-[13px]">
-                      <span className="font-medium text-[#4b5563]">{status.label}</span>
-                      <div className="h-2.5 rounded-full bg-[#e5e7eb] overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.min((status.value / 20) * 100, 100)}%`, backgroundColor: status.color }} />
-                      </div>
-                      <span className="text-right font-semibold text-[#1f2937]">{status.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[12px] border border-[#e5e7eb] bg-white p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-[17px] font-bold text-[#1f2937]">Recent activity</h2>
-                  <button type="button" className="text-[12px] font-semibold text-[#4b5563] hover:text-[#1f2937]">Audit history →</button>
-                </div>
-                <div className="space-y-4">
-                  {activity.map((item) => (
-                    <div key={item.name} className="flex items-start gap-3 text-[13px]">
-                      <div className={`mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${item.tone}`}>
-                        {item.initials}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[#1f2937]">{item.name}</div>
-                      </div>
-                      <div className="pt-0.5 text-[12px] text-[#7a7f8a] whitespace-nowrap">{item.date}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </main>
         </div>
       </div>

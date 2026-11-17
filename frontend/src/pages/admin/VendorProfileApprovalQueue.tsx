@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const sidebarItems = [
   { label: 'Dashboard', active: false },
   { label: 'Event approvals', active: false, count: 3 },
@@ -10,16 +12,18 @@ const sidebarItems = [
 ];
 
 const tabs = [
-  { label: 'Pending', count: 1, active: true },
-  { label: 'Approved', count: 23, active: false },
-  { label: 'Rejected', count: 4, active: false },
-  { label: 'Inactive', count: 0, active: false },
+  { label: 'Pending', count: 1 },
+  { label: 'Approved', count: 23 },
+  { label: 'Rejected', count: 4 },
+  { label: 'Inactive', count: 0 },
 ];
 
 const documents = ['CIPC certificate.pdf', 'VAT registration.pdf', 'EEF affidavit.pdf'];
 
 export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }: { status?: 'PENDING_REVIEW' | 'APPROVED' }) {
-  const isApproved = status === 'APPROVED';
+  const [selectedTab, setSelectedTab] = useState(status === 'APPROVED' ? 'Approved' : 'Pending');
+  const isPending = selectedTab === 'Pending';
+  const statusLabel = isPending ? 'Pending review' : selectedTab === 'Inactive' ? 'Inactive' : selectedTab;
 
   return (
     <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
@@ -100,8 +104,10 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
               <button
                 key={tab.label}
                 type="button"
+                aria-pressed={selectedTab === tab.label}
+                onClick={() => setSelectedTab(tab.label)}
                 className={`flex items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-medium ${
-                  tab.active ? 'bg-[#e6e7e8] text-[#1f2937]' : 'text-[#65707d]'
+                  selectedTab === tab.label ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -135,10 +141,10 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                   </div>
                 </div>
                 <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                  isApproved ? 'border-[#dfe3ea] bg-[#f0f1f4] text-[#4b5563]' : 'border-[#d7f1ea] bg-[#ebfbf7] text-[#188b72]'
+                  isPending ? 'border-[#d7f1ea] bg-[#ebfbf7] text-[#188b72]' : 'border-[#dfe3ea] bg-[#f0f1f4] text-[#4b5563]'
                 }`}>
-                  <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${isApproved ? 'bg-[#4b5563]' : 'bg-[#188b72]'}`} />
-                  {isApproved ? 'Approved' : 'Pending review'}
+                  <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${isPending ? 'bg-[#188b72]' : 'bg-[#4b5563]'}`} />
+                  {statusLabel}
                 </span>
               </div>
 
@@ -180,17 +186,21 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button type="button" className="rounded-lg bg-[#1f2937] px-4 py-3 text-[14px] font-bold text-white shadow-sm hover:bg-[#111827]">
-                  Approve vendor
-                </button>
+              {isPending && (
+                <div className="flex items-center gap-3">
+                  <button type="button" className="rounded-lg bg-[#1f2937] px-4 py-3 text-[14px] font-bold text-white shadow-sm hover:bg-[#111827]">
+                    Approve vendor
+                  </button>
+                  <button type="button" className="rounded-lg border border-[#dfe3ea] bg-white px-4 py-3 text-[14px] font-bold text-[#374151] hover:bg-[#f3f4f6]">
+                    Reject with reason...
+                  </button>
+                </div>
+              )}
+              {selectedTab === 'Approved' && (
                 <button type="button" className="rounded-lg border border-[#dfe3ea] bg-white px-4 py-3 text-[14px] font-bold text-[#374151] hover:bg-[#f3f4f6]">
-                  Reject with reason...
-                </button>
-                <button type="button" className="ml-auto rounded-lg border border-[#dfe3ea] bg-white px-4 py-3 text-[14px] font-bold text-[#374151] hover:bg-[#f3f4f6]">
                   Deactivate
                 </button>
-              </div>
+              )}
             </section>
           </div>
         </main>
