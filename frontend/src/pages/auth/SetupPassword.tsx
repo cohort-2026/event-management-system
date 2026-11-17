@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import AuthCard from '@/components/auth/AuthCard';
 import Button from '@/components/ui/Button';
@@ -72,7 +72,6 @@ export default function SetupPassword() {
         <Button type="submit" loading={saving} className="h-10 w-full !bg-gradient-to-r !from-rose-600 !to-orange-500 !text-white hover:!brightness-105">Activate account</Button>
       </form>
       <p className="mt-4 text-center text-[11px] text-neutral-500">This invitation link expires in 48 hours.</p>
-      <p className="mt-4 text-center text-sm text-neutral-600"><Link to="/login" className="font-semibold !text-rose-600 hover:underline">Back to sign in</Link></p>
     </AuthCard>
   );
 }

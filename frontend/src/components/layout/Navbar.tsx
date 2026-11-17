@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import type { UserRole } from "@/types/user";
@@ -24,25 +24,17 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
 };
 
 const publicLinks = [
-  { label: "Discover", to: "/events" },
-  { label: "Upcoming", to: "#upcoming" },
-  { label: "For organisers", to: "#organisers" },
-  { label: "For vendors", to: "#vendors" },
+  { label: "Home", to: "/landing" },
+  { label: "Upcoming", to: "/upcoming" },
+  { label: "For attendees", to: "/for/attendees" },
+  { label: "For organisers", to: "/for/organisers" },
+  { label: "For vendors", to: "/for/vendors" },
 ];
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [isDark, setIsDark] = useState(
-    () => localStorage.getItem("eventms-theme") === "dark",
-  );
-
-  useEffect(() => {
-    document
-      .querySelector("[data-theme-scope]")
-      ?.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const links = user ? (roleLinks[user.role] ?? []) : publicLinks;
   const handleLogout = async () => {
@@ -50,36 +42,6 @@ export default function Navbar() {
     navigate("/login");
     setOpen(false);
   };
-  const setTheme = (dark: boolean) => {
-    localStorage.setItem("eventms-theme", dark ? "dark" : "light");
-    setIsDark(dark);
-  };
-
-  const themeControl = (
-    <div
-      role="group"
-      aria-label="Color theme"
-      className="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-900"
-    >
-      <button
-        type="button"
-        aria-pressed={!isDark}
-        onClick={() => setTheme(false)}
-        className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${!isDark ? "bg-white text-neutral-900 shadow-xs dark:bg-neutral-700 dark:!text-white" : "text-neutral-600 hover:text-neutral-900 dark:!text-neutral-300 dark:hover:!text-white"}`}
-      >
-        Light
-      </button>
-      <button
-        type="button"
-        aria-pressed={isDark}
-        onClick={() => setTheme(true)}
-        className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${isDark ? "bg-white text-neutral-900 shadow-xs dark:bg-neutral-700 dark:!text-white" : "text-neutral-600 hover:text-neutral-900 dark:!text-neutral-300 dark:hover:!text-white"}`}
-      >
-        Dark
-      </button>
-    </div>
-  );
-
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-40 shadow-xs dark:bg-neutral-950 dark:border-neutral-800">
       <div className="page-container flex items-center justify-between h-16">
@@ -137,7 +99,6 @@ export default function Navbar() {
 
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
-          {themeControl}
           {user ? (
             <>
               <div className="flex items-center gap-2.5 pl-3 border-l border-neutral-200">
@@ -242,7 +203,6 @@ export default function Navbar() {
             ),
           )}
           <div className="border-t border-neutral-100 mt-2 pt-3 flex flex-col gap-2 dark:border-neutral-800">
-            <div className="px-3 py-2">{themeControl}</div>
             {user ? (
               <>
                 <span className="px-3 text-sm font-medium text-neutral-500 dark:!text-neutral-300">

@@ -119,13 +119,13 @@ export default function Register() {
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="min-h-screen bg-white lg:grid lg:grid-cols-[0.9fr_1.1fr]">
-      <aside className="flex flex-col border-b border-neutral-200 bg-[#fafafa] p-5 sm:p-8 lg:min-h-screen lg:border-b-0 lg:border-r lg:px-10 lg:py-8">
+    <form onSubmit={handleSubmit} noValidate className="min-h-screen bg-white lg:grid lg:h-screen lg:min-h-0 lg:grid-cols-[0.9fr_1.1fr] lg:overflow-hidden">
+      <aside className="flex flex-col border-b border-neutral-200 bg-[#fafafa] p-5 sm:p-8 lg:min-h-0 lg:border-b-0 lg:border-r lg:px-10 lg:py-8">
         <Link to="/" className="flex items-center gap-2 !text-neutral-950" aria-label="EventMS home">
           <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white"><CalendarDays aria-hidden="true" className="size-4" /></span>
           <span className="text-sm font-extrabold tracking-tight">EventMS</span>
         </Link>
-        <h1 className="mb-4 mt-6 text-xl font-extrabold tracking-tight text-neutral-950 lg:mt-12">Choose how you&apos;ll use EventMS.</h1>
+        <h1 className="mb-4 mt-6 text-xl font-extrabold tracking-tight text-neutral-950 lg:mt-8">Choose how you&apos;ll use EventMS.</h1>
 
         <fieldset className="flex flex-col gap-2.5">
           <legend className="sr-only">Account type</legend>
@@ -147,9 +147,9 @@ export default function Register() {
         <p className="mt-5 text-xs leading-relaxed text-neutral-500 lg:mt-auto lg:pt-8">Your role determines which event tools are available after your email is verified.</p>
       </aside>
 
-      <section className="flex items-center justify-center px-5 py-8 sm:px-8 lg:px-10 lg:py-12">
+      <section className="flex items-center justify-center px-5 py-8 sm:px-8 lg:min-h-0 lg:px-10 lg:py-4">
         <div className="w-full max-w-[500px]">
-          <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-extrabold tracking-tight text-neutral-950">Create your account</h2>
               <p className="mt-1 text-sm text-neutral-600">Choose how you&apos;ll use EventMS.</p>
@@ -159,7 +159,7 @@ export default function Register() {
 
           {serverError && <div role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-800">{serverError}</div>}
 
-          <div className="space-y-3.5">
+          <div className="space-y-2.5">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input label="First name" autoComplete="given-name" maxLength={80} required value={form.firstname} onChange={set('firstname')} error={errors.firstname} placeholder="e.g. Solomon" />
               <Input label="Last name" autoComplete="family-name" maxLength={80} required value={form.lastname} onChange={set('lastname')} error={errors.lastname} placeholder="e.g. Khoza" />
@@ -175,9 +175,9 @@ export default function Register() {
             <Input label="Confirm password" type="password" autoComplete="new-password" showPasswordToggle required value={form.confirmPassword} onChange={handleConfirmPasswordChange} error={errors.confirmPassword} helperText={form.confirmPassword && form.password === form.confirmPassword ? 'Passwords match' : undefined} />
           </div>
 
-          <p className="mt-3 text-xs text-neutral-500">A verification code will be sent to your email.</p>
-          <Button type="submit" loading={loading} className="mt-4 h-10 w-full !bg-gradient-to-r !from-rose-600 !to-orange-500 !text-white hover:!brightness-105" size="lg">Create account</Button>
-          <p className="mt-5 text-center text-sm text-neutral-600 sm:hidden">Already registered? <Link to="/login" className="font-semibold !text-rose-600 hover:underline">Sign in</Link></p>
+          <p className="mt-2 text-xs text-neutral-500">A verification code will be sent to your email.</p>
+          <Button type="submit" loading={loading} className="mt-3 h-10 w-full !bg-gradient-to-r !from-rose-600 !to-orange-500 !text-white hover:!brightness-105" size="lg">Create account</Button>
+          <p className="mt-3 text-center text-sm text-neutral-600 sm:hidden">Already registered? <Link to="/login" className="font-semibold !text-rose-600 hover:underline">Sign in</Link></p>
         </div>
       </section>
     </form>

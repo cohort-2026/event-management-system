@@ -13,7 +13,7 @@ export default function NotFound() {
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link to="/" className="rounded-full bg-brand-700 text-white px-6 py-3 font-bold hover:bg-brand-800 transition-colors shadow-sm">
-            Back to Home
+            Home
           </Link>
           <Link to="/events" className="rounded-full border border-neutral-300 text-neutral-700 px-6 py-3 font-bold hover:border-brand-600 hover:text-brand-700 transition-colors">
             Browse Events

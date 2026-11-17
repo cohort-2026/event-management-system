@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
 import Spinner from '@/components/ui/Spinner';
+import Navbar from '@/components/layout/Navbar';
 import type { UserRole } from '@/types/user';
 
 // Auth
@@ -16,6 +17,8 @@ import SetupPassword from '@/pages/auth/SetupPassword';
 
 // Public
 import LandingPage from '@/pages/LandingPage';
+import AudiencePage from '@/pages/AudiencePage';
+import UpcomingPage from '@/pages/UpcomingPage';
 import EventList from '@/pages/events/EventList';
 import EventDetail from '@/pages/events/EventDetail';
 import NotFound from '@/pages/NotFound';
@@ -51,6 +54,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <NavbarVisibility />
         <Routes>
 
           {/* ── Root: landing entry for guests, dashboard for signed-in users ── */}
@@ -71,6 +75,8 @@ export default function App() {
 
           {/* ── Public (accessible to everyone) ── */}
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/for/:audience" element={<AudiencePage />} />
+          <Route path="/upcoming" element={<UpcomingPage />} />
           <Route path="/events"     element={<EventList />} />
           <Route path="/events/:id" element={<EventDetail />} />
 
@@ -123,6 +129,12 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+function NavbarVisibility() {
+  const { pathname } = useLocation();
+  if (pathname === '/login' || pathname === '/register') return null;
+  return <Navbar />;
 }
 
 /* Root route: guests land on public landing page, signed-in users go to their dashboard. */

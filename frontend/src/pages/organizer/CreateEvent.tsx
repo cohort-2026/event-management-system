@@ -324,7 +324,6 @@ export default function CreateEvent() {
     return (
       <PageWrapper>
         <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-800">This event can no longer be edited.</p>
-        <Link to="/organizer" className="mt-4 inline-block text-brand-700">Back to dashboard</Link>
       </PageWrapper>
     );
   }
@@ -358,7 +357,6 @@ export default function CreateEvent() {
               <h2 className="text-xl font-black text-neutral-900">{existingEvent?.status === 'PUBLISHED' ? 'Event published' : 'Event saved'}</h2>
               <p className="mt-2 text-sm text-neutral-600">{notice}</p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link to="/organizer"><Button type="button">Back to my events</Button></Link>
                 <Button type="button" variant="secondary" onClick={() => setCompleted(false)}>Continue editing</Button>
               </div>
             </section>

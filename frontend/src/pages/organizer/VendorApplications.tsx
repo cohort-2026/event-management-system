@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Badge, { type BadgeVariant } from '@/components/ui/Badge';
@@ -121,7 +121,6 @@ export default function VendorApplications() {
             <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
               <h2 className="font-bold text-neutral-900">No stand requests yet</h2>
               <p className="mt-2 text-sm text-neutral-600">Requests for this event will appear here.</p>
-              <Link to="/organizer/events" className="mt-4 inline-flex text-sm font-semibold text-brand-700 underline">Back to events</Link>
             </div>
           ) : (
             <div className="space-y-5">

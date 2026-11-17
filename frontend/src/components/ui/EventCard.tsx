@@ -8,7 +8,7 @@ const categoryColors: Record<string, string> = {
   'Company Activity': 'bg-amber-50 text-amber-700',
 };
 
-export default function EventCard({ event, vendorView = false, vendorApproved = false }: { event: Event; vendorView?: boolean; vendorApproved?: boolean }) {
+export default function EventCard({ event, vendorView = false, vendorApproved = false, vendorPublicView = false }: { event: Event; vendorView?: boolean; vendorApproved?: boolean; vendorPublicView?: boolean }) {
   const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const time = new Date(event.startTime).toLocaleTimeString('en-ZA', { hour: 'numeric', minute: '2-digit' });
   const applicationsOpen = event.status === 'PUBLISHED' && new Date(event.startTime) > new Date();
@@ -17,7 +17,7 @@ export default function EventCard({ event, vendorView = false, vendorApproved = 
   const fillPct = Math.round((filled / event.capacity) * 100);
 
   return (
-    <Link to={`/events/${event.id}`} className="block group">
+    <Link to={`/events/${event.id}${vendorView ? '?vendor=true' : ''}`} className="block group">
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col h-full">
         {event.bannerImageUrl
           ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
@@ -63,7 +63,9 @@ export default function EventCard({ event, vendorView = false, vendorApproved = 
                   ? 'No vendor stands available'
                   : vendorApproved
                     ? `${event.availableVendorStands} vendor stand${event.availableVendorStands === 1 ? '' : 's'} available`
-                    : 'Approval required to apply'}
+                    : vendorPublicView
+                      ? `${event.availableVendorStands} vendor stand${event.availableVendorStands === 1 ? '' : 's'} available`
+                      : 'Approval required to apply'}
             </p>
           )}
 

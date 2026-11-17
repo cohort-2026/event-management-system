@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Button from '@/components/ui/Button';
@@ -10,7 +10,9 @@ import type { Event } from '@/types/event';
 
 export default function EventDetail() {
   const { id = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const vendorBrowse = user?.role === 'VENDOR' || searchParams.get('vendor') === 'true';
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,7 +42,7 @@ export default function EventDetail() {
       <PageWrapper>
         <div role="alert" className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
           <p className="font-semibold text-neutral-800">{error || 'Event not found.'}</p>
-          {user?.role === 'VENDOR' && <p className="mt-2 text-sm text-neutral-500">Vendor applications are unavailable for this event.</p>}
+          {vendorBrowse && <p className="mt-2 text-sm text-neutral-500">Vendor applications are unavailable for this event.</p>}
           <Link to="/events" className="mt-4 inline-block text-sm font-semibold text-brand-700">Browse approved events</Link>
         </div>
       </PageWrapper>
@@ -107,7 +109,7 @@ export default function EventDetail() {
             <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">{event.description}</p>
           </section>
 
-          {user?.role === 'VENDOR' && (
+          {vendorBrowse && (
             <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-neutral-900">Vendor participation</h2>
               <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -119,7 +121,7 @@ export default function EventDetail() {
             </section>
           )}
 
-          {user?.role !== 'VENDOR' && <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          {!vendorBrowse && <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Ticket options</h2>
             <ul className="mt-4 divide-y divide-neutral-100">
               {event.ticketTypes.map(ticket => (
@@ -138,19 +140,23 @@ export default function EventDetail() {
 
         <aside>
           <section className="sticky top-20 flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            {user?.role !== 'VENDOR' && <div>
+            {!vendorBrowse && <div>
               <p className="text-2xl font-bold text-neutral-900">
                 {event.isFree ? 'Free' : `From R${Math.min(...event.ticketTypes.filter(ticket => ticket.price > 0).map(ticket => ticket.price)).toFixed(2)}`}
               </p>
               <p className="text-sm text-neutral-400">per ticket</p>
             </div>}
 
-            {user?.role === 'VENDOR' ? (
+            {vendorBrowse ? (
               applicationsOpen ? (
                 event.availableVendorStands <= 0 ? (
                   <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700">All vendor stands have been allocated.</div>
                 ) : vendorApproved ? (
                   <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
+                ) : !user ? (
+                  <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
+                ) : user.role !== 'VENDOR' ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">A vendor account is required to apply for a stand.</div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
                     <p>{vendorApprovalMessage}</p>
