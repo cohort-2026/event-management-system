@@ -436,13 +436,13 @@ export default function OrganizerDashboard() {
           {isNotificationsPage ? (
             <DashboardHeader
               title="Notifications"
-              subtitle="Activity and items needing attention across your organization."
+              topBarSubtitle="Activity and items needing attention across your organization."
               showNavigation={false}
             />
           ) : isMyEventsPage ? (
             <DashboardHeader
               title="My events"
-              subtitle="Create, publish, and manage your events."
+              topBarSubtitle="Create, publish, and manage your events."
               showNavigation={false}
               appearance="analytics"
             />

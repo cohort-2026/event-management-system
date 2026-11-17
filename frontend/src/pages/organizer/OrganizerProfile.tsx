@@ -13,6 +13,8 @@ import {
   type UpdateOrganizerProfileDto,
 } from '@/services/organizerService';
 
+const organizationRegistrationNumberPattern = /^\d{4}\/\d{6}\/\d{2}$/;
+
 const emptyProfile: UpdateOrganizerProfileDto = {
   firstname: '',
   lastname: '',
@@ -98,10 +100,14 @@ export default function OrganizerProfile() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [phoneCountryCode, setPhoneCountryCode] = useState('+27');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
   const [isRequestingChange, setIsRequestingChange] = useState(false);
+  const [savedRegistrationNumber, setSavedRegistrationNumber] = useState('');
   const savedProfile = useRef('');
   const isApproved = profileApprovalStatus === 'APPROVED';
   const canEdit = !isApproved || isRequestingChange;
+  const registrationNumberChanged = profile.organizationRegistrationNumber !== savedRegistrationNumber;
+  const canSubmitOrganizationDetails = isApproved && !isRequestingChange && registrationNumberChanged;
 
   const setPhoneFromProfile = (phone: string | null) => {
     const parsedPhone = splitPhoneNumber(phone);
@@ -115,6 +121,7 @@ export default function OrganizerProfile() {
       .then(response => {
         if (!active) return;
         setProfile(toFormValues(response.data.data));
+        setSavedRegistrationNumber(response.data.data.organizationRegistrationNumber ?? '');
         savedProfile.current = JSON.stringify({ profile: toFormValues(response.data.data), ...splitPhoneNumber(response.data.data.phone) });
         setPhoneFromProfile(response.data.data.phone);
         setEmail(response.data.data.email);
@@ -143,11 +150,23 @@ export default function OrganizerProfile() {
 
   const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isApproved && !isRequestingChange) return;
-    setSaving(true);
+    if (isApproved && !isRequestingChange && !registrationNumberChanged) return;
     setSaveError('');
     setSaveMessage('');
     setFieldErrors({});
+    const errors: Record<string, string> = {};
+    if (!organizationRegistrationNumberPattern.test(profile.organizationRegistrationNumber)) {
+      errors.organizationRegistrationNumber = 'Use the format 2020/123456/07.';
+    }
+    if (!/^E\d{4}$/.test(employeeNumber)) {
+      errors.employeeNumber = 'Use the format E1408.';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSaveError('Please check the highlighted fields.');
+      return;
+    }
+    setSaving(true);
 
     try {
       const localNumber = phoneNumber.trim().replace(/^0+/, '');
@@ -157,6 +176,7 @@ export default function OrganizerProfile() {
         phone: localNumber ? `${phoneCountryCode} ${localNumber}` : '',
       });
       setProfile(toFormValues(response.data.data));
+      setSavedRegistrationNumber(response.data.data.organizationRegistrationNumber ?? '');
       savedProfile.current = JSON.stringify({ profile: toFormValues(response.data.data), ...splitPhoneNumber(response.data.data.phone) });
       setPhoneFromProfile(response.data.data.phone);
       setEmail(response.data.data.email);
@@ -196,7 +216,7 @@ export default function OrganizerProfile() {
         <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title="Organization profile"
-            subtitle="Manage the organization details used when your events are reviewed."
+            topBarSubtitle="Manage the organization details used when your events are reviewed."
             showNavigation={false}
             confirmNotificationNavigation={confirmLeave}
             notificationsDisabled={saving}
@@ -275,14 +295,39 @@ export default function OrganizerProfile() {
                   <Input
                     label="Registration number"
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{9}"
-                    maxLength={9}
+                    pattern="[0-9]{4}/[0-9]{6}/[0-9]{2}"
+                    maxLength={14}
                     required
                     value={profile.organizationRegistrationNumber}
                     onChange={event => updateField('organizationRegistrationNumber', event.target.value)}
                     error={fieldErrors.organizationRegistrationNumber}
-                    helperText="Enter exactly 9 digits."
+                    helperText="Format: 2020/123456/07"
+                  />
+                  <Input
+                    label="Employee number"
+                    type="text"
+                    pattern="E[0-9]{4}"
+                    maxLength={5}
+                    required
+                    value={employeeNumber}
+                    onChange={event => {
+                      setEmployeeNumber(event.target.value);
+                      setFieldErrors(current => ({ ...current, employeeNumber: '' }));
+                      setSaveError('');
+                      setSaveMessage('');
+                    }}
+                    error={fieldErrors.employeeNumber}
+                    helperText="Format: E1408. This value is not saved to your profile."
+                  />
+                  <Input
+                    label="Organization email"
+                    type="email"
+                    autoComplete="email"
+                    maxLength={254}
+                    required
+                    value={profile.organizationEmail}
+                    onChange={event => updateField('organizationEmail', event.target.value)}
+                    error={fieldErrors.organizationEmail}
                     disabled={!canEdit}
                   />
                 </div>
@@ -312,17 +357,6 @@ export default function OrganizerProfile() {
                     value={profile.lastname}
                     onChange={event => updateField('lastname', event.target.value)}
                     error={fieldErrors.lastname}
-                    disabled={!canEdit}
-                  />
-                  <Input
-                    label="Organization email"
-                    type="email"
-                    autoComplete="email"
-                    maxLength={254}
-                    required
-                    value={profile.organizationEmail}
-                    onChange={event => updateField('organizationEmail', event.target.value)}
-                    error={fieldErrors.organizationEmail}
                     disabled={!canEdit}
                   />
                   <Input
@@ -403,10 +437,14 @@ export default function OrganizerProfile() {
               {saveError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{saveError}</p>}
               {saveMessage && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{saveMessage}</p>}
 
-              {canEdit && (
+              {(canEdit || canSubmitOrganizationDetails) && (
                 <div className="flex justify-end">
                   <Button type="submit" loading={saving}>
-                    {isApproved && isRequestingChange ? 'Submit changes for review' : 'Save profile'}
+                    {isApproved && !isRequestingChange
+                      ? 'Submit organization details for review'
+                      : isApproved
+                        ? 'Submit changes for review'
+                        : 'Save profile'}
                   </Button>
                 </div>
               )}

@@ -561,7 +561,8 @@ export default function CreateEvent() {
         <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title={isEditing ? 'Edit event' : 'Create event'}
-            subtitle="Complete the event details, ticket tiers, and venue information."
+            subtitle={isEditing ? 'Complete the event details, ticket tiers, and venue information.' : undefined}
+            topBarSubtitle={!isEditing ? 'Complete the event details, ticket tiers, and venue information.' : undefined}
             showNavigation={isEditing}
             confirmNotificationNavigation={confirmLeave}
             notificationsDisabled={saving}
