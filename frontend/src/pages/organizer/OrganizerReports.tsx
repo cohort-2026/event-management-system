@@ -52,8 +52,8 @@ function StatusChart({ events }: { events: Event[] }) {
   const segments = slices.map(item => `${item.color} ${item.start}deg ${item.start + item.angle}deg`);
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-status">
-      <h2 id="report-status" className="font-bold text-neutral-900">Event status</h2>
+    <section className="min-w-0" aria-labelledby="report-status">
+      <h2 id="report-status" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Event status</h2>
       <p className="mt-1 text-sm text-neutral-500">All events by their current status. Total: {events.length}.</p>
       {events.length === 0 ? <p className="mt-6 text-sm text-neutral-500">No events to report yet.</p> : (
         <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row">
@@ -101,18 +101,24 @@ function CategoryChart({ events }: { events: Event[] }) {
   const tickCount = Math.ceil(maximum / step);
   const scaleMaximum = tickCount * step;
   const axisWidth = Math.max(40, String(scaleMaximum).length * 9 + 8);
+  const yAxisLabelWidth = 28;
+  const leftAxisWidth = axisWidth + yAxisLabelWidth;
   const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
   const barColors = ['#80a6d7', '#baa2ee', '#f47d82', '#e6cc54'];
 
   return (
-    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-categories">
-      <h2 id="report-categories" className="font-bold text-neutral-900">Events by category</h2>
+    <section className="min-w-0" aria-labelledby="report-categories">
+      <h2 id="report-categories" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Events by category</h2>
       <p className="mt-1 text-sm text-neutral-500">Number of events in each category.</p>
       {categories.length === 0 ? <p className="mt-6 text-sm text-neutral-500">No events to report yet.</p> : (
         <div className="mt-6 overflow-x-auto">
-          <div style={{ minWidth: `${Math.max(300, categories.length * 80 + axisWidth)}px` }}>
-            <p className="mb-5 text-xs font-semibold text-neutral-700">Number of events</p>
+          <div style={{ minWidth: `${Math.max(300, categories.length * 80 + leftAxisWidth)}px` }}>
             <div className="flex">
+              <div aria-hidden="true" className="relative h-48 shrink-0" style={{ width: yAxisLabelWidth }}>
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-xs font-semibold text-neutral-700">
+                  Number of events
+                </span>
+              </div>
               <div aria-hidden="true" className="relative h-48 shrink-0" style={{ width: axisWidth }}>
                 {ticks.map(tick => (
                   <span key={tick} className="absolute right-2 translate-y-1/2 text-xs text-neutral-500" style={{ bottom: `${tick / scaleMaximum * 100}%` }}>
@@ -135,12 +141,12 @@ function CategoryChart({ events }: { events: Event[] }) {
                 </ul>
               </div>
             </div>
-            <div aria-hidden="true" className="flex" style={{ marginLeft: axisWidth }}>
+            <div aria-hidden="true" className="flex" style={{ marginLeft: leftAxisWidth }}>
               {categories.map(([category]) => (
                 <span key={category} className="flex-1 break-words px-1 pt-2 text-center text-xs text-neutral-700">{category}</span>
               ))}
             </div>
-            <p className="mt-3 text-center text-xs font-semibold text-neutral-700" style={{ marginLeft: axisWidth }}>Event category</p>
+            <p className="mt-3 text-center text-xs font-semibold text-neutral-700" style={{ marginLeft: leftAxisWidth }}>Event category</p>
           </div>
         </div>
       )}
@@ -165,8 +171,8 @@ function BookingChart({ registrations }: { registrations: EventRegistration[] })
   }));
 
   return (
-    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-bookings">
-      <h2 id="report-bookings" className="font-bold text-neutral-900">Booking trend</h2>
+    <section className="min-w-0" aria-labelledby="report-bookings">
+      <h2 id="report-bookings" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking trend</h2>
       <p className="mt-1 text-sm text-neutral-500">Currently non-cancelled registrations, grouped by booking month over the last six months.</p>
       <div className="mt-5 overflow-x-auto">
         <svg aria-hidden="true" viewBox="0 0 600 220" className="block w-full min-w-[600px]">
@@ -191,9 +197,11 @@ function BookingChart({ registrations }: { registrations: EventRegistration[] })
           {points.map((point, index) => <circle key={months[index].key} cx={point.x} cy={point.y} r="5.5" fill="#111111" />)}
         </svg>
       </div>
-      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} bookings</span></li>)}
-      </ul>
+      <div className="mt-3 overflow-x-auto">
+        <ul className="grid min-w-[600px] grid-cols-6 gap-3">
+          {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} {month.count === 1 ? 'booking' : 'bookings'}</span></li>)}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -224,8 +232,8 @@ function BookingScatterChart({ registrations }: { registrations: EventRegistrati
   }));
 
   return (
-    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-booking-volume">
-      <h2 id="report-booking-volume" className="font-bold text-neutral-900">Booking volume</h2>
+    <section className="min-w-0" aria-labelledby="report-booking-volume">
+      <h2 id="report-booking-volume" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking volume</h2>
       <p className="mt-1 text-sm text-neutral-500">Monthly booking counts shown as individual points with a trend line.</p>
       <div className="mt-5 overflow-x-auto">
         <svg viewBox="0 0 600 220" className="block w-full min-w-[600px]" role="img" aria-label="Scatter plot of monthly booking volume for the last six months">
@@ -252,6 +260,119 @@ function BookingScatterChart({ registrations }: { registrations: EventRegistrati
           ))}
         </svg>
       </div>
+    </section>
+  );
+}
+
+function areaPath(points: Array<{ x: number; y: number }>, baseline: number) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  const curve = points.slice(1).map((point, index) => {
+    const previous = points[index];
+    const step = (point.x - previous.x) / 3;
+    return `C ${previous.x + step} ${previous.y} ${point.x - step} ${point.y} ${point.x} ${point.y}`;
+  }).join(' ');
+  return `M ${first.x} ${baseline} L ${first.x} ${first.y} ${curve} L ${last.x} ${baseline} Z`;
+}
+
+function linePath(points: Array<{ x: number; y: number }>) {
+  const first = points[0];
+  const curve = points.slice(1).map((point, index) => {
+    const previous = points[index];
+    const step = (point.x - previous.x) / 3;
+    return `C ${previous.x + step} ${previous.y} ${point.x - step} ${point.y} ${point.x} ${point.y}`;
+  }).join(' ');
+  return `M ${first.x} ${first.y} ${curve}`;
+}
+
+function EventSummaryChart({ events, booked, capacity }: { events: Event[]; booked: number; capacity: number }) {
+  const now = new Date();
+  const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(startYear, 7 + index, 1);
+    return {
+      key: monthKey(date),
+      label: date.toLocaleDateString('en-ZA', { month: 'short' }),
+      total: 0,
+      published: 0,
+    };
+  });
+  const monthLookup = new Map(months.map(month => [month.key, month]));
+  for (const event of events) {
+    const createdAt = new Date(event.createdAt);
+    if (!Number.isFinite(createdAt.getTime()) || createdAt > now) continue;
+    const month = monthLookup.get(monthKey(createdAt));
+    if (!month) continue;
+    month.total += 1;
+    if (event.status === 'PUBLISHED') month.published += 1;
+  }
+
+  const maximum = Math.max(1, ...months.map(month => month.total));
+  const step = Math.max(1, Math.ceil(maximum / 4));
+  const tickCount = Math.ceil(maximum / step);
+  const scaleMaximum = tickCount * step;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
+  const left = 34;
+  const right = 430;
+  const top = 18;
+  const bottom = 175;
+  const points = months.map((month, index) => ({
+    ...month,
+    x: left + index * (right - left) / (months.length - 1),
+    totalY: bottom - month.total / scaleMaximum * (bottom - top),
+    publishedY: bottom - month.published / scaleMaximum * (bottom - top),
+  }));
+  const totalPoints = points.map(({ x, totalY }) => ({ x, y: totalY }));
+  const publishedPoints = points.map(({ x, publishedY }) => ({ x, y: publishedY }));
+  const totalEvents = events.length;
+  const publishedEvents = events.filter(event => event.status === 'PUBLISHED').length;
+  const startLabel = new Date(startYear, 7, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  const endLabel = new Date(startYear + 1, 0, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+
+  return (
+    <section aria-labelledby="report-summary" className="min-w-0 xl:col-span-3">
+      <h2 id="report-summary" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Event summary</h2>
+      <p className="mt-1 text-xs text-neutral-500">Events created per month from {startLabel} through {endLabel}.</p>
+      <div className="mt-3 overflow-x-auto">
+        <svg viewBox="0 0 460 238" className="block w-full min-w-[400px]" role="img" aria-label={`Area chart of total events created and currently published events by month from ${startLabel} through ${endLabel}`}>
+          {ticks.map(tick => {
+            const y = bottom - tick / scaleMaximum * (bottom - top);
+            return (
+              <g key={tick}>
+                <line x1={left} y1={y} x2={right} y2={y} stroke="#e5e7eb" />
+                <text x={left - 7} y={y} textAnchor="end" dominantBaseline="middle" fontSize="10" fill="#64748b">{tick}</text>
+              </g>
+            );
+          })}
+          <path d={areaPath(totalPoints, bottom)} fill="#f3ad45" fillOpacity="0.82" />
+          <path d={areaPath(publishedPoints, bottom)} fill="#72c77a" fillOpacity="0.88" />
+          <path d={linePath(totalPoints)} fill="none" stroke="#e7a03a" strokeWidth="2" />
+          <path d={linePath(publishedPoints)} fill="none" stroke="#58b968" strokeWidth="2" />
+          <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#cbd5e1" />
+          {points.map(point => (
+            <text key={point.key} x={point.x} y={bottom + 17} textAnchor="middle" fontSize="10" fill="#64748b">{point.label}</text>
+          ))}
+          <circle cx="155" cy="222" r="5" fill="#f3ad45" />
+          <text x="166" y="226" fontSize="10" fill="#475569">All events</text>
+          <circle cx="260" cy="222" r="5" fill="#72c77a" />
+          <text x="271" y="226" fontSize="10" fill="#475569">Currently published</text>
+        </svg>
+      </div>
+      <dl className="mt-2 divide-y divide-neutral-200">
+        <div className="flex items-center justify-between gap-3 py-2">
+          <dt className="text-sm text-neutral-600">Total events</dt>
+          <dd className="text-sm font-bold text-neutral-900">{totalEvents}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2">
+          <dt className="text-sm text-neutral-600">Published events</dt>
+          <dd className="text-sm font-bold text-neutral-900">{publishedEvents}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2">
+          <dt className="text-sm text-neutral-600">Booked places / capacity</dt>
+          <dd className="text-sm font-bold text-neutral-900">{booked} / {capacity}</dd>
+        </div>
+      </dl>
+      <p className="mt-1 text-xs text-neutral-500">Booked places across all events, including cancelled events.</p>
     </section>
   );
 }
@@ -310,24 +431,40 @@ export default function OrganizerReports() {
           ) : !events ? (
             <div role="status" className="flex items-center gap-3 py-12 text-neutral-700"><Spinner /> Loading reports…</div>
           ) : (
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Total events</p><p className="mt-1 text-2xl font-bold text-neutral-900">{events.length}</p></div>
-                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Published events</p><p className="mt-1 text-2xl font-bold text-neutral-900">{events.filter(event => event.status === 'PUBLISHED').length}</p></div>
-                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"><p className="text-sm text-neutral-500">Booked places / capacity</p><p className="mt-1 text-2xl font-bold text-neutral-900">{booked} / {capacity}</p><p className="mt-1 text-xs text-neutral-500">Across all events, including cancelled events</p></div>
-              </div>
-              <div className="grid gap-5 xl:grid-cols-2"><StatusChart events={events} /><CategoryChart events={events} /></div>
-              {bookingError ? (
-                <div role="alert" className="rounded-xl bg-rose-50 p-5 text-sm text-rose-800"><p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button></div>
-              ) : registrations ? (
-                <div className="space-y-5">
-                  <BookingChart registrations={registrations} />
-                  <BookingScatterChart registrations={registrations} />
+            <section aria-labelledby="reports-visualization-title" className="rounded-3xl bg-[#f2e5e9] p-3 sm:p-5">
+              <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+                <h2 id="reports-visualization-title" className="organizer-visualization-header rounded-t-xl px-4 py-3 text-center text-sm font-bold text-white" style={{ color: '#fff', fontSize: '0.875rem', lineHeight: 1.25 }}>
+                  Data Visualization
+                </h2>
+                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-6">
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
+                    <CategoryChart events={events} />
+                  </div>
+                  {bookingError ? (
+                    <div role="alert" className="min-w-0 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-rose-800 md:col-span-2 xl:col-span-4">
+                      <p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>
+                    </div>
+                  ) : registrations ? (
+                    <>
+                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
+                        <BookingChart registrations={registrations} />
+                      </div>
+                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
+                        <BookingScatterChart registrations={registrations} />
+                      </div>
+                    </>
+                  ) : (
+                    <div role="status" className="flex min-h-40 items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-neutral-700 md:col-span-2 xl:col-span-4"><Spinner /> Loading booking trend…</div>
+                  )}
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
+                    <StatusChart events={events} />
+                  </div>
+                  <div className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
+                    <EventSummaryChart events={events} booked={booked} capacity={capacity} />
+                  </div>
                 </div>
-              ) : (
-                <div role="status" className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-5 text-neutral-700 shadow-sm"><Spinner /> Loading booking trend…</div>
-              )}
-            </div>
+              </div>
+            </section>
           )}
         </section>
       </div>

@@ -506,6 +506,14 @@ main.organizer-shell {
   outline-offset: 2px;
 }
 
+.organizer-visualization-header {
+  background-color: #09090b;
+  background-image:
+    linear-gradient(90deg, transparent 32%, rgb(255 255 255 / 0.06) 33%, transparent 34%, transparent 65%, rgb(255 255 255 / 0.06) 66%, transparent 67%),
+    linear-gradient(0deg, transparent 49%, rgb(255 255 255 / 0.06) 50%, transparent 51%),
+    radial-gradient(ellipse at 72% 25%, #a01538 0%, #770d29 25%, #120b0d 65%, #09090b 100%);
+}
+
 .dashboard-content-light .organizer-create-button,
 .dashboard-content-light .organizer-logout,
 .dashboard-content-light .organizer-nav-link:hover,
