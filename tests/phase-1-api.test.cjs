@@ -504,10 +504,17 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/events/${eventId}/cancel`, {
       method: 'PATCH',
       cookie: accounts.otherOrganizer.cookie,
+      body: { reason: 'The venue is no longer available.' },
     })).response.status, 404, 'organizers cannot cancel another organizer event');
     assert.equal((await request(`/api/events/${eventId}/cancel`, {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
+      body: { reason: '   ' },
+    })).response.status, 400, 'event cancellation requires a reason');
+    assert.equal((await request(`/api/events/${eventId}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+      body: { reason: 'The venue is no longer available.' },
     })).response.status, 200, 'organizer cancels their own event');
     assert.equal((await request(`/api/events/${eventId}`)).response.status, 404, 'cancelled events are not public');
     assert.equal((await request('/api/bookings', {
@@ -555,6 +562,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${managedHistoryBooking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.managedUser.cookie,
+      body: { reason: 'Plans changed.' },
     })).response.status, 200);
     assert.equal((await request(`/api/users/${managedUser.id}/deactivate`, {
       method: 'PATCH',
@@ -858,7 +866,13 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.otherAttendee.cookie,
+      body: { reason: 'Plans changed.' },
     })).response.status, 404, 'attendees cannot cancel another user booking');
+    assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+      body: { reason: '   ' },
+    })).response.status, 400, 'booking cancellation requires a reason');
     await prisma.ticket.update({
       where: { id: ticketId },
       data: { status: 'USED', checkedInAt: new Date() },
@@ -866,6 +880,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
+      body: { reason: 'I can no longer attend.' },
     })).response.status, 409, 'bookings with checked-in tickets cannot be cancelled');
     await prisma.ticket.update({
       where: { id: ticketId },
@@ -874,6 +889,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
+      body: { reason: 'I can no longer attend.' },
     })).response.status, 200, 'attendee cancels their own booking');
     const restoredFreeCapacity = await prisma.event.findUnique({ where: { id: bookableEventId } });
     assert.equal(restoredFreeCapacity.availableCapacity, 12, 'cancelling restores event capacity by booking quantity');
@@ -1000,6 +1016,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/events/${checkInEventId}/cancel`, {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
+      body: { reason: 'The event is no longer proceeding.' },
     })).response.status, 200);
     assert.equal((await request(`/api/tickets/${checkInTickets[3].id}/checkin`, {
       method: 'PATCH',
@@ -1094,6 +1111,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${paidBooking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
+      body: { reason: 'I no longer need this booking.' },
     })).response.status, 200);
     const successfulPaymentHistory = await prisma.payment.findUnique({
       where: { bookingId: paidBooking.data.data.id },
@@ -1198,6 +1216,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/bookings/${cancelledPendingBooking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
+      body: { reason: 'I changed my plans.' },
     })).response.status, 200);
     assert.equal((await prisma.payment.findUnique({
       where: { bookingId: cancelledPendingBooking.data.data.id },
@@ -1231,6 +1250,7 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/events/${cancelledPaidEventId}/cancel`, {
       method: 'PATCH',
       cookie: accounts.organizer.cookie,
+      body: { reason: 'The event has been called off.' },
     })).response.status, 200);
     assert.equal((await request(`/api/payments/${cancelledEventBooking.data.data.id}/process`, {
       method: 'POST',

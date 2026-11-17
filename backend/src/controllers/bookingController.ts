@@ -3,6 +3,11 @@ import { BookingStatus, EventStatus, PaymentStatus, Prisma, TicketStatus, Ticket
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { isUuid } from '../middleware/requestValidation';
+import {
+  notifyAttendeeBookingConfirmed,
+  notifyOrganizerBookingCancelled,
+} from '../services/notificationService';
+import { isPayFastConfigured } from '../services/payfastService';
 import { issueTicketsForBooking } from '../services/ticketService';
 
 const MAX_TICKETS_PER_BOOKING = 100;
@@ -12,13 +17,14 @@ const bookingInclude = {
   event: { select: { id: true, title: true, startTime: true, endTime: true, venue: true } },
   eventTicketType: { select: { id: true, name: true, price: true } },
   tickets: true,
-  payment: { select: { amount: true, currency: true, status: true, createdAt: true } },
+  payment: { select: { amount: true, currency: true, status: true, provider: true, providerReference: true, createdAt: true } },
 } satisfies Prisma.BookingInclude;
 
 class CapacityUnavailableError extends Error {}
 class EventUnavailableError extends Error {}
 class TicketTypeUnavailableError extends Error {}
 class BookingAmountLimitError extends Error {}
+class PaymentGatewayUnavailableError extends Error {}
 
 const ticketTypeEnum = (name: string): TicketTypes => {
   const normalized = name.trim().toUpperCase();
@@ -86,7 +92,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
     const booking = await prisma.$transaction(async transaction => {
       const event = await transaction.event.findFirst({
         where: { id: eventId, status: EventStatus.PUBLISHED, startTime: { gt: new Date() } },
-        select: { id: true, availableCapacity: true },
+        select: { id: true, title: true, availableCapacity: true },
       });
       if (!event) throw new EventUnavailableError();
 
@@ -112,6 +118,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         throw new BookingAmountLimitError();
       }
       const isFree = totalAmount.isZero();
+      if (!isFree && !isPayFastConfigured()) throw new PaymentGatewayUnavailableError();
       if (isFree) {
         const eventCapacity = await transaction.event.updateMany({
           where: {
@@ -152,7 +159,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
                 create: {
                   amount: totalAmount,
                   status: PaymentStatus.PENDING,
-                  provider: 'SIMULATED',
+                  provider: 'PAYFAST',
                 },
               },
             }
@@ -167,6 +174,12 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
           quantity,
           type: TypeOfTickets.FREE,
         });
+        await notifyAttendeeBookingConfirmed(
+          transaction,
+          req.user!.id,
+          event.title,
+          createdBooking.reference,
+        );
       }
 
       return transaction.booking.findUniqueOrThrow({
@@ -200,6 +213,13 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         success: false,
         message: 'The booking total exceeds the supported payment amount',
         errors: [{ field: 'quantity', message: 'Reduce the number of tickets' }],
+      });
+      return;
+    }
+    if (error instanceof PaymentGatewayUnavailableError) {
+      res.status(503).json({
+        success: false,
+        message: 'PayFast is not configured. Paid bookings are temporarily unavailable.',
       });
       return;
     }
@@ -244,6 +264,12 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length > 500) {
+      res.status(400).json({ success: false, message: 'A cancellation reason of up to 500 characters is required' });
+      return;
+    }
+
     const result = await prisma.$transaction(async transaction => {
       await transaction.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "tickets"
@@ -258,13 +284,15 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
         where: { id, attendeeId: req.user!.id },
         select: {
           id: true,
+          reference: true,
           eventId: true,
           eventTicketTypeId: true,
           quantity: true,
           status: true,
           paymentStatus: true,
+          payment: { select: { provider: true } },
           tickets: { select: { status: true } },
-          event: { select: { startTime: true } },
+          event: { select: { startTime: true, title: true, organizerId: true } },
         },
       });
       if (!booking) return 'not_found' as const;
@@ -274,10 +302,14 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
 
       const abandonedPayment = booking.paymentStatus === PaymentStatus.PENDING
         ? await transaction.payment.updateMany({
-          where: { bookingId: id, status: PaymentStatus.PENDING, provider: 'SIMULATED' },
+          where: {
+            bookingId: id,
+            status: PaymentStatus.PENDING,
+            provider: booking.payment?.provider ?? 'PAYFAST',
+          },
           data: {
             status: PaymentStatus.FAILED,
-            providerReference: 'SIMULATED-CANCELLED',
+            providerReference: `${booking.payment?.provider ?? 'PAYFAST'}-CANCELLED`,
           },
         })
         : { count: 0 };
@@ -306,6 +338,14 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
           });
         }
       }
+      await notifyOrganizerBookingCancelled(
+        transaction,
+        booking.event.organizerId,
+        booking.eventId,
+        booking.event.title,
+        booking.reference,
+        reason,
+      );
       return 'cancelled' as const;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 

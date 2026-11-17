@@ -1,6 +1,20 @@
 import { BookingStatus, EventStatus, PaymentStatus, Prisma, TypeOfTickets } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
+import { config } from '../config';
 import { prisma } from '../lib/prisma';
+import {
+  notifyAttendeeBookingConfirmed,
+  notifyAttendeePaymentNeedsReview,
+} from '../services/notificationService';
+import {
+  createPayFastCheckout as buildPayFastCheckout,
+  isPayFastConfigured,
+  isPayFastServerIp,
+  isValidPayFastSignature,
+  PayFastValidationUnavailableError,
+  serializePayFastFields,
+  validatePayFastNotification,
+} from '../services/payfastService';
 import { TicketsAlreadyIssuedError, issueTicketsForBooking } from '../services/ticketService';
 
 type SimulatedOutcome = 'SUCCESS' | 'FAILED';
@@ -210,7 +224,7 @@ const processPaymentTransaction = async (
   `;
   const event = await transaction.event.findUnique({
     where: { id: booking.eventId },
-    select: { status: true, availableCapacity: true },
+    select: { title: true, status: true, availableCapacity: true },
   });
   if (!event || event.status !== EventStatus.PUBLISHED) {
     await setFailed(transaction, bookingId, payment.id, `SIMULATED-${outcome}-EVENT-UNAVAILABLE`);
@@ -347,6 +361,12 @@ const processPaymentTransaction = async (
     quantity: booking.quantity,
     type: TypeOfTickets.PAID,
   });
+  await notifyAttendeeBookingConfirmed(
+    transaction,
+    attendeeId,
+    event.title,
+    booking.reference,
+  );
   return {
     kind: 'success',
     data: await paymentView(transaction, bookingId),
@@ -444,6 +464,381 @@ export const processSimulatedPayment = async (
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
       res.status(409).json({ success: false, message: 'Payment state changed; retry to retrieve the final result' });
+      return;
+    }
+    next(error);
+  }
+};
+
+export const createPayFastCheckout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (!isPayFastConfigured()) {
+      res.status(503).json({
+        success: false,
+        message: 'PayFast is not configured. Paid bookings are temporarily unavailable.',
+      });
+      return;
+    }
+
+    const bookingId = getBookingId(req);
+    if (!bookingId) {
+      res.status(400).json({ success: false, message: 'A valid booking ID is required' });
+      return;
+    }
+
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, attendeeId: req.user!.id },
+      include: {
+        event: { select: { title: true, status: true, startTime: true } },
+        eventTicketType: { select: { name: true } },
+        attendee: { select: { firstname: true, lastname: true, email: true } },
+        payment: true,
+      },
+    });
+    if (!booking) {
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    if (
+      booking.status !== BookingStatus.PENDING ||
+      booking.paymentStatus !== PaymentStatus.PENDING ||
+      booking.payment?.status !== PaymentStatus.PENDING
+    ) {
+      res.status(409).json({ success: false, message: 'This booking is not awaiting PayFast payment' });
+      return;
+    }
+    if (booking.payment.provider === 'SIMULATED') {
+      const migrated = await prisma.payment.updateMany({
+        where: {
+          id: booking.payment.id,
+          status: PaymentStatus.PENDING,
+          provider: 'SIMULATED',
+        },
+        data: { provider: 'PAYFAST' },
+      });
+      if (migrated.count !== 1) {
+        res.status(409).json({ success: false, message: 'Booking payment state changed; refresh and try again' });
+        return;
+      }
+    } else if (booking.payment.provider !== 'PAYFAST') {
+      res.status(409).json({ success: false, message: 'This booking does not use PayFast' });
+      return;
+    }
+    if (booking.event.status !== EventStatus.PUBLISHED || booking.event.startTime <= new Date()) {
+      res.status(409).json({ success: false, message: 'This event is no longer accepting bookings' });
+      return;
+    }
+
+    const { merchantId, merchantKey, passphrase, notifyUrl, sandbox } = config.payfast;
+    if (!merchantId || !merchantKey || !notifyUrl) {
+      res.status(503).json({
+        success: false,
+        message: 'PayFast is not configured. Paid bookings are temporarily unavailable.',
+      });
+      return;
+    }
+
+    const returnUrl = new URL('/attendee/payment/return', config.clientUrl);
+    returnUrl.searchParams.set('bookingId', booking.id);
+    const cancelUrl = new URL('/attendee/payment/cancel', config.clientUrl);
+    cancelUrl.searchParams.set('bookingId', booking.id);
+    const fields: Record<string, string> = {
+      merchant_id: merchantId,
+      merchant_key: merchantKey,
+      return_url: returnUrl.toString(),
+      cancel_url: cancelUrl.toString(),
+      notify_url: notifyUrl,
+      name_first: booking.attendee.firstname.slice(0, 100),
+      name_last: booking.attendee.lastname.slice(0, 100),
+      email_address: booking.attendee.email.slice(0, 100),
+      m_payment_id: booking.reference,
+      amount: new Prisma.Decimal(booking.totalAmount).toFixed(2),
+      item_name: booking.event.title.slice(0, 100),
+      item_description: `${booking.eventTicketType?.name ?? booking.ticketType} × ${booking.quantity}`.slice(0, 255),
+    };
+
+    res.json({
+      success: true,
+      data: buildPayFastCheckout(fields, passphrase, sandbox),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const parsePayFastFields = (body: unknown): Record<string, string> | null => {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const fields: Record<string, string> = {};
+  for (const [name, value] of Object.entries(body)) {
+    if (typeof value !== 'string') return null;
+    fields[name] = value;
+  }
+  return Object.keys(fields).length ? fields : null;
+};
+
+type PayFastItnResult =
+  | 'confirmed'
+  | 'already_processed'
+  | 'cancelled'
+  | 'payment_received_needs_review'
+  | 'not_found'
+  | 'wrong_provider'
+  | 'amount_mismatch'
+  | 'already_terminal';
+
+const finalizePayFastPayment = async (
+  fields: Record<string, string>,
+): Promise<PayFastItnResult> => {
+  const bookingReference = fields.m_payment_id;
+  const providerReference = fields.pf_payment_id;
+  const payfastStatus = fields.payment_status;
+  const incomingAmount = payfastStatus === 'COMPLETE'
+    ? new Prisma.Decimal(fields.amount_gross)
+    : null;
+
+  return prisma.$transaction(async transaction => {
+    const lockedBookings = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "bookings" WHERE "reference" = ${bookingReference} FOR UPDATE
+    `;
+    if (!lockedBookings.length) return 'not_found';
+
+    const booking = await transaction.booking.findUnique({
+      where: { reference: bookingReference },
+      include: {
+        event: { select: { id: true, title: true, status: true, startTime: true, availableCapacity: true } },
+        eventTicketType: { select: { id: true, eventId: true, price: true, availableQuantity: true } },
+        payment: true,
+      },
+    });
+    if (!booking?.payment) return 'not_found';
+    if (booking.payment.provider !== 'PAYFAST') return 'wrong_provider';
+    if (
+      (incomingAmount && !incomingAmount.equals(booking.totalAmount)) ||
+      (payfastStatus === 'COMPLETE' && !booking.payment.amount.equals(booking.totalAmount))
+    ) return 'amount_mismatch';
+
+    await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "payments" WHERE "id" = ${booking.payment.id} FOR UPDATE
+    `;
+
+    if (
+      booking.payment.status === PaymentStatus.PAID &&
+      booking.payment.providerReference === providerReference
+    ) {
+      return booking.status === BookingStatus.CONFIRMED
+        ? 'already_processed'
+        : 'payment_received_needs_review';
+    }
+
+    if (payfastStatus === 'CANCELLED') {
+      if (booking.payment.status === PaymentStatus.PENDING) {
+        await transaction.payment.update({
+          where: { id: booking.payment.id },
+          data: {
+            status: PaymentStatus.FAILED,
+            providerReference: `PAYFAST-CANCELLED:${providerReference}`,
+          },
+        });
+        if (booking.status === BookingStatus.PENDING) {
+          await transaction.booking.update({
+            where: { id: booking.id },
+            data: { paymentStatus: PaymentStatus.FAILED },
+          });
+        }
+        return 'cancelled';
+      }
+      return 'already_terminal';
+    }
+
+    if (
+      booking.payment.status !== PaymentStatus.PENDING &&
+      !(booking.status === BookingStatus.CANCELLED &&
+        booking.payment.status === PaymentStatus.FAILED &&
+        booking.payment.providerReference?.startsWith('PAYFAST-CANCELLED:'))
+    ) return 'already_terminal';
+
+    const lockAndRecordPaymentNeedsReview = async (reason: string): Promise<PayFastItnResult> => {
+      await transaction.payment.update({
+        where: { id: booking.payment!.id },
+        data: { status: PaymentStatus.PAID, providerReference },
+      });
+      await transaction.booking.update({
+        where: { id: booking.id },
+        data: { paymentStatus: PaymentStatus.PAID },
+      });
+      await notifyAttendeePaymentNeedsReview(
+        transaction,
+        booking.attendeeId,
+        booking.event.title,
+        booking.reference,
+        reason,
+      );
+      return 'payment_received_needs_review';
+    };
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      return lockAndRecordPaymentNeedsReview(
+        'the booking was cancelled before PayFast confirmed the payment',
+      );
+    }
+    if (
+      booking.event.status !== EventStatus.PUBLISHED ||
+      booking.event.startTime <= new Date()
+    ) {
+      return lockAndRecordPaymentNeedsReview('the event is no longer accepting bookings');
+    }
+
+    const ticketType = booking.eventTicketType;
+    if (
+      !ticketType ||
+      ticketType.eventId !== booking.eventId ||
+      new Prisma.Decimal(ticketType.price).lte(0) ||
+      !new Prisma.Decimal(ticketType.price).mul(booking.quantity).equals(booking.totalAmount)
+    ) {
+      return lockAndRecordPaymentNeedsReview('the selected ticket type is no longer available');
+    }
+    if (
+      booking.event.availableCapacity < booking.quantity ||
+      ticketType.availableQuantity < booking.quantity
+    ) {
+      return lockAndRecordPaymentNeedsReview('the selected ticket type has sold out');
+    }
+
+    const eventClaim = await transaction.event.updateMany({
+      where: {
+        id: booking.eventId,
+        status: EventStatus.PUBLISHED,
+        availableCapacity: { gte: booking.quantity },
+      },
+      data: { availableCapacity: { decrement: booking.quantity } },
+    });
+    if (eventClaim.count !== 1) {
+      return lockAndRecordPaymentNeedsReview('the event has sold out');
+    }
+
+    const ticketClaim = await transaction.eventTicketType.updateMany({
+      where: {
+        id: ticketType.id,
+        eventId: booking.eventId,
+        price: ticketType.price,
+        availableQuantity: { gte: booking.quantity },
+      },
+      data: { availableQuantity: { decrement: booking.quantity } },
+    });
+    if (ticketClaim.count !== 1) {
+      await transaction.event.update({
+        where: { id: booking.eventId },
+        data: { availableCapacity: { increment: booking.quantity } },
+      });
+      return lockAndRecordPaymentNeedsReview('the selected ticket type has sold out');
+    }
+
+    await transaction.payment.update({
+      where: { id: booking.payment.id },
+      data: { status: PaymentStatus.PAID, providerReference },
+    });
+    await transaction.booking.update({
+      where: { id: booking.id },
+      data: { status: BookingStatus.CONFIRMED, paymentStatus: PaymentStatus.PAID },
+    });
+    await issueTicketsForBooking(transaction, {
+      id: booking.id,
+      eventId: booking.eventId,
+      holderId: booking.attendeeId,
+      quantity: booking.quantity,
+      type: TypeOfTickets.PAID,
+    });
+    await notifyAttendeeBookingConfirmed(
+      transaction,
+      booking.attendeeId,
+      booking.event.title,
+      booking.reference,
+    );
+    return 'confirmed';
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+};
+
+export const receivePayFastItn = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (!isPayFastConfigured()) {
+      res.status(503).send('PayFast is not configured');
+      return;
+    }
+
+    const fields = parsePayFastFields(req.body);
+    if (
+      !fields ||
+      !fields.signature ||
+      !fields.merchant_id ||
+      !fields.m_payment_id ||
+      !fields.pf_payment_id ||
+      !fields.payment_status
+    ) {
+      res.status(400).send('Invalid PayFast notification');
+      return;
+    }
+
+    if (fields.merchant_id !== config.payfast.merchantId) {
+      res.status(400).send('Invalid PayFast merchant');
+      return;
+    }
+    if (!isValidPayFastSignature(fields, config.payfast.passphrase)) {
+      res.status(400).send('Invalid PayFast signature');
+      return;
+    }
+    if (fields.payment_status === 'COMPLETE' &&
+      (!fields.amount_gross || !/^\d+(?:\.\d{1,2})?$/.test(fields.amount_gross))) {
+      res.status(400).send('Invalid PayFast amount');
+      return;
+    }
+    if (!['COMPLETE', 'CANCELLED'].includes(fields.payment_status)) {
+      res.status(200).send('OK');
+      return;
+    }
+
+    const sourceIp = req.ip || req.socket.remoteAddress || '';
+    if (!await isPayFastServerIp(sourceIp)) {
+      console.warn('Rejected PayFast ITN from unrecognized source IP');
+      res.status(403).send('Unrecognized PayFast source');
+      return;
+    }
+
+    if (!await validatePayFastNotification(fields, config.payfast.sandbox)) {
+      console.warn('PayFast ITN failed remote validation');
+      res.status(400).send('PayFast notification validation failed');
+      return;
+    }
+
+    const result = await finalizePayFastPayment(fields);
+    if (result === 'not_found') {
+      res.status(404).send('Booking not found');
+      return;
+    }
+    if (result === 'wrong_provider') {
+      res.status(400).send('Booking does not use PayFast');
+      return;
+    }
+    if (result === 'amount_mismatch') {
+      console.warn('PayFast ITN amount did not match the stored booking amount');
+      res.status(400).send('Payment amount mismatch');
+      return;
+    }
+    if (result === 'already_terminal') {
+      res.status(200).send('Payment already handled');
+      return;
+    }
+    res.status(200).send('OK');
+  } catch (error) {
+    if (error instanceof PayFastValidationUnavailableError) {
+      res.status(503).send('PayFast validation temporarily unavailable');
       return;
     }
     next(error);

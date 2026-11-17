@@ -23,6 +23,7 @@ import NotFound from '@/pages/NotFound';
 
 // Organizer
 import OrganizerDashboard from '@/pages/organizer/OrganizerDashboard';
+import OrganizerReports from '@/pages/organizer/OrganizerReports';
 import OrganizerProfile from '@/pages/organizer/OrganizerProfile';
 import CreateEvent from '@/pages/organizer/CreateEvent';
 import EditEvent from '@/pages/organizer/EditEvent';
@@ -32,6 +33,9 @@ import CheckIn from '@/pages/organizer/CheckIn';
 
 // Attendee
 import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
+import AttendeeBookings from '@/pages/attendee/AttendeeBookings';
+import AttendeeTicket from '@/pages/attendee/AttendeeTicket';
+import PaymentResult from '@/pages/attendee/PaymentResult';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
@@ -78,14 +82,18 @@ export default function App() {
           {/* ── Attendee ── */}
           <Route element={<ProtectedRoute roles={['ATTENDEE']} />}> 
             <Route path="/attendee" element={<AttendeeDashboard />} />
-            <Route path="/attendee/bookings" element={<AttendeeDashboard />} />
-            <Route path="/attendee/tickets" element={<AttendeeDashboard />} />
+            <Route path="/attendee/bookings" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets/:ticketId" element={<AttendeeTicket />} />
+            <Route path="/attendee/payment/return" element={<PaymentResult />} />
+            <Route path="/attendee/payment/cancel" element={<PaymentResult />} />
           </Route>
 
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/reports"                     element={<OrganizerReports />} />
             <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />

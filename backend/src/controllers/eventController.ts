@@ -248,9 +248,13 @@ const eventInclude = {
   },
 };
 
+type EventAudienceNotification =
+  | { kind: 'changed' }
+  | { kind: 'cancelled'; reason: string };
+
 const notifyEventAudience = async (
   eventId: string,
-  kind: 'changed' | 'cancelled',
+  notification: EventAudienceNotification,
 ): Promise<boolean> => {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -272,15 +276,15 @@ const notifyEventAudience = async (
     ...event.bookings.map(booking => booking.attendee.email),
     ...event.vendorApplications.map(application => application.vendor.email),
   ]);
-  const sendNotification = kind === 'changed'
-    ? sendEventChangeNotification
-    : sendEventCancellationNotification;
+  const sendNotification: (email: string, eventTitle: string) => Promise<void> = notification.kind === 'changed'
+    ? (email, eventTitle) => sendEventChangeNotification(email, eventTitle)
+    : (email, eventTitle) => sendEventCancellationNotification(email, eventTitle, notification.reason);
   const results = await Promise.allSettled(
     [...emails].map(email => sendNotification(email, event.title)),
   );
   const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
   for (const failure of failures) {
-    console.error(`Event ${kind} notification failed:`, failure.reason);
+    console.error(`Event ${notification.kind} notification failed:`, failure.reason);
   }
   return failures.length === 0;
 };
@@ -501,7 +505,7 @@ const sendEventUpdateResponse = async (
   let notificationSent = true;
   if (result.notifyAudience) {
     try {
-      notificationSent = await notifyEventAudience(eventId, 'changed');
+      notificationSent = await notifyEventAudience(eventId, { kind: 'changed' });
     } catch (error) {
       console.error('Event change notification failed:', error);
       notificationSent = false;
@@ -997,6 +1001,12 @@ export const cancelEvent = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length > 500) {
+      res.status(400).json({ success: false, message: 'A cancellation reason of up to 500 characters is required' });
+      return;
+    }
+
     const updated = await prisma.event.updateMany({
       where: {
         id: eventId,
@@ -1020,7 +1030,7 @@ export const cancelEvent = async (req: Request, res: Response, next: NextFunctio
 
     let notificationSent = true;
     try {
-      notificationSent = await notifyEventAudience(eventId, 'cancelled');
+      notificationSent = await notifyEventAudience(eventId, { kind: 'cancelled', reason });
     } catch (error) {
       console.error('Event cancellation notification failed:', error);
       notificationSent = false;

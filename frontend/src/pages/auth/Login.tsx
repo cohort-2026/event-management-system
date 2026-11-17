@@ -42,7 +42,13 @@ export default function Login() {
     try {
       const res = await login({ email, password });
       setUser(res.data.data);
-      navigate(res.data.data.mustChangePassword ? '/change-password' : '/');
+      const returnPath = location.state?.from?.pathname;
+      const destination = typeof returnPath === 'string' &&
+        returnPath.startsWith('/') &&
+        !returnPath.startsWith('//')
+        ? returnPath
+        : '/';
+      navigate(res.data.data.mustChangePassword ? '/change-password' : destination);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
@@ -256,6 +262,7 @@ export default function Login() {
             </div>
             <Button
               type="submit"
+              variant="brand"
               loading={loading}
               className="w-full"
               size="lg"

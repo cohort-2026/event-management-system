@@ -70,12 +70,12 @@ export const sendEventChangeNotification = async (email: string, eventTitle: str
   });
 };
 
-export const sendEventCancellationNotification = async (email: string, eventTitle: string): Promise<void> => {
+export const sendEventCancellationNotification = async (email: string, eventTitle: string, reason: string): Promise<void> => {
   await transporter.sendMail({
     from: config.mailFrom,
     to: email,
     subject: `Event cancelled: ${eventTitle}`,
-    text: `The event "${eventTitle}" has been cancelled by its organizer.`,
+    text: `The event "${eventTitle}" has been cancelled by its organizer.\n\nReason: ${reason}`,
   });
 };
 

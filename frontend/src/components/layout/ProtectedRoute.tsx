@@ -29,7 +29,7 @@ export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Prop
   }
 
   // Not logged in → send to login (or custom redirectGuest)
-  if (!user) return <Navigate to={redirectGuest} replace />;
+  if (!user) return <Navigate to={redirectGuest} state={{ from: location }} replace />;
   if (user.mustChangePassword && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }

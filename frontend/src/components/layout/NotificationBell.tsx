@@ -7,7 +7,7 @@ import {
   type AppNotification,
 } from '@/services/notificationService';
 
-export default function NotificationBell() {
+export default function NotificationBell({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -83,9 +83,13 @@ export default function NotificationBell() {
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
         onClick={() => setOpen(current => !current)}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-600 transition-colors hover:bg-brand-50"
+        className={`relative flex items-center justify-center rounded-full text-neutral-600 transition-colors ${
+          compact
+            ? 'h-8 w-8 hover:bg-neutral-100'
+            : 'h-11 w-11 border border-neutral-200 bg-neutral-50 hover:bg-brand-50'
+        }`}
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <svg className={compact ? 'h-4 w-4' : 'h-5 w-5'} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
         </svg>
         {unreadCount > 0 && (
