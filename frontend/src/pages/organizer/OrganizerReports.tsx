@@ -16,6 +16,23 @@ const statuses: Array<{ status: EventStatus; label: string; color: string }> = [
 ];
 
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
+const getMonthlyBookings = (registrations: EventRegistration[]) => {
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
+    return { key: monthKey(date), label: date.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }), count: 0 };
+  });
+  const lookup = new Map(months.map(month => [month.key, month]));
+  for (const registration of registrations) {
+    if (registration.status === 'CANCELLED') continue;
+    const date = new Date(registration.createdAt);
+    if (!Number.isFinite(date.getTime()) || date > now) continue;
+    const month = lookup.get(monthKey(date));
+    if (month) month.count += 1;
+  }
+  return months;
+};
+
 const formatPercent = (percent: number) => {
   if (percent > 0 && percent < 0.1) return '<0.1%';
   if (percent > 99.9 && percent < 100) return '>99.9%';
@@ -132,19 +149,7 @@ function CategoryChart({ events }: { events: Event[] }) {
 }
 
 function BookingChart({ registrations }: { registrations: EventRegistration[] }) {
-  const now = new Date();
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return { key: monthKey(date), label: date.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }), count: 0 };
-  });
-  const lookup = new Map(months.map(month => [month.key, month]));
-  for (const registration of registrations) {
-    if (registration.status === 'CANCELLED') continue;
-    const date = new Date(registration.createdAt);
-    if (!Number.isFinite(date.getTime()) || date > now) continue;
-    const month = lookup.get(monthKey(date));
-    if (month) month.count += 1;
-  }
+  const months = getMonthlyBookings(registrations);
   const maximum = Math.max(1, ...months.map(month => month.count));
   const step = Math.max(1, Math.ceil(maximum / 4));
   const tickCount = Math.ceil(maximum / step);
@@ -189,6 +194,64 @@ function BookingChart({ registrations }: { registrations: EventRegistration[] })
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} bookings</span></li>)}
       </ul>
+    </section>
+  );
+}
+
+function BookingScatterChart({ registrations }: { registrations: EventRegistration[] }) {
+  const months = getMonthlyBookings(registrations);
+  const maximum = Math.max(1, ...months.map(month => month.count));
+  const step = Math.max(1, Math.ceil(maximum / 4));
+  const tickCount = Math.ceil(maximum / step);
+  const scaleMaximum = tickCount * step;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
+  const left = 56;
+  const right = 570;
+  const top = 24;
+  const bottom = 180;
+  const points = months.map((month, index) => ({
+    ...month,
+    x: left + index * (right - left) / (months.length - 1),
+    y: bottom - month.count / scaleMaximum * (bottom - top),
+  }));
+  const average = months.reduce((sum, month) => sum + month.count, 0) / months.length;
+  const meanIndex = (months.length - 1) / 2;
+  const slope = months.reduce((sum, month, index) => sum + (index - meanIndex) * (month.count - average), 0)
+    / months.reduce((sum, _month, index) => sum + (index - meanIndex) ** 2, 0);
+  const trend = [0, months.length - 1].map(index => ({
+    x: points[index].x,
+    y: bottom - Math.max(0, Math.min(scaleMaximum, average + slope * (index - meanIndex))) / scaleMaximum * (bottom - top),
+  }));
+
+  return (
+    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm" aria-labelledby="report-booking-volume">
+      <h2 id="report-booking-volume" className="font-bold text-neutral-900">Booking volume</h2>
+      <p className="mt-1 text-sm text-neutral-500">Monthly booking counts shown as individual points with a trend line.</p>
+      <div className="mt-5 overflow-x-auto">
+        <svg viewBox="0 0 600 220" className="block w-full min-w-[600px]" role="img" aria-label="Scatter plot of monthly booking volume for the last six months">
+          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
+          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
+          {ticks.map(tick => {
+            const y = bottom - tick / scaleMaximum * (bottom - top);
+            return (
+              <g key={tick}>
+                <line x1={left} y1={y} x2={right} y2={y} stroke="#e5e7eb" />
+                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
+              </g>
+            );
+          })}
+          {points.map(point => (
+            <text key={point.key} x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{point.label}</text>
+          ))}
+          <line x1={trend[0].x} y1={trend[0].y} x2={trend[1].x} y2={trend[1].y} stroke="#cf7968" strokeWidth="2" />
+          {points.map(point => (
+            <g key={point.key}>
+              <title>{`${point.label}: ${point.count} ${point.count === 1 ? 'booking' : 'bookings'}`}</title>
+              <rect x={point.x - 4} y={point.y - 4} width="8" height="8" fill={point.count >= average ? '#b42318' : '#82939d'} stroke="#ffffff" strokeWidth="1" />
+            </g>
+          ))}
+        </svg>
+      </div>
     </section>
   );
 }
@@ -256,7 +319,12 @@ export default function OrganizerReports() {
               <div className="grid gap-5 xl:grid-cols-2"><StatusChart events={events} /><CategoryChart events={events} /></div>
               {bookingError ? (
                 <div role="alert" className="rounded-xl bg-rose-50 p-5 text-sm text-rose-800"><p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button></div>
-              ) : registrations ? <BookingChart registrations={registrations} /> : (
+              ) : registrations ? (
+                <div className="space-y-5">
+                  <BookingChart registrations={registrations} />
+                  <BookingScatterChart registrations={registrations} />
+                </div>
+              ) : (
                 <div role="status" className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-5 text-neutral-700 shadow-sm"><Spinner /> Loading booking trend…</div>
               )}
             </div>
