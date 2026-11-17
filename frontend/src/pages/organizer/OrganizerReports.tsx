@@ -134,7 +134,6 @@ function CategoryChart({ events }: { events: Event[] }) {
                   {categories.map(([category, count], index) => (
                     <li key={category} className="relative flex h-full flex-1 items-end justify-center">
                       <span className="sr-only">{category}: {count} {count === 1 ? 'event' : 'events'}</span>
-                      <span aria-hidden="true" className="absolute mb-1 text-xs font-semibold text-neutral-700" style={{ bottom: `${count / scaleMaximum * 100}%` }}>{count}</span>
                       <div aria-hidden="true" className="w-12 max-w-[70%]" style={{ height: `${count / scaleMaximum * 100}%`, backgroundColor: barColors[index % barColors.length] }} />
                     </li>
                   ))}
