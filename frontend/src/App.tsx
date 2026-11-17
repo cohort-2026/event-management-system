@@ -133,7 +133,9 @@ export default function App() {
 
 function NavbarVisibility() {
   const { pathname } = useLocation();
-  if (pathname === '/login' || pathname === '/register') return null;
+  const navbarPages = ['/landing', '/upcoming', '/for/attendees', '/for/organisers', '/for/vendors'];
+  const isEventBrowsePage = pathname === '/events' || pathname.startsWith('/events/');
+  if (!navbarPages.includes(pathname) && !isEventBrowsePage) return null;
   return <Navbar />;
 }
 
