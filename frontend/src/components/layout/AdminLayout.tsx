@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 const navigation = [
   { label: 'Dashboard', path: '/admin', icon: <HomeIcon /> },
@@ -31,6 +32,15 @@ export default function AdminLayout() {
           <div className="mb-3 px-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#8c93a0]">Admin</div>
           <nav aria-label="Admin navigation" className="space-y-1.5">
             {navigation.map((item) => {
+              if (item.label === 'Notifications') {
+                return (
+                  <div key={item.label} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[14px] font-medium text-[#4b5563] hover:bg-[#eef1f4]">
+                    <NotificationBell />
+                    <span>Notifications</span>
+                  </div>
+                );
+              }
+
               const isActive = item.path === '/admin'
                 ? pathname === '/admin'
                 : item.path !== null && (pathname === item.path || (

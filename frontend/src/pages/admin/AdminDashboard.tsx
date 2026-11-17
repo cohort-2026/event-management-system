@@ -1,8 +1,25 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from '@/components/layout/NotificationBell';
+import { getEvents } from '@/services/eventService';
+import { getUsers } from '@/services/userService';
+import type { Event } from '@/types/event';
+import type { User } from '@/types/user';
+
+interface SearchResult {
+  id: string;
+  title: string;
+  detail: string;
+  kind: 'Event' | 'Person';
+  to: string;
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchError, setSearchError] = useState('');
+  const [searching, setSearching] = useState(false);
   const [activeItem, setActiveItem] = useState('Dashboard');
   const [showAwaitingMenu, setShowAwaitingMenu] = useState(true);
   const reviewItems = [
@@ -27,6 +44,42 @@ export default function AdminDashboard() {
     { label: 'Bookings this week', value: '612' },
     { label: 'Attendance, last 30 days', value: '79%' },
   ];
+
+  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    setSearchError('');
+    try {
+      const [eventsResponse, usersResponse] = await Promise.all([getEvents(), getUsers()]);
+      const eventResults: SearchResult[] = eventsResponse.data.data
+        .filter((event: Event) => event.title.toLowerCase().includes(query))
+        .slice(0, 5)
+        .map((event: Event) => ({ id: event.id, title: event.title, detail: 'Event', kind: 'Event', to: `/events/${event.id}` }));
+      const userResults: SearchResult[] = usersResponse.data
+        .filter((user: User) => `${user.firstname} ${user.lastname} ${user.email}`.toLowerCase().includes(query))
+        .slice(0, 5)
+        .map((user: User) => ({
+          id: user.id,
+          title: `${user.firstname} ${user.lastname}`,
+          detail: `${user.email} · ${user.role.toLowerCase()}`,
+          kind: 'Person',
+          to: user.role === 'ORGANIZER' ? '/admin/users/organizers' : user.role === 'VENDOR' ? '/admin/users/vendors' : '/admin/user-accounts',
+        }));
+      setSearchResults([...eventResults, ...userResults]);
+      if (eventResults.length === 0 && userResults.length === 0) setSearchError('No matching events or people found.');
+    } catch {
+      setSearchError('Search could not be completed. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   return (
     <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
@@ -136,21 +189,35 @@ export default function AdminDashboard() {
             <div className="mb-5 flex items-center justify-between gap-4">
               <div className="text-[15px] font-semibold text-[#5a6470]">Dashboard</div>
               <div className="flex items-center gap-3">
-                <div className="relative">
+                <form onSubmit={handleSearch} className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
                     <SearchIcon />
                   </span>
                   <input
-                    value=""
-                    aria-label="Search"
-                    readOnly
+                    value={search}
+                    onChange={(event) => { setSearch(event.target.value); setSearchResults([]); setSearchError(''); }}
+                    aria-label="Search events and people"
                     placeholder="Search events, people..."
                     className="h-10 w-[230px] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
                   />
-                </div>
-                <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe3ea] bg-white text-[#687280]">
-                  <BellIcon />
-                </button>
+                  {(searchResults.length > 0 || searchError || searching) && (
+                    <div className="absolute left-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-xl">
+                      {searching ? <p className="px-4 py-3 text-sm text-[#6b7280]">Searching...</p> : searchError ? <p className="px-4 py-3 text-sm text-[#6b7280]">{searchError}</p> : (
+                        <ul className="max-h-80 divide-y divide-[#eef0f3] overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <li key={`${result.kind}-${result.id}`}>
+                              <button type="button" onClick={() => navigate(result.to)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f7f8fa]">
+                                <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#1f2937]">{result.title}</span><span className="block truncate text-xs text-[#6b7280]">{result.detail}</span></span>
+                                <span className="shrink-0 text-[10px] font-bold uppercase text-[#8c93a0]">{result.kind}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </form>
+                <NotificationBell />
               </div>
             </div>
 
