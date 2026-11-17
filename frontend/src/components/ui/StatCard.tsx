@@ -4,7 +4,7 @@ interface StatCardProps {
   sub?: string;
   icon: React.ReactNode;
   color?: 'brand' | 'emerald' | 'amber' | 'rose' | 'purple';
-  appearance?: 'default' | 'analytics';
+  appearance?: 'default' | 'analytics' | 'organizer' | 'organizer-warm' | 'organizer-blue' | 'organizer-purple' | 'organizer-dark';
 }
 
 const colorMap = {
@@ -23,11 +23,28 @@ const analyticsColorMap = {
   purple:  { icon: 'bg-white/15 text-white', border: 'border-l-violet-300' },
 };
 
+const organizerGradients: Partial<Record<NonNullable<StatCardProps['appearance']>, string>> = {
+  'organizer-warm': 'from-[#d81935] to-[#c2410c]',
+  'organizer-blue': 'from-[#0870b6] to-[#3456c5]',
+  'organizer-purple': 'from-[#8b20b3] to-[#bb287b]',
+  'organizer-dark': 'from-[#141016] via-[#8d102d] to-[#141016]',
+};
+
 export default function StatCard({ label, value, sub, icon, color = 'brand', appearance = 'default' }: StatCardProps) {
-  const c = appearance === 'analytics' ? analyticsColorMap[color] : colorMap[color];
+  const organizerGradient = organizerGradients[appearance];
+  const lightText = appearance === 'analytics' || organizerGradient;
+  const c = organizerGradient
+    ? { icon: 'bg-white/15 text-white', border: 'border-transparent' }
+    : appearance === 'analytics'
+    ? analyticsColorMap[color]
+    : appearance === 'organizer'
+      ? { icon: 'bg-[#123456] text-white', border: 'border-l-orange-600' }
+      : colorMap[color];
   return (
     <div className={`border border-l-4 ${c.border} p-5 flex items-center gap-4 ${
-      appearance === 'analytics'
+      organizerGradient
+        ? `rounded-xl shadow-sm bg-gradient-to-br ${organizerGradient}`
+        : appearance === 'analytics'
         ? `dashboard-stat-card dashboard-stat-card-${color} rounded-xl border-white/10 shadow-lg shadow-black/15`
         : 'bg-white rounded-xl border-neutral-200 shadow-xs'
     }`}>
@@ -35,9 +52,9 @@ export default function StatCard({ label, value, sub, icon, color = 'brand', app
         {icon}
       </div>
       <div className="min-w-0">
-        <p className={`text-2xl font-bold tracking-tight ${appearance === 'analytics' ? 'text-white' : 'text-neutral-900'}`}>{value}</p>
-        <p className={`text-sm truncate ${appearance === 'analytics' ? 'text-white/75' : 'text-neutral-500'}`}>{label}</p>
-        {sub && <p className={`mt-0.5 text-xs ${appearance === 'analytics' ? 'text-white/60' : 'text-neutral-400'}`}>{sub}</p>}
+        <p className={`text-2xl font-bold tracking-tight ${lightText ? 'text-white' : 'text-neutral-900'}`}>{value}</p>
+        <p className={`text-sm truncate ${organizerGradient ? 'text-white' : appearance === 'analytics' ? 'text-white/75' : 'text-neutral-500'}`}>{label}</p>
+        {sub && <p className={`mt-0.5 text-xs ${organizerGradient ? 'text-white' : appearance === 'analytics' ? 'text-white/60' : 'text-neutral-400'}`}>{sub}</p>}
       </div>
     </div>
   );
