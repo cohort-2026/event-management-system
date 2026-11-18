@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
-import Spinner from '@/components/ui/Spinner';
+import Spinner from '@/components/legacy/Spinner';
+import { Toaster } from '@/components/ui/sonner';
 import type { UserRole } from '@/types/user';
 
 // Auth
@@ -51,6 +52,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Toaster />
         <Routes>
 
           {/* ── Root: landing entry for guests, dashboard for signed-in users ── */}

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Modal from '@/components/ui/Modal';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
+import Modal from '@/components/legacy/Modal';
+import Badge from '@/components/legacy/Badge';
+import Spinner from '@/components/legacy/Spinner';
 import UserManagementNav from '@/components/admin/UserManagementNav';
 import {
   approveOrganizerProfile,

@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import Badge from '@/components/ui/Badge';
-import StatCard from '@/components/ui/StatCard';
-import Button from '@/components/ui/Button';
+import Badge from '@/components/legacy/Badge';
+import StatCard from '@/components/app/StatCard';
+import Button from '@/components/legacy/Button';
 import { useAuth } from '@/context/AuthContext';
-import type { BadgeVariant } from '@/components/ui/Badge';
+import type { BadgeVariant } from '@/components/legacy/Badge';
 
 const bookings = [
   { id: 'BK-2301', event: 'Annual Tech Summit 2025', date: '2025-09-15', status: 'CONFIRMED', price: 'R350' },

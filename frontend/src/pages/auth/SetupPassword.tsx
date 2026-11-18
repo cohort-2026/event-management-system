@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
 import { setupOrganizerPassword } from '@/services/organizerService';
 
 const PASSWORD_RULES = [

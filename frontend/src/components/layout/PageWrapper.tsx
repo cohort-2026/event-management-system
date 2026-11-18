@@ -11,13 +11,24 @@ export default function PageWrapper({ children }: PageWrapperProps) {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
+  const isVendorRoute = pathname === '/vendor' || pathname.startsWith('/vendor/');
+  const isEventDetailPage = pathname.startsWith('/events/');
+  const isVendorEventDetail = isEventDetailPage && user?.role === 'VENDOR';
+  const isVendorEventsPage = pathname === '/events' || pathname === '/vendor/events' || isVendorEventDetail;
   const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const useDashboardLayout = isDashboardRoute || isVendorEventsPage;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top_left,#554271_0%,#302d46_36%,#252a3d_100%)]">
-      <main className={`flex-1 page-container section-gap ${isDashboardRoute ? 'dashboard-shell' : ''}`}>
-        {isDashboardRoute ? (
+    <div className={`min-h-screen flex flex-col ${
+      useDashboardLayout
+        ? 'bg-[#111525]'
+        : isEventDetailPage
+          ? 'bg-[#fafafa]'
+          : 'bg-[radial-gradient(ellipse_at_top_left,#554271_0%,#302d46_36%,#252a3d_100%)]'
+    }`}>
+      <main className={`flex-1 ${useDashboardLayout ? 'dashboard-shell' : `page-container ${isEventDetailPage ? '' : 'section-gap'}`}`}>
+        {useDashboardLayout ? (
           <DashboardNavigationProvider key={pathname.split('/')[1]}>
             {showAdminBackButton && (
               <Link
@@ -30,11 +41,11 @@ export default function PageWrapper({ children }: PageWrapperProps) {
                 Back to admin dashboard
               </Link>
             )}
-            <div className="dashboard-content">{children}</div>
+            <div className={isVendorRoute || isVendorEventsPage ? 'vendor-dashboard-content' : 'dashboard-content'}>{children}</div>
           </DashboardNavigationProvider>
         ) : (
           <>
-            {user && (
+            {user && !isEventDetailPage && (
               <div className="mb-5 flex justify-end">
                 <NotificationBell />
               </div>

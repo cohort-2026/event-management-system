@@ -3,13 +3,13 @@ import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import StatCard from '@/components/ui/StatCard';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
+import StatCard from '@/components/app/StatCard';
+import Badge from '@/components/legacy/Badge';
+import Button from '@/components/legacy/Button';
+import Spinner from '@/components/legacy/Spinner';
 import { cancelEvent, completeEvent, getMyEvents, publishEvent } from '@/services/eventService';
 import type { Event, EventStatus } from '@/types/event';
-import type { BadgeVariant } from '@/components/ui/Badge';
+import type { BadgeVariant } from '@/components/legacy/Badge';
 
 const statusVariant: Record<EventStatus, BadgeVariant> = {
   PUBLISHED: 'success',

@@ -3,8 +3,8 @@ import axios from 'axios';
 import { Link, useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import Badge, { type BadgeVariant } from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Badge, { type BadgeVariant } from '@/components/legacy/Badge';
+import Button from '@/components/legacy/Button';
 import { approveApplication, getEventApplications, rejectApplication } from '@/services/vendorService';
 import type { VendorApplication } from '@/types/vendor';
 

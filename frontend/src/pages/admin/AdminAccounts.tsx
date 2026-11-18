@@ -3,10 +3,10 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import PageWrapper from '@/components/layout/PageWrapper';
 import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
+import Badge from '@/components/legacy/Badge';
+import Spinner from '@/components/legacy/Spinner';
 import { createManagedAdmin, getManagedAdmins, updateManagedAdminStatus, type ManagedAdmin } from '@/services/adminService';
 
 export default function AdminAccounts() {

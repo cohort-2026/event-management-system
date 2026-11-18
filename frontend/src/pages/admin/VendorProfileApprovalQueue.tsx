@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
-import Spinner from '@/components/ui/Spinner';
+import Badge from '@/components/legacy/Badge';
+import Button from '@/components/legacy/Button';
+import Modal from '@/components/legacy/Modal';
+import Spinner from '@/components/legacy/Spinner';
 import UserManagementNav from '@/components/admin/UserManagementNav';
 import {
 	downloadVendorReviewDocument,
