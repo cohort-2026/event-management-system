@@ -1,21 +1,31 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { SlidersHorizontal } from 'lucide-react';
 import PageWrapper from '@/components/layout/PageWrapper';
-import EventCard from '@/components/ui/EventCard';
-import Input from '@/components/ui/Input';
-import Spinner from '@/components/ui/Spinner';
-import { useAuth } from '@/context/AuthContext';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
+import NotificationBell from '@/components/layout/NotificationBell';
+import VendorSearchField from '@/components/layout/VendorSearchField';
 import { getEvents } from '@/services/eventService';
-import { getMe } from '@/services/authService';
+import { getMyApplications } from '@/services/vendorService';
 import type { Event } from '@/types/event';
+import type { VendorApplication } from '@/types/vendor';
+
+const bannerThemes = [
+  'bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]',
+  'bg-gradient-to-br from-[#171717] via-[#25211f] to-[#342823]',
+  'bg-gradient-to-br from-[#111116] via-[#75152e] to-[#29101b]',
+  'bg-gradient-to-br from-[#9b25eb] via-[#d332a4] to-[#ec4c89]',
+  'bg-gradient-to-br from-[#0f9b78] via-[#0d957a] to-[#089a8c]',
+  'bg-gradient-to-br from-[#bcbcbc] via-[#a5a5a5] to-[#888]',
+];
 
 export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boolean }) {
   const [searchParams] = useSearchParams();
   const { user, setUser } = useAuth();
   const standsOnly = searchParams.get('stands') === 'available';
   const [events, setEvents] = useState<Event[]>([]);
+  const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [search, setSearch] = useState('');
   const [searchBy, setSearchBy] = useState<'all' | 'name' | 'location'>('all');
   const [category, setCategory] = useState('All');
@@ -26,18 +36,13 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
   const [sortBy, setSortBy] = useState<'soonest' | 'latest' | 'title'>('soonest');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (user?.role === 'VENDOR') {
-      getMe().then(response => setUser(response.data.data)).catch(() => undefined);
-    }
-  }, [user?.role, setUser]);
+  const [applicationError, setApplicationError] = useState('');
 
   useEffect(() => {
     let active = true;
     getEvents()
       .then(response => {
-        if (active) setEvents(response.data.data);
+        if (active) setEvents(response.data.data ?? []);
       })
       .catch(loadError => {
         if (active) {
@@ -49,6 +54,7 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
       .finally(() => {
         if (active) setLoading(false);
       });
+
     return () => { active = false; };
   }, []);
 
@@ -189,5 +195,141 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
         </>
       )}
     </PageWrapper>
+  );
+}
+
+function EventCard({
+  event,
+  variant,
+  application,
+}: {
+  event: Event;
+  variant: number;
+  application?: VendorApplication;
+}) {
+  const eventDate = new Date(event.startTime);
+  const month = eventDate.toLocaleDateString('en-ZA', { month: 'short' }).toUpperCase();
+  const day = eventDate.toLocaleDateString('en-ZA', { day: '2-digit' });
+  const isApplied = Boolean(application);
+  const applicationLabel = application?.status === 'PENDING_REVIEW'
+    ? 'Applied · under review'
+    : application?.status === 'APPROVED'
+      ? 'Applied · approved'
+      : 'Applied · rejected';
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
+      <div className={`relative h-[68px] overflow-hidden ${bannerThemes[variant]}`}>
+        {event.bannerImageUrl ? (
+          <img src={event.bannerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <EventArtwork variant={variant} />
+        )}
+        <div className="absolute left-1 top-1 flex h-[23px] w-[23px] flex-col items-center justify-center rounded-md bg-white text-[#222] shadow-sm">
+          <span className="text-[10px] font-bold leading-3 text-[#e11d48]">{month}</span>
+          <span className="text-[14px] font-extrabold leading-4">{day}</span>
+        </div>
+      </div>
+
+      <div className="p-2">
+        <h2 className="truncate text-[14px] font-extrabold leading-4 text-[#202020]">{event.title}</h2>
+        <p className="mt-0.5 truncate text-[12px] leading-[10px] text-[#777]">
+          {event.venue} · {event.capacity.toLocaleString()} attendees expected
+        </p>
+
+        <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-md bg-[#f7f7f7] px-2 py-1.5">
+          <div>
+            <p className="text-[10px] leading-3 text-[#777]">Stands left</p>
+            <p className="text-[12px] font-bold leading-[10px] text-[#333]">
+              {event.availableVendorStands} of {event.vendorStandsAvailable}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] leading-3 text-[#777]">Rate</p>
+            <p className="text-[12px] font-bold leading-[10px] text-[#333]">
+              R{event.vendorStandRatePerSqm.toLocaleString('en-ZA')}/m²
+            </p>
+          </div>
+        </div>
+
+        {isApplied ? (
+          <div className="mt-1.5 flex h-[21px] items-center justify-center rounded-md border border-[#ffe3a2] bg-[#fff9e8] text-[12px] font-bold text-[#c96a00]">
+            {applicationLabel}
+          </div>
+        ) : event.availableVendorStands <= 0 ? (
+          <div className="mt-1.5 flex h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] text-[12px] font-semibold text-[#888]">
+            All stands taken
+          </div>
+        ) : (
+          <Link
+            to={`/vendor/events/${event.id}/apply`}
+            className="mt-1.5 flex h-[21px] items-center justify-center rounded-md bg-[#111] text-[12px] font-bold text-white transition hover:bg-[#333]"
+          >
+            Apply for a stand
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function EventArtwork({ variant }: { variant: number }) {
+  if (variant === 0) {
+    return (
+      <>
+        <span className="absolute -left-5 top-6 h-16 w-16 rounded-full bg-[#ffb45c]" />
+        <span className="absolute left-[27%] top-8 h-20 w-20 rounded-full bg-[#ad2c18]/75" />
+        <span className="absolute right-2 -top-5 h-12 w-12 rounded-full bg-[#ffb46b]/70" />
+      </>
+    );
+  }
+  if (variant === 1) {
+    return <span className="absolute left-1/2 top-7 h-20 w-20 -translate-x-1/2 rounded-full bg-[#ff7900]" />;
+  }
+  if (variant === 2) {
+    return <span className="absolute -right-4 -top-7 h-24 w-24 rounded-full bg-[#961532]/90 blur-sm" />;
+  }
+  if (variant === 3) {
+    return <span className="absolute inset-0 opacity-70" style={{ backgroundImage: 'repeating-radial-gradient(circle at 16% 80%, transparent 0 5px, rgb(255 255 255 / 0.24) 6px 8px)' }} />;
+  }
+  if (variant === 4) {
+    return (
+      <>
+        <span className="absolute -left-2 -top-6 h-12 w-12 rounded-full bg-[#86d35b]" />
+        <span className="absolute right-4 top-5 h-14 w-14 rounded-full bg-[#45b6a4]" />
+      </>
+    );
+  }
+  return (
+    <>
+      <span className="absolute right-5 -top-4 h-14 w-14 rounded-full bg-white/60" />
+      <span className="absolute left-10 top-8 h-7 w-7 rounded-full bg-white/35" />
+    </>
+  );
+}
+
+function FilterChip({ label, active = false, onClick }: { label: string; active?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex h-[21px] shrink-0 items-center rounded-full border px-2 text-[12px] font-semibold transition ${
+        active
+          ? 'border-[#171717] bg-[#171717] text-white'
+          : 'border-[#e2e2e2] bg-white text-[#444] hover:bg-[#f5f5f5]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-2.5 w-2.5 shrink-0" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="6" />
+      <path strokeLinecap="round" d="m16 16 4 4" />
+    </svg>
   );
 }

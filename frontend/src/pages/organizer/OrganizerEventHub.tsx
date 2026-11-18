@@ -52,7 +52,6 @@ function TicketSales({ event }: { event: Event }) {
     ...ticket,
     sold: Math.max(0, ticket.quantity - ticket.availableQuantity),
   }));
-  const maxSold = Math.max(1, ...tickets.map(ticket => ticket.sold));
   const colors = ['bg-rose-600', 'bg-orange-500', 'bg-amber-400', 'bg-slate-900'];
 
   return (

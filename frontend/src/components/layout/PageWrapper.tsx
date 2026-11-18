@@ -12,8 +12,13 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
   const { pathname } = useLocation();
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
+  const isVendorRoute = pathname === '/vendor' || pathname.startsWith('/vendor/');
+  const isEventDetailPage = pathname.startsWith('/events/');
+  const isVendorEventDetail = isEventDetailPage && user?.role === 'VENDOR';
+  const isVendorEventsPage = pathname === '/events' || pathname === '/vendor/events' || isVendorEventDetail;
   const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const useDashboardLayout = isDashboardRoute || isVendorEventsPage;
   const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
   const lightDashboard = appearance === 'light' && isDashboardRoute;
 
@@ -37,7 +42,7 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
           </DashboardNavigationProvider>
         ) : (
           <>
-            {user && (
+            {user && !isEventDetailPage && (
               <div className="mb-5 flex justify-end">
                 <NotificationBell />
               </div>

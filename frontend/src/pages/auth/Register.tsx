@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import { register } from '@/services/authService';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
+import Input from '@/components/legacy/Input';
+import Button from '@/components/legacy/Button';
 import type { UserRole } from '@/types/user';
 import axios from 'axios';
 
