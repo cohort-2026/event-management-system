@@ -553,6 +553,7 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
             firstname: true,
             lastname: true,
             email: true,
+            isActive: true,
             vendorProfile: {
               select: {
                 businessName: true,

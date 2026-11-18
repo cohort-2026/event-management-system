@@ -422,7 +422,7 @@ export default function OrganizerReports() {
       <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
-          <DashboardHeader title="Reports" subtitle="Insights across your events and registrations." showNavigation={false} />
+          <DashboardHeader title="Reports" topBarSubtitle="Insights across your events and registrations." showNavigation={false} />
           {error ? (
             <div role="alert" className="rounded-xl bg-rose-50 p-5 text-rose-800">
               <p>{error}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>

@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+﻿import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -191,6 +191,8 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
 export function DashboardHeader({
   title,
   subtitle,
+  topBarSubtitle,
+  organizerTitleSize = 'default',
   breadcrumbs = [],
   appearance = 'analytics',
   actions,
@@ -200,6 +202,8 @@ export function DashboardHeader({
 }: {
   title: string;
   subtitle?: string;
+  topBarSubtitle?: string;
+  organizerTitleSize?: 'default' | 'large';
   breadcrumbs?: Array<{ label: string; to?: string }>;
   appearance?: 'default' | 'analytics';
   actions?: ReactNode;
@@ -218,21 +222,28 @@ export function DashboardHeader({
   if (showOrganizerNotifications) {
     return (
       <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
-        <OrganizerTopBar title={title} confirmNavigation={confirmNotificationNavigation} disabled={notificationsDisabled} />
-        <div className="px-5 py-4">
-          {showNavigation && breadcrumbs.length > 0 && (
-            <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-              {breadcrumbs.map((crumb, index) => (
-                <span key={crumb.label} className="flex items-center gap-2">
-                  {index > 0 && <span aria-hidden="true">/</span>}
-                  {crumb.to ? <Link to={crumb.to} className="hover:underline">{crumb.label}</Link> : <span>{crumb.label}</span>}
-                </span>
-              ))}
-            </nav>
-          )}
-          <h1 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-        </div>
+        <OrganizerTopBar title={title} subtitle={topBarSubtitle} confirmNavigation={confirmNotificationNavigation} disabled={notificationsDisabled} />
+        {!topBarSubtitle && (
+          <div className="px-5 py-4">
+            {showNavigation && breadcrumbs.length > 0 && (
+              <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                {breadcrumbs.map((crumb, index) => (
+                  <span key={crumb.label} className="flex items-center gap-2">
+                    {index > 0 && <span aria-hidden="true">/</span>}
+                    {crumb.to ? <Link to={crumb.to} className="hover:underline">{crumb.label}</Link> : <span>{crumb.label}</span>}
+                  </span>
+                ))}
+              </nav>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className={organizerTitleSize === 'large' ? 'text-[42px] font-black tracking-tight text-slate-900 sm:text-[52px]' : 'text-3xl font-black tracking-tight text-slate-900 sm:text-4xl'}>{title}</h1>
+                {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+              </div>
+              {hasActions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
+import AdminLayout from '@/components/layout/AdminLayout';
 import Spinner from '@/components/ui/Spinner';
 import Navbar from '@/components/layout/Navbar';
 import type { UserRole } from '@/types/user';
@@ -46,11 +47,13 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
+import EventApprovals from '@/pages/admin/EventApprovals';
 import UserManagement from '@/pages/admin/UserManagement';
 import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
 import AdminAccounts from '@/pages/admin/AdminAccounts';
 import AdminAuditHistory from '@/pages/admin/AdminAuditHistory';
+import AdminReports from '@/pages/admin/AdminReports';
 
 export default function App() {
   return (
@@ -93,6 +96,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/vendors"                     element={<VendorApplications />} />
             <Route path="/organizer/reports"                     element={<OrganizerReports />} />
             <Route path="/organizer/notifications"               element={<OrganizerDashboard />} />
             <Route path="/organizer/events/:id"                  element={<OrganizerEventHub />} />
@@ -117,16 +121,20 @@ export default function App() {
 
           {/* ── Admin ── */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
-            <Route path="/admin"            element={<AdminDashboard />} />
-            <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
-            <Route path="/admin/users"      element={<Navigate to="/admin/users/organizers/pending" replace />} />
-            <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />
-            <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
-            <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
-            <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
-            <Route path="/admin/user-accounts" element={<UserAccounts />} />
-            <Route path="/admin/accounts" element={<AdminAccounts />} />
-            <Route path="/admin/audit" element={<AdminAuditHistory />} />
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/approvals" element={<EventApprovals />} />
+              <Route path="/admin/vendors" element={<Navigate to="/admin/users/vendors/pending" replace />} />
+              <Route path="/admin/users" element={<Navigate to="/admin/users/organizers/pending" replace />} />
+              <Route path="/admin/users/organizers" element={<UserManagement key="organizers-approved" profileStatus="APPROVED" />} />
+              <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
+              <Route path="/admin/users/organizers/pending" element={<UserManagement key="organizers-pending" profileStatus="PENDING_APPROVAL" />} />
+              <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
+              <Route path="/admin/user-accounts" element={<UserAccounts />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/accounts" element={<AdminAccounts />} />
+              <Route path="/admin/audit" element={<AdminAuditHistory />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFound />} />
