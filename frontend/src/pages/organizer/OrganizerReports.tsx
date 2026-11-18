@@ -16,28 +16,132 @@ const statuses: Array<{ status: EventStatus; label: string; color: string }> = [
 ];
 
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
-const getMonthlyBookings = (registrations: EventRegistration[]) => {
+
+function getMonthlyEventSummary(events: Event[]) {
   const now = new Date();
+  const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
   const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return { key: monthKey(date), label: date.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }), count: 0 };
+    const date = new Date(startYear, 7 + index, 1);
+    return {
+      key: monthKey(date),
+      label: date.toLocaleDateString('en-ZA', { month: 'short' }),
+      fullLabel: date.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }),
+      total: 0,
+      published: 0,
+    };
   });
-  const lookup = new Map(months.map(month => [month.key, month]));
-  for (const registration of registrations) {
-    if (registration.status === 'CANCELLED') continue;
-    const date = new Date(registration.createdAt);
-    if (!Number.isFinite(date.getTime()) || date > now) continue;
-    const month = lookup.get(monthKey(date));
-    if (month) month.count += 1;
+  const monthLookup = new Map(months.map(month => [month.key, month]));
+  for (const event of events) {
+    const createdAt = new Date(event.createdAt);
+    if (!Number.isFinite(createdAt.getTime()) || createdAt > now) continue;
+    const month = monthLookup.get(monthKey(createdAt));
+    if (!month) continue;
+    month.total += 1;
+    if (event.status === 'PUBLISHED') month.published += 1;
   }
   return months;
-};
+}
 
 const formatPercent = (percent: number) => {
   if (percent > 0 && percent < 0.1) return '<0.1%';
   if (percent > 99.9 && percent < 100) return '>99.9%';
   return `${Number(percent.toFixed(1))}%`;
 };
+
+function BookingHeatmapCalendar({
+  registrations,
+  loading,
+  unavailable,
+}: {
+  registrations: EventRegistration[] | null;
+  loading: boolean;
+  unavailable: boolean;
+}) {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 364);
+  const start = new Date(cutoff);
+  start.setDate(start.getDate() - start.getDay());
+  const end = new Date(today);
+  end.setDate(end.getDate() + (6 - end.getDay()));
+
+  const dateKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const dailyCounts = new Map<string, number>();
+  for (const registration of registrations ?? []) {
+    if (registration.status === 'CANCELLED') continue;
+    const date = new Date(registration.createdAt);
+    if (!Number.isFinite(date.getTime()) || date > now || date < cutoff) continue;
+    const key = dateKey(date);
+    dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
+  }
+
+  const weeks: Date[][] = [];
+  for (const weekStart = new Date(start); weekStart <= end; weekStart.setDate(weekStart.getDate() + 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      return date;
+    }));
+  }
+  const maximum = Math.max(1, ...dailyCounts.values());
+  const total = [...dailyCounts.values()].reduce((sum, count) => sum + count, 0);
+  const levels = ['bg-neutral-100', 'bg-green-200', 'bg-green-400', 'bg-green-600', 'bg-green-800'];
+
+  return (
+    <section aria-labelledby="report-booking-heatmap" className="mt-4 rounded-lg border border-neutral-200 bg-white p-3 sm:p-4">
+      <h2 id="report-booking-heatmap" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking activity</h2>
+      <p className="mt-1 text-sm text-neutral-500">Daily registrations over the past year.</p>
+      {loading ? (
+        <div role="status" className="mt-5 flex items-center gap-3 text-sm text-neutral-700"><Spinner /> Loading booking activity…</div>
+      ) : unavailable ? (
+        <p className="mt-5 text-sm text-neutral-500">Booking activity is unavailable.</p>
+      ) : (
+        <>
+          <div className="mt-5 overflow-x-auto pb-2">
+            <div className="flex min-w-max gap-1" role="img" aria-label={`Daily booking heat map for the past year, ${total} registrations in total.`}>
+              <div aria-hidden="true" className="grid shrink-0 grid-rows-[16px_repeat(7,12px)] gap-1 text-[9px] leading-3 text-neutral-500">
+                <span />
+                {['Sun', '', 'Tue', '', 'Thu', '', 'Sat'].map((day, index) => <span key={index}>{day}</span>)}
+              </div>
+              {weeks.map((week, index) => {
+                const monthStart = week.find(date => date.getDate() === 1);
+                return (
+                  <div key={dateKey(week[0])} className="flex shrink-0 flex-col gap-1">
+                    <span className="h-4 whitespace-nowrap text-[9px] leading-4 text-neutral-500">
+                      {monthStart && index > 0 ? monthStart.toLocaleDateString('en-ZA', { month: 'short' }) : ''}
+                    </span>
+                    {week.map(date => {
+                      const count = dailyCounts.get(dateKey(date)) ?? 0;
+                      const level = count === 0 ? 0 : Math.min(4, Math.ceil(count / maximum * 4));
+                      const label = `${date.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}: ${count} ${count === 1 ? 'registration' : 'registrations'}`;
+                      return (
+                        <span
+                          key={dateKey(date)}
+                          title={label}
+                          className={`h-3 w-3 rounded-[3px] ${levels[level]}`}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-500">
+            <span>{total} registration{total === 1 ? '' : 's'} in the displayed year</span>
+            <span className="flex items-center gap-1.5" aria-label="Activity scale from less to more">
+              Less
+              {levels.map(level => <span key={level} aria-hidden="true" className={`h-3 w-3 rounded-[3px] ${level}`} />)}
+              More
+            </span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
 
 function StatusChart({ events }: { events: Event[] }) {
   const counts = statuses.map(item => {
@@ -153,116 +257,6 @@ function CategoryChart({ events }: { events: Event[] }) {
   );
 }
 
-function BookingChart({ registrations }: { registrations: EventRegistration[] }) {
-  const months = getMonthlyBookings(registrations);
-  const maximum = Math.max(1, ...months.map(month => month.count));
-  const step = Math.max(1, Math.ceil(maximum / 4));
-  const tickCount = Math.ceil(maximum / step);
-  const scaleMaximum = tickCount * step;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
-  const left = Math.max(55, String(scaleMaximum).length * 7 + 12);
-  const right = 570;
-  const top = 30;
-  const bottom = 170;
-  const points = months.map((month, index) => ({
-    x: left + index * (right - left) / (months.length - 1),
-    y: bottom - month.count / scaleMaximum * (bottom - top),
-  }));
-
-  return (
-    <section className="min-w-0" aria-labelledby="report-bookings">
-      <h2 id="report-bookings" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking trend</h2>
-      <p className="mt-1 text-sm text-neutral-500">Currently non-cancelled registrations, grouped by booking month over the last six months.</p>
-      <div className="mt-5 overflow-x-auto">
-        <svg aria-hidden="true" viewBox="0 0 600 220" className="block w-full min-w-[600px]">
-          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
-          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
-          {ticks.map(tick => {
-            const y = bottom - tick / scaleMaximum * (bottom - top);
-            return (
-              <g key={tick}>
-                <line x1={left - 4} y1={y} x2={left} y2={y} stroke="#a3a3a3" />
-                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
-              </g>
-            );
-          })}
-          {points.map((point, index) => (
-            <g key={months[index].key}>
-              <line x1={point.x} y1={bottom} x2={point.x} y2={bottom + 4} stroke="#a3a3a3" />
-              <text x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{months[index].label}</text>
-            </g>
-          ))}
-          <polyline points={points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="#111111" strokeWidth="3" strokeLinejoin="round" />
-          {points.map((point, index) => <circle key={months[index].key} cx={point.x} cy={point.y} r="5.5" fill="#111111" />)}
-        </svg>
-      </div>
-      <div className="mt-3 overflow-x-auto">
-        <ul className="grid min-w-[600px] grid-cols-6 gap-3">
-          {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} {month.count === 1 ? 'booking' : 'bookings'}</span></li>)}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-function BookingScatterChart({ registrations }: { registrations: EventRegistration[] }) {
-  const months = getMonthlyBookings(registrations);
-  const maximum = Math.max(1, ...months.map(month => month.count));
-  const step = Math.max(1, Math.ceil(maximum / 4));
-  const tickCount = Math.ceil(maximum / step);
-  const scaleMaximum = tickCount * step;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
-  const left = 56;
-  const right = 570;
-  const top = 24;
-  const bottom = 180;
-  const points = months.map((month, index) => ({
-    ...month,
-    x: left + index * (right - left) / (months.length - 1),
-    y: bottom - month.count / scaleMaximum * (bottom - top),
-  }));
-  const average = months.reduce((sum, month) => sum + month.count, 0) / months.length;
-  const meanIndex = (months.length - 1) / 2;
-  const slope = months.reduce((sum, month, index) => sum + (index - meanIndex) * (month.count - average), 0)
-    / months.reduce((sum, _month, index) => sum + (index - meanIndex) ** 2, 0);
-  const trend = [0, months.length - 1].map(index => ({
-    x: points[index].x,
-    y: bottom - Math.max(0, Math.min(scaleMaximum, average + slope * (index - meanIndex))) / scaleMaximum * (bottom - top),
-  }));
-
-  return (
-    <section className="min-w-0" aria-labelledby="report-booking-volume">
-      <h2 id="report-booking-volume" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking volume</h2>
-      <p className="mt-1 text-sm text-neutral-500">Monthly booking counts shown as individual points with a trend line.</p>
-      <div className="mt-5 overflow-x-auto">
-        <svg viewBox="0 0 600 220" className="block w-full min-w-[600px]" role="img" aria-label="Scatter plot of monthly booking volume for the last six months">
-          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
-          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
-          {ticks.map(tick => {
-            const y = bottom - tick / scaleMaximum * (bottom - top);
-            return (
-              <g key={tick}>
-                <line x1={left} y1={y} x2={right} y2={y} stroke="#e5e7eb" />
-                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
-              </g>
-            );
-          })}
-          {points.map(point => (
-            <text key={point.key} x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{point.label}</text>
-          ))}
-          <line x1={trend[0].x} y1={trend[0].y} x2={trend[1].x} y2={trend[1].y} stroke="#cf7968" strokeWidth="2" />
-          {points.map(point => (
-            <g key={point.key}>
-              <title>{`${point.label}: ${point.count} ${point.count === 1 ? 'booking' : 'bookings'}`}</title>
-              <rect x={point.x - 4} y={point.y - 4} width="8" height="8" fill={point.count >= average ? '#b42318' : '#82939d'} stroke="#ffffff" strokeWidth="1" />
-            </g>
-          ))}
-        </svg>
-      </div>
-    </section>
-  );
-}
-
 function areaPath(points: Array<{ x: number; y: number }>, baseline: number) {
   const first = points[0];
   const last = points[points.length - 1];
@@ -284,37 +278,17 @@ function linePath(points: Array<{ x: number; y: number }>) {
   return `M ${first.x} ${first.y} ${curve}`;
 }
 
-function EventSummaryChart({ events, booked, capacity }: { events: Event[]; booked: number; capacity: number }) {
-  const now = new Date();
-  const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(startYear, 7 + index, 1);
-    return {
-      key: monthKey(date),
-      label: date.toLocaleDateString('en-ZA', { month: 'short' }),
-      total: 0,
-      published: 0,
-    };
-  });
-  const monthLookup = new Map(months.map(month => [month.key, month]));
-  for (const event of events) {
-    const createdAt = new Date(event.createdAt);
-    if (!Number.isFinite(createdAt.getTime()) || createdAt > now) continue;
-    const month = monthLookup.get(monthKey(createdAt));
-    if (!month) continue;
-    month.total += 1;
-    if (event.status === 'PUBLISHED') month.published += 1;
-  }
-
+function EventTrendsAreaChart({ events }: { events: Event[] }) {
+  const months = getMonthlyEventSummary(events);
   const maximum = Math.max(1, ...months.map(month => month.total));
   const step = Math.max(1, Math.ceil(maximum / 4));
   const tickCount = Math.ceil(maximum / step);
   const scaleMaximum = tickCount * step;
   const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
-  const left = 34;
-  const right = 430;
-  const top = 18;
-  const bottom = 175;
+  const left = 42;
+  const right = 550;
+  const top = 24;
+  const bottom = 190;
   const points = months.map((month, index) => ({
     ...month,
     x: left + index * (right - left) / (months.length - 1),
@@ -323,17 +297,76 @@ function EventSummaryChart({ events, booked, capacity }: { events: Event[]; book
   }));
   const totalPoints = points.map(({ x, totalY }) => ({ x, y: totalY }));
   const publishedPoints = points.map(({ x, publishedY }) => ({ x, y: publishedY }));
+  const startLabel = months[0].fullLabel;
+  const endLabel = months[months.length - 1].fullLabel;
+
+  return (
+    <section className="min-w-0" aria-labelledby="report-event-trends">
+      <h2 id="report-event-trends" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Event trends</h2>
+      <p className="mt-1 text-sm text-neutral-500">Total and published events created each month from {startLabel} through {endLabel}.</p>
+      <div className="mt-4 overflow-x-auto">
+        <svg viewBox="0 0 580 258" className="block w-full min-w-[520px]" role="img" aria-label={`Area chart of total and published events from ${startLabel} through ${endLabel}`}>
+          <text x={left} y="14" fontSize="11" fill="#64748b">Events</text>
+          {ticks.map(tick => {
+            const y = bottom - tick / scaleMaximum * (bottom - top);
+            return (
+              <g key={tick}>
+                <line x1={left} y1={y} x2={right} y2={y} stroke="#e5e7eb" />
+                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="10" fill="#64748b">{tick}</text>
+              </g>
+            );
+          })}
+          <path d={areaPath(totalPoints, bottom)} fill="#f3ad45" fillOpacity="0.76" />
+          <path d={areaPath(publishedPoints, bottom)} fill="#72c77a" fillOpacity="0.88" />
+          <path d={linePath(totalPoints)} fill="none" stroke="#e7a03a" strokeWidth="2" />
+          <path d={linePath(publishedPoints)} fill="none" stroke="#58b968" strokeWidth="2" />
+          <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#cbd5e1" />
+          {points.map(point => (
+            <g key={point.key}>
+              <title>{`${point.fullLabel}: ${point.total} total events, ${point.published} published`}</title>
+              <text x={point.x} y={bottom + 18} textAnchor="middle" fontSize="10" fill="#64748b">{point.label}</text>
+            </g>
+          ))}
+          <circle cx="206" cy="236" r="5" fill="#f3ad45" />
+          <text x="217" y="240" fontSize="10" fill="#475569">All events</text>
+          <circle cx="308" cy="236" r="5" fill="#72c77a" />
+          <text x="319" y="240" fontSize="10" fill="#475569">Published</text>
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function EventSummaryChart({ events, booked, capacity }: { events: Event[]; booked: number; capacity: number }) {
+  const months = getMonthlyEventSummary(events);
+
+  const maximum = Math.max(1, ...months.map(month => month.total));
+  const step = Math.max(1, Math.ceil(maximum / 4));
+  const tickCount = Math.ceil(maximum / step);
+  const scaleMaximum = tickCount * step;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
+  const left = 42;
+  const right = 430;
+  const top = 28;
+  const bottom = 178;
+  const points = months.map((month, index) => ({
+    ...month,
+    x: left + index * (right - left) / (months.length - 1),
+    totalY: bottom - month.total / scaleMaximum * (bottom - top),
+    publishedY: bottom - month.published / scaleMaximum * (bottom - top),
+  }));
   const totalEvents = events.length;
   const publishedEvents = events.filter(event => event.status === 'PUBLISHED').length;
-  const startLabel = new Date(startYear, 7, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
-  const endLabel = new Date(startYear + 1, 0, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  const startLabel = months[0].fullLabel;
+  const endLabel = months[months.length - 1].fullLabel;
 
   return (
     <section aria-labelledby="report-summary" className="min-w-0 xl:col-span-3">
       <h2 id="report-summary" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Event summary</h2>
-      <p className="mt-1 text-xs text-neutral-500">Events created per month from {startLabel} through {endLabel}.</p>
+      <p className="mt-1 text-xs text-neutral-500">Monthly event totals and published events from {startLabel} through {endLabel}.</p>
       <div className="mt-3 overflow-x-auto">
-        <svg viewBox="0 0 460 238" className="block w-full min-w-[400px]" role="img" aria-label={`Area chart of total events created and currently published events by month from ${startLabel} through ${endLabel}`}>
+        <svg viewBox="0 0 460 244" className="block w-full min-w-[400px]" role="img" aria-label={`Scatter plot of total and published events by month from ${startLabel} through ${endLabel}`}>
+          <text x={left} y="14" fontSize="10" fill="#64748b">Events</text>
           {ticks.map(tick => {
             const y = bottom - tick / scaleMaximum * (bottom - top);
             return (
@@ -343,18 +376,22 @@ function EventSummaryChart({ events, booked, capacity }: { events: Event[]; book
               </g>
             );
           })}
-          <path d={areaPath(totalPoints, bottom)} fill="#f3ad45" fillOpacity="0.82" />
-          <path d={areaPath(publishedPoints, bottom)} fill="#72c77a" fillOpacity="0.88" />
-          <path d={linePath(totalPoints)} fill="none" stroke="#e7a03a" strokeWidth="2" />
-          <path d={linePath(publishedPoints)} fill="none" stroke="#58b968" strokeWidth="2" />
           <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#cbd5e1" />
           {points.map(point => (
-            <text key={point.key} x={point.x} y={bottom + 17} textAnchor="middle" fontSize="10" fill="#64748b">{point.label}</text>
+            <g key={point.key}>
+              <text x={point.x} y={bottom + 17} textAnchor="middle" fontSize="10" fill="#64748b">{point.label}</text>
+              <circle cx={point.x - 4} cy={point.totalY} r="5" fill="#f3ad45">
+                <title>{`${point.label}: ${point.total} total events`}</title>
+              </circle>
+              <circle cx={point.x + 4} cy={point.publishedY} r="4" fill="#58b968">
+                <title>{`${point.label}: ${point.published} published events`}</title>
+              </circle>
+            </g>
           ))}
-          <circle cx="155" cy="222" r="5" fill="#f3ad45" />
-          <text x="166" y="226" fontSize="10" fill="#475569">All events</text>
-          <circle cx="260" cy="222" r="5" fill="#72c77a" />
-          <text x="271" y="226" fontSize="10" fill="#475569">Currently published</text>
+          <circle cx="132" cy="226" r="5" fill="#f3ad45" />
+          <text x="143" y="230" fontSize="10" fill="#475569">All events</text>
+          <circle cx="232" cy="226" r="5" fill="#58b968" />
+          <text x="243" y="230" fontSize="10" fill="#475569">Published</text>
         </svg>
       </div>
       <dl className="mt-2 divide-y divide-neutral-200">
@@ -394,7 +431,7 @@ export default function OrganizerReports() {
         if (!active) return;
         const failed = results.filter(result => result.status === 'rejected').length;
         if (failed) {
-          setBookingError(`Bookings could not be loaded for ${failed} ${failed === 1 ? 'event' : 'events'}. The trend is unavailable until all bookings load.`);
+          setBookingError(`Bookings could not be loaded for ${failed} ${failed === 1 ? 'event' : 'events'}.`);
           return;
         }
         setRegistrations(results.flatMap(result => result.status === 'fulfilled' ? result.value.data.data : []));
@@ -430,40 +467,34 @@ export default function OrganizerReports() {
           ) : !events ? (
             <div role="status" className="flex items-center gap-3 py-12 text-neutral-700"><Spinner /> Loading reports…</div>
           ) : (
-            <section aria-labelledby="reports-visualization-title" className="rounded-3xl bg-[#f2e5e9] p-3 sm:p-5">
+            <>
+              <section aria-labelledby="reports-visualization-title" className="rounded-3xl bg-[#f2e5e9] p-3 sm:p-5">
               <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
                 <h2 id="reports-visualization-title" className="organizer-visualization-header rounded-t-xl px-4 py-3 text-center text-sm font-bold text-white" style={{ color: '#fff', fontSize: '0.875rem', lineHeight: 1.25 }}>
                   Data Visualization
                 </h2>
                 <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-6">
-                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
                     <CategoryChart events={events} />
                   </div>
-                  {bookingError ? (
-                    <div role="alert" className="min-w-0 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-rose-800 md:col-span-2 xl:col-span-4">
-                      <p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>
-                    </div>
-                  ) : registrations ? (
-                    <>
-                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
-                        <BookingChart registrations={registrations} />
-                      </div>
-                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-2">
-                        <BookingScatterChart registrations={registrations} />
-                      </div>
-                    </>
-                  ) : (
-                    <div role="status" className="flex min-h-40 items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-neutral-700 md:col-span-2 xl:col-span-4"><Spinner /> Loading booking trend…</div>
-                  )}
                   <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
                     <StatusChart events={events} />
                   </div>
                   <div className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
                     <EventSummaryChart events={events} booked={booked} capacity={capacity} />
                   </div>
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
+                    <EventTrendsAreaChart events={events} />
+                  </div>
                 </div>
               </div>
-            </section>
+              </section>
+              <BookingHeatmapCalendar
+                registrations={registrations}
+                loading={!registrations && !bookingError}
+                unavailable={Boolean(bookingError)}
+              />
+            </>
           )}
         </section>
       </div>
