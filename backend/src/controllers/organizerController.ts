@@ -87,6 +87,14 @@ export const approveOrganizerProfile = async (req: Request, res: Response, next:
           outcome: 'approved',
         },
       });
+      await transaction.notification.create({
+        data: {
+          recipientId: organizer.id,
+          title: 'Organizer profile approved',
+          message: 'Your organizer profile has been approved by an administrator.',
+          link: '/organizer/profile',
+        },
+      });
       return { error: null, organizer };
     });
 

@@ -138,7 +138,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
     <>
       <div className="min-w-0">
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-        {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+        {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>}
 
         <div className="mb-5 flex flex-wrap gap-2 rounded-[16px] border border-[#e5e7eb] bg-[#f2f3f2] p-1.5" role="tablist" aria-label="Organizer status">
           {organizerTabs.map(tab => (

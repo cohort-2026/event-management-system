@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const rows = [
   {
     name: 'Thandi Nkosi',
@@ -94,9 +95,21 @@ const pillClasses = {
   waitlisted: 'bg-[#f7f1dc] text-[#b17a1d]',
   cancelled: 'bg-[#f5dfe0] text-[#b73d4d]',
 };
+=======
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import axios from 'axios';
+import PageWrapper from '@/components/layout/PageWrapper';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
+import Spinner from '@/components/ui/Spinner';
+import { getEventRegistrations } from '@/services/eventService';
+import type { EventRegistration } from '@/services/eventService';
+>>>>>>> 1dbe4e6e8c715cd663993991822876ac62db5dfa
 
 export default function EventRegistrations() {
   return (
+<<<<<<< HEAD
     <div className="min-h-screen bg-[#edf1f4] px-2 py-3 text-[#1f2937] antialiased sm:px-4 sm:py-6">
       <div className="mx-auto w-full max-w-[1280px] overflow-hidden rounded-[18px] border border-[#dfe5eb] bg-[#f4f5f3] shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
         <div className="flex h-12 items-center gap-3 border-b border-[#e4e7eb] bg-[#f2f4f5] px-4">
@@ -125,6 +138,19 @@ export default function EventRegistrations() {
               <div>
                 <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f15d5d]">EventMS</div>
               </div>
+=======
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
+        <OrganizerSidebar />
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
+          <DashboardHeader title="Event registrations" subtitle="Attendees and ticket status for your event" breadcrumbs={[{ label: 'My events', to: '/organizer/events' }, { label: 'Registrations' }]} />
+          {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+          {loading ? <div className="flex justify-center py-16"><Spinner /></div> : registrations.length === 0 ? (
+            <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center">
+              <h2 className="font-bold text-neutral-900">No registrations yet</h2>
+              <p className="mt-2 text-sm text-neutral-600">Attendee bookings will appear here.</p>
+              <Link to="/organizer/events" className="mt-4 inline-block text-sm font-semibold text-brand-700">Back to my events</Link>
+>>>>>>> 1dbe4e6e8c715cd663993991822876ac62db5dfa
             </div>
 
             <nav className="grid grid-cols-2 gap-1.5 pt-3 text-[14px] sm:grid-cols-3 lg:block lg:space-y-1.5">
@@ -263,6 +289,7 @@ export default function EventRegistrations() {
     </div>
   );
 }
+<<<<<<< HEAD
 
 function NavItem({ label, active, icon }: { label: string; active: boolean; icon: React.ReactNode }) {
   return (
@@ -356,3 +383,5 @@ function GlobeIcon() {
 function ChevronDownIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
+=======
+>>>>>>> 1dbe4e6e8c715cd663993991822876ac62db5dfa

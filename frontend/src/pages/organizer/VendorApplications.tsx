@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { Link, useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import Badge, { type BadgeVariant } from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { approveApplication, getEventApplications, rejectApplication } from '@/services/vendorService';
@@ -95,19 +96,10 @@ export default function VendorApplications() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar
-          title="Organizer"
-          subtitle="Operations"
-          items={[
-            { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-            { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
-            { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-            { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
-          ]}
-        />
-        <section className="min-w-0 flex-1">
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
+        <OrganizerSidebar />
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
             title="Stand requests"
             subtitle="Review vendor profiles, requested setups, and supporting information."

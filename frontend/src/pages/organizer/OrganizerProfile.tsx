@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import type { ApiError } from '@/types/api';
@@ -11,6 +12,8 @@ import {
   type OrganizerProfile as OrganizerProfileData,
   type UpdateOrganizerProfileDto,
 } from '@/services/organizerService';
+
+const organizationRegistrationNumberPattern = /^\d{4}\/\d{6}\/\d{2}$/;
 
 const emptyProfile: UpdateOrganizerProfileDto = {
   firstname: '',
@@ -61,13 +64,6 @@ const phoneCountryCodes = [
   { country: 'Turkey', code: '+90' },
 ].sort((a, b) => a.country.localeCompare(b.country));
 
-const sidebarItems = [
-  { label: 'Overview', to: '/organizer', icon: <span aria-hidden="true">⌂</span> },
-  { label: 'My events', to: '/organizer/events', icon: <span aria-hidden="true">▦</span> },
-  { label: 'Create event', to: '/organizer/events/new', icon: <span aria-hidden="true">＋</span> },
-  { label: 'My profile', to: '/organizer/profile', icon: <span aria-hidden="true">◎</span> },
-];
-
 function toFormValues(profile: OrganizerProfileData): UpdateOrganizerProfileDto {
   return {
     firstname: profile.firstname,
@@ -93,6 +89,7 @@ function splitPhoneNumber(phone: string | null) {
 export default function OrganizerProfile() {
   const [profile, setProfile] = useState(emptyProfile);
   const [email, setEmail] = useState('');
+  const [organizationDescription, setOrganizationDescription] = useState('');
   const [profileApprovalStatus, setProfileApprovalStatus] = useState<OrganizerProfileData['profileApprovalStatus'] | null>(null);
   const [profileRejectionReason, setProfileRejectionReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +100,14 @@ export default function OrganizerProfile() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [phoneCountryCode, setPhoneCountryCode] = useState('+27');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [isRequestingChange, setIsRequestingChange] = useState(false);
+  const [savedRegistrationNumber, setSavedRegistrationNumber] = useState('');
+  const savedProfile = useRef('');
+  const isApproved = profileApprovalStatus === 'APPROVED';
+  const canEdit = !isApproved || isRequestingChange;
+  const registrationNumberChanged = profile.organizationRegistrationNumber !== savedRegistrationNumber;
+  const canSubmitOrganizationDetails = isApproved && !isRequestingChange && registrationNumberChanged;
 
   const setPhoneFromProfile = (phone: string | null) => {
     const parsedPhone = splitPhoneNumber(phone);
@@ -116,8 +121,11 @@ export default function OrganizerProfile() {
       .then(response => {
         if (!active) return;
         setProfile(toFormValues(response.data.data));
+        setSavedRegistrationNumber(response.data.data.organizationRegistrationNumber ?? '');
+        savedProfile.current = JSON.stringify({ profile: toFormValues(response.data.data), ...splitPhoneNumber(response.data.data.phone) });
         setPhoneFromProfile(response.data.data.phone);
         setEmail(response.data.data.email);
+        setOrganizationDescription(response.data.data.organizationDescription ?? '');
         setProfileApprovalStatus(response.data.data.profileApprovalStatus);
         setProfileRejectionReason(response.data.data.profileRejectionReason);
       })
@@ -142,10 +150,23 @@ export default function OrganizerProfile() {
 
   const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSaving(true);
+    if (isApproved && !isRequestingChange && !registrationNumberChanged) return;
     setSaveError('');
     setSaveMessage('');
     setFieldErrors({});
+    const errors: Record<string, string> = {};
+    if (!organizationRegistrationNumberPattern.test(profile.organizationRegistrationNumber)) {
+      errors.organizationRegistrationNumber = 'Use the format 2020/123456/07.';
+    }
+    if (!/^E\d{4}$/.test(employeeNumber)) {
+      errors.employeeNumber = 'Use the format E1408.';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSaveError('Please check the highlighted fields.');
+      return;
+    }
+    setSaving(true);
 
     try {
       const localNumber = phoneNumber.trim().replace(/^0+/, '');
@@ -155,11 +176,17 @@ export default function OrganizerProfile() {
         phone: localNumber ? `${phoneCountryCode} ${localNumber}` : '',
       });
       setProfile(toFormValues(response.data.data));
+      setSavedRegistrationNumber(response.data.data.organizationRegistrationNumber ?? '');
+      savedProfile.current = JSON.stringify({ profile: toFormValues(response.data.data), ...splitPhoneNumber(response.data.data.phone) });
       setPhoneFromProfile(response.data.data.phone);
       setEmail(response.data.data.email);
+      setOrganizationDescription(response.data.data.organizationDescription ?? '');
       setProfileApprovalStatus(response.data.data.profileApprovalStatus);
       setProfileRejectionReason(response.data.data.profileRejectionReason);
-      setSaveMessage(response.data.message ?? 'Organizer profile saved.');
+      setIsRequestingChange(false);
+      setSaveMessage(response.data.data.profileApprovalStatus === 'PENDING_APPROVAL'
+        ? 'Organizer profile is created, waiting for Admin approval.'
+        : 'Organizer profile updated.');
     } catch (error) {
       if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
         setFieldErrors(Object.fromEntries(
@@ -176,31 +203,57 @@ export default function OrganizerProfile() {
     }
   };
 
+  const confirmLeave = () => (
+    !savedProfile.current ||
+    savedProfile.current === JSON.stringify({ profile, countryCode: phoneCountryCode, number: phoneNumber }) ||
+    window.confirm('Leave this page? Unsaved profile changes will be lost.')
+  );
+
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <DashboardSidebar title="Organizer" subtitle="Operations" items={sidebarItems} />
-        <section className="min-w-0 flex-1">
+    <PageWrapper appearance="light">
+      <div className="flex flex-col lg:flex-row">
+        <OrganizerSidebar />
+        <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
-            title="Organizer profile"
-            subtitle="Manage the contact and organization details shown with your events."
-            breadcrumbs={[{ label: 'Dashboard', to: '/organizer' }, { label: 'My profile' }]}
+            title="Organization profile"
+            topBarSubtitle="Manage the organization details used when your events are reviewed."
+            showNavigation={false}
+            confirmNotificationNavigation={confirmLeave}
+            notificationsDisabled={saving}
           />
 
           {profileApprovalStatus && (
             <div
               role="status"
-              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+              className={`mb-6 flex flex-col gap-3 rounded-xl border px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between ${
                 profileApprovalStatus === 'APPROVED'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-amber-200 bg-amber-50 text-amber-900'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                  : profileApprovalStatus === 'REJECTED'
+                    ? 'border-rose-200 bg-rose-50 text-rose-900'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
               }`}
             >
-              {profileApprovalStatus === 'APPROVED'
-                ? 'Your profile is approved. You can create events.'
-                : profileApprovalStatus === 'REJECTED'
-                  ? 'Your profile was rejected. Review the feedback below and update your details to resubmit it for approval.'
-                  : 'Your profile is awaiting admin approval. Any profile changes must be reviewed before you can create events.'}
+              <div>
+                <p className={`font-semibold ${isApproved ? '!text-emerald-800' : ''}`}>
+                  {profileApprovalStatus === 'APPROVED'
+                    ? 'Your organization profile is approved'
+                    : profileApprovalStatus === 'REJECTED'
+                      ? 'Your organization needs an update'
+                      : 'Your organization is awaiting approval'}
+                </p>
+                {!isApproved && (
+                  <p className="mt-1">
+                    {profileApprovalStatus === 'REJECTED'
+                      ? 'Review the feedback below and update your details to resubmit.'
+                      : 'Profile changes will be reviewed before you can submit events.'}
+                  </p>
+                )}
+              </div>
+              {isApproved && !isRequestingChange && (
+                <Button type="button" variant="secondary" onClick={() => setIsRequestingChange(true)}>
+                  Request a change
+                </Button>
+              )}
             </div>
           )}
           {profileApprovalStatus === 'REJECTED' && profileRejectionReason && (
@@ -209,58 +262,62 @@ export default function OrganizerProfile() {
               <p className="mt-1 whitespace-pre-line text-sm text-rose-800">{profileRejectionReason}</p>
             </section>
           )}
+          {isApproved && isRequestingChange && (
+            <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Saving changed details sends your profile back for approval.
+            </p>
+          )}
 
           {loading ? (
             <p role="status" className="py-12 text-center text-sm text-neutral-500">Loading your profile…</p>
           ) : loadError ? (
             <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError}</p>
           ) : (
-            <form onSubmit={saveProfile} className="space-y-6">
-              <section aria-labelledby="organizer-profile-heading" className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <h2 id="organizer-profile-heading" className="text-lg font-bold text-neutral-900">Profile details</h2>
-                <p className="mt-1 text-sm text-neutral-500">Manage your personal information and organization contact details.</p>
-                <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Input
-                    label="First name"
-                    autoComplete="given-name"
-                    maxLength={80}
-                    required
-                    value={profile.firstname}
-                    onChange={event => updateField('firstname', event.target.value)}
-                    error={fieldErrors.firstname}
-                  />
-                  <Input
-                    label="Last name"
-                    autoComplete="family-name"
-                    maxLength={80}
-                    required
-                    value={profile.lastname}
-                    onChange={event => updateField('lastname', event.target.value)}
-                    error={fieldErrors.lastname}
-                  />
-                  <Input
-                    label="Email address"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    disabled
-                    helperText="This verified sign-in email cannot be changed here."
-                  />
+            <form onSubmit={saveProfile} className="organizer-profile-card rounded-xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+              <section aria-labelledby="organization-heading" className="grid gap-5 border-b border-neutral-200 pb-6 lg:grid-cols-[minmax(150px,0.55fr)_minmax(0,1.45fr)] lg:gap-8">
+                <div>
+                  <h2 id="organization-heading" className="text-base font-bold text-neutral-900">Organization</h2>
+                  <p className="mt-1 text-sm text-neutral-500">Shown to administrators when they review your events.</p>
                 </div>
-
-                <div className="mt-8 border-t border-neutral-100 pt-6">
-                  <h3 className="text-base font-bold text-neutral-900">Organization information</h3>
-                  <p className="mt-1 text-sm text-neutral-500">These details help attendees identify and contact your organization.</p>
-                </div>
-                <div className="mt-5 space-y-5">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Input
+                      label="Organization name"
+                      autoComplete="organization"
+                      maxLength={120}
+                      required
+                      value={profile.organizationName}
+                      onChange={event => updateField('organizationName', event.target.value)}
+                      error={fieldErrors.organizationName}
+                      disabled={!canEdit}
+                    />
+                  </div>
                   <Input
-                    label="Organization name"
-                    autoComplete="organization"
-                    maxLength={120}
+                    label="Registration number"
+                    type="text"
+                    pattern="[0-9]{4}/[0-9]{6}/[0-9]{2}"
+                    maxLength={14}
                     required
-                    value={profile.organizationName}
-                    onChange={event => updateField('organizationName', event.target.value)}
-                    error={fieldErrors.organizationName}
+                    value={profile.organizationRegistrationNumber}
+                    onChange={event => updateField('organizationRegistrationNumber', event.target.value)}
+                    error={fieldErrors.organizationRegistrationNumber}
+                    helperText="Format: 2020/123456/07"
+                  />
+                  <Input
+                    label="Employee number"
+                    type="text"
+                    pattern="E[0-9]{4}"
+                    maxLength={5}
+                    required
+                    value={employeeNumber}
+                    onChange={event => {
+                      setEmployeeNumber(event.target.value);
+                      setFieldErrors(current => ({ ...current, employeeNumber: '' }));
+                      setSaveError('');
+                      setSaveMessage('');
+                    }}
+                    error={fieldErrors.employeeNumber}
+                    helperText="Format: E1408. This value is not saved to your profile."
                   />
                   <Input
                     label="Organization email"
@@ -271,20 +328,46 @@ export default function OrganizerProfile() {
                     value={profile.organizationEmail}
                     onChange={event => updateField('organizationEmail', event.target.value)}
                     error={fieldErrors.organizationEmail}
+                    disabled={!canEdit}
+                  />
+                </div>
+              </section>
+
+              <section aria-labelledby="contact-heading" className="grid gap-5 border-b border-neutral-200 py-6 lg:grid-cols-[minmax(150px,0.55fr)_minmax(0,1.45fr)] lg:gap-8">
+                <div>
+                  <h2 id="contact-heading" className="text-base font-bold text-neutral-900">Contact</h2>
+                  <p className="mt-1 text-sm text-neutral-500">Administrators can use these details if they need to check something.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <Input
+                    label="First name"
+                    autoComplete="given-name"
+                    maxLength={80}
+                    required
+                    value={profile.firstname}
+                    onChange={event => updateField('firstname', event.target.value)}
+                    error={fieldErrors.firstname}
+                    disabled={!canEdit}
                   />
                   <Input
-                    label="Organization registration number"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{9}"
-                    maxLength={9}
+                    label="Last name"
+                    autoComplete="family-name"
+                    maxLength={80}
                     required
-                    value={profile.organizationRegistrationNumber}
-                    onChange={event => updateField('organizationRegistrationNumber', event.target.value)}
-                    error={fieldErrors.organizationRegistrationNumber}
-                    helperText="Enter exactly 9 digits."
+                    value={profile.lastname}
+                    onChange={event => updateField('lastname', event.target.value)}
+                    error={fieldErrors.lastname}
+                    disabled={!canEdit}
                   />
-                  <div className="flex flex-col gap-1.5">
+                  <Input
+                    label="Account email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    disabled
+                    helperText="This sign-in email cannot be changed here."
+                  />
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label htmlFor="organizer-phone-number" className="text-sm font-medium text-neutral-700">
                       Phone number
                     </label>
@@ -294,6 +377,7 @@ export default function OrganizerProfile() {
                         aria-label="Phone country calling code"
                         value={phoneCountryCode}
                         onChange={event => setPhoneCountryCode(event.target.value)}
+                        disabled={!canEdit}
                         className="block w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 shadow-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 sm:w-56"
                       >
                         {phoneCountryCodes.map(option => (
@@ -318,6 +402,7 @@ export default function OrganizerProfile() {
                         }}
                         aria-invalid={Boolean(fieldErrors.phone)}
                         aria-describedby={fieldErrors.phone ? 'organizer-phone-error' : 'organizer-phone-helper'}
+                        disabled={!canEdit}
                         className={`block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-neutral-900 shadow-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 ${
                           fieldErrors.phone ? 'border-rose-400' : 'border-neutral-200'
                         }`}
@@ -330,12 +415,39 @@ export default function OrganizerProfile() {
                 </div>
               </section>
 
-              {saveError && <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{saveError}</p>}
-              {saveMessage && <p role="status" className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{saveMessage}</p>}
+              <section aria-labelledby="public-profile-heading" className="grid gap-5 py-6 lg:grid-cols-[minmax(150px,0.55fr)_minmax(0,1.45fr)] lg:gap-8">
+                <div>
+                  <h2 id="public-profile-heading" className="text-base font-bold text-neutral-900">Public profile</h2>
+                  <p className="mt-1 text-sm text-neutral-500">Your organization description.</p>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 text-sm font-bold text-white">
+                    {profile.organizationName.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'OR'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-sm font-medium text-neutral-700">Organization description</p>
+                    <p className="min-h-12 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm text-neutral-700">
+                      {organizationDescription || 'No public description is available.'}
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500">This description cannot be edited here.</p>
+                  </div>
+                </div>
+              </section>
 
-              <div className="flex justify-end">
-                <Button type="submit" loading={saving}>Save profile</Button>
-              </div>
+              {saveError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{saveError}</p>}
+              {saveMessage && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{saveMessage}</p>}
+
+              {(canEdit || canSubmitOrganizationDetails) && (
+                <div className="flex justify-end">
+                  <Button type="submit" loading={saving}>
+                    {isApproved && !isRequestingChange
+                      ? 'Submit organization details for review'
+                      : isApproved
+                        ? 'Submit changes for review'
+                        : 'Save profile'}
+                  </Button>
+                </div>
+              )}
             </form>
           )}
         </section>

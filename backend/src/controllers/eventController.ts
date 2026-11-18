@@ -451,7 +451,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
     }
 
     const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: eventInclude });
-    res.json({ success: true, data: serializeEvent(event), message: 'Event published and is now available to attendees.' });
+    res.json({ success: true, data: serializeEvent(event), message: 'Event published and is now available.' });
   } catch (err) {
     next(err);
   }

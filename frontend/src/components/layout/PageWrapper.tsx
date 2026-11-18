@@ -6,18 +6,21 @@ import { DashboardNavigationProvider } from '@/components/layout/DashboardNaviga
 
 interface PageWrapperProps {
   children: React.ReactNode;
+  appearance?: 'default' | 'light';
 }
 
-export default function PageWrapper({ children }: PageWrapperProps) {
+export default function PageWrapper({ children, appearance = 'default' }: PageWrapperProps) {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
   const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
+  const lightDashboard = appearance === 'light' && isDashboardRoute;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top_left,#554271_0%,#302d46_36%,#252a3d_100%)]">
-      <main className={`flex-1 page-container section-gap ${isDashboardRoute ? 'dashboard-shell' : ''}`}>
+    <div className={`min-h-screen flex flex-col ${isOrganizerRoute ? 'bg-white' : lightDashboard ? 'bg-neutral-100' : 'bg-[radial-gradient(ellipse_at_top_left,#554271_0%,#302d46_36%,#252a3d_100%)]'}`}>
+      <main className={`flex-1 page-container section-gap ${isDashboardRoute ? 'dashboard-shell' : ''} ${lightDashboard ? 'dashboard-shell-light' : ''} ${isOrganizerRoute ? 'organizer-shell' : ''}`}>
         {isDashboardRoute ? (
           <DashboardNavigationProvider key={pathname.split('/')[1]}>
             {user?.role === 'ORGANIZER' && (
@@ -37,7 +40,7 @@ export default function PageWrapper({ children }: PageWrapperProps) {
                 Back to admin dashboard
               </Link>
             )}
-            <div className="dashboard-content">{children}</div>
+            <div className={`dashboard-content ${lightDashboard ? 'dashboard-content-light' : ''}`}>{children}</div>
           </DashboardNavigationProvider>
         ) : (
           <>
