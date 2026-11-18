@@ -16,7 +16,8 @@ import type { Ticket } from '@/types/ticket';
 type DateFilter = 'month' | 'week' | null;
 type EventArt = { background: string; sun?: boolean };
 
-const knownCategories = ['Technology', 'Networking', 'Workshop', 'Training', 'Company Activity'];
+const knownCategories = ['Networking', 'Workshop', 'Training'];
+const hiddenCategories = ['technology', 'company activity'];
 
 const eventArts: Record<string, EventArt> = {
   technology: { background: 'linear-gradient(115deg, #ed174c 0%, #ff6417 100%)' },
@@ -136,6 +137,7 @@ export default function AttendeeDashboard() {
     const available = new Set(events.map(event => event.category.trim()).filter(Boolean));
     const additional = [...available]
       .filter(value => !knownCategories.some(known => known.toLowerCase() === value.toLowerCase()))
+      .filter(value => !hiddenCategories.includes(value.toLowerCase()))
       .sort();
     return ['All', ...knownCategories, ...additional];
   }, [events]);
@@ -192,7 +194,7 @@ export default function AttendeeDashboard() {
     <AttendeeLayout mainClassName="mx-auto max-w-[1440px] space-y-5 px-3 py-5 sm:px-5 sm:py-7">
       <section>
         <div className="mb-4">
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
             Hi {user?.firstname || 'there'}
           </h1>
           <p className="mt-1 text-sm text-neutral-500">

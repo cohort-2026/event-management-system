@@ -17,10 +17,13 @@ export default function EventCard({ event, vendorView = false, vendorApproved = 
   const fillPct = Math.round((filled / event.capacity) * 100);
 
   return (
-    <Link to={`/events/${event.id}`} className="block group">
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col h-full">
+    <Link
+      to={`/events/${event.id}`}
+      className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+    >
+      <div className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-neutral-300 group-hover:shadow-md">
         {event.bannerImageUrl
-          ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="h-40 w-full object-cover" />
+          ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="aspect-[16/9] w-full object-cover" />
           : <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-400" />}
 
         <div className="p-5 flex flex-col gap-3 flex-1">

@@ -74,9 +74,7 @@ export default function AttendeeLayout({
     <div className="flex min-h-screen flex-col bg-[#f7f7f8] text-neutral-900 md:flex-row">
       <aside className="attendee-sidebar flex w-full shrink-0 flex-col border-b border-neutral-200 bg-white md:sticky md:top-0 md:h-screen md:w-[220px] md:border-b-0 md:border-r">
         <div className="flex h-16 items-center gap-2.5 border-b border-neutral-200 px-4">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white">
-            <svg {...iconProps} className="h-4 w-4"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
-          </span>
+          <img src="/attendee-logo.png" alt="" className="h-10 w-10 shrink-0 rounded-lg object-contain" />
           <span className="text-base font-bold tracking-tight text-black">EventMS</span>
         </div>
 
@@ -130,7 +128,7 @@ export default function AttendeeLayout({
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutral-200 bg-white px-4 sm:px-6">
-          <p style={{ color: '#000' }} className="min-w-0 truncate text-[36px] font-semibold leading-none text-black">
+          <p style={{ color: '#000', fontWeight: 900 }} className="min-w-0 truncate text-2xl font-black leading-none tracking-tight text-black sm:text-3xl">
             {greeting}{user?.firstname ? `, ${user.firstname}` : ''}
           </p>
           <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
