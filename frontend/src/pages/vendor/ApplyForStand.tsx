@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import VendorSidebar from '@/components/layout/VendorSidebar';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import Button from '@/components/legacy/Button';
@@ -150,7 +150,9 @@ export default function ApplyForStand() {
           <VendorSidebar />
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-[30px] items-center justify-between gap-2 border-b border-[#e7e7e7] bg-white px-3">
+            <header className="sticky top-0 z-20 flex h-11 items-center justify-between gap-2 border-b border-[#e7e7e7] bg-white px-4">
+              <div className="flex min-w-0 items-center gap-1">
+              <VendorMenuButton />
               <nav className="flex min-w-0 items-center gap-1 text-[8px] font-semibold" aria-label="Breadcrumb">
                 <Link to="/vendor/events" className="shrink-0 text-[#777] hover:text-[#171717]">Find events</Link>
                 <span className="text-[#aaa]">/</span>
@@ -158,6 +160,7 @@ export default function ApplyForStand() {
                 <span className="text-[#aaa]">/</span>
                 <span className="shrink-0 text-[#222]">Apply</span>
               </nav>
+              </div>
               <div className="flex shrink-0 items-center gap-2">
                 <VendorSearchField />
                 <NotificationBell appearance="header" />

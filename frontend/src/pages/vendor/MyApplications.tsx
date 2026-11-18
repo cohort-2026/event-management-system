@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
-import VendorSidebar from '@/components/layout/VendorSidebar';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { getMyApplications } from '@/services/vendorService';
@@ -71,7 +71,10 @@ export default function MyApplications() {
 
           <div className="min-w-0 flex-1">
             <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
-              <span className="text-[12px] font-semibold text-[#333]">My applications</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <VendorMenuButton />
+                <span className="truncate text-[12px] font-semibold text-[#333]">My applications</span>
+              </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField value={searchQuery} onChange={setSearchQuery} />
                 <NotificationBell appearance="header" />
@@ -147,13 +150,26 @@ export default function MyApplications() {
                       ))}
                     </div>
                   ) : (
-                    <ApplicationsTable
-                      applications={visibleApplications}
-                      expandedApplicationId={expandedApplicationId}
-                      onToggle={applicationId => setExpandedApplicationId(current =>
-                        current === applicationId ? null : applicationId,
-                      )}
-                    />
+                    <>
+                      <div className="space-y-2 md:hidden">
+                        {visibleApplications.map((application, index) => (
+                          <MobileApplicationCard
+                            key={application.id}
+                            application={application}
+                            index={index}
+                          />
+                        ))}
+                      </div>
+                      <div className="hidden md:block">
+                        <ApplicationsTable
+                          applications={visibleApplications}
+                          expandedApplicationId={expandedApplicationId}
+                          onToggle={applicationId => setExpandedApplicationId(current =>
+                            current === applicationId ? null : applicationId,
+                          )}
+                        />
+                      </div>
+                    </>
                   )}
 
                   {selectedTab === 'active' && applicationGroups.rejected.length > 0 && (
@@ -190,7 +206,7 @@ function ApplicationsTable({
   onToggle: (applicationId: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#e5e5e5] bg-white" aria-label="Applications">
+    <section className="overflow-x-auto rounded-lg border border-[#e5e5e5] bg-white" aria-label="Applications">
       <div className="min-w-[430px]">
         <div className="grid grid-cols-[minmax(0,2fr)_minmax(30px,.4fr)_minmax(38px,.55fr)_minmax(46px,.65fr)_minmax(70px,1fr)_minmax(48px,.65fr)] items-center gap-1 border-b border-[#ededed] bg-white px-2 py-1 text-[10px] font-bold text-[#777]">
           <span>Event</span>
@@ -214,6 +230,110 @@ function ApplicationsTable({
         </div>
       </div>
     </section>
+  );
+}
+
+function MobileApplicationCard({ application, index }: { application: VendorApplication; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const paid = application.invoice?.status === 'PAID';
+  const pending = application.status === 'PENDING_REVIEW';
+
+  return (
+    <article className="rounded-lg border border-[#e5e5e5] bg-white p-3">
+      <div className="flex min-w-0 items-start gap-2">
+        <EventArtwork index={index} className="h-10 w-10 shrink-0 rounded-md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <h2 className="min-w-0 flex-1 truncate text-sm font-bold text-[#222]">{application.event?.title ?? 'Event'}</h2>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${getStatusClass(application, paid)}`}>
+              {getStatusLabel(application, paid)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {[application.event?.date && formatShortDate(application.event.date), application.requestedStandSize]
+              .filter(Boolean)
+              .join(' · ') || 'Date and stand size pending'}
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-slate-50 p-2 text-sm">
+        <div className="min-w-0">
+          <dt className="text-xs text-slate-500">Stand</dt>
+          <dd className="truncate font-semibold text-slate-700">{application.assignedStand ? `Stand ${application.assignedStand}` : 'Pending'}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-xs text-slate-500">Quote</dt>
+          <dd className="truncate font-semibold text-slate-700">{formatCurrency(application.quotedAmount)}</dd>
+        </div>
+        <div className="col-span-2 min-w-0 border-t border-slate-200 pt-2">
+          <dt className="text-xs text-slate-500">Invoice</dt>
+          <dd className="truncate font-semibold text-slate-700">
+            {application.invoice?.invoiceNumber ?? (pending ? 'After allocation' : 'Not issued')}
+          </dd>
+          {application.invoice && (
+            <dd className={`text-xs ${paid ? 'text-emerald-700' : 'text-amber-700'}`}>
+              {paid ? 'Paid' : application.invoice.status === 'VOID' ? 'Void' : `Unpaid · due ${formatShortDate(application.invoice.dueAt)}`}
+            </dd>
+          )}
+        </div>
+      </dl>
+
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        {application.assignedStand && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded(current => !current)}
+            className="mr-auto rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            {expanded ? 'Hide details' : 'Application details'}
+          </button>
+        )}
+        {paid ? (
+          <Link
+            to={`/vendor/applications/${application.id}/staff`}
+            className="rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Staff passes
+          </Link>
+        ) : application.invoice && application.invoice.status !== 'VOID' ? (
+          <button
+            type="button"
+            onClick={() => downloadInvoicePdf(application)}
+            className="rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Download invoice
+          </button>
+        ) : pending ? (
+          <button type="button" disabled title="Withdrawing applications is not available yet." className="rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-400">
+            Withdraw
+          </button>
+        ) : null}
+      </div>
+
+      {application.assignedStand && expanded && (
+        <div className="relative ml-3 mt-3 border-l border-[#d8d8d8] py-1 pl-3">
+          <TimelineItem
+            title={`Stand ${application.assignedStand} allocated`}
+            detail={[
+              application.decidedBy && `${application.decidedBy.firstname} ${application.decidedBy.lastname}`,
+              application.invoice ? 'invoice emailed' : application.decidedAt && formatDateTime(application.decidedAt),
+            ].filter(Boolean).join(' · ') || 'Approved'}
+            completed
+          />
+          <TimelineItem
+            title="Application sent"
+            detail={[
+              application.requestedStandSize,
+              formatCurrency(application.quotedAmount),
+              formatDateTime(application.createdAt),
+            ].filter(Boolean).join(' · ')}
+            completed
+          />
+        </div>
+      )}
+    </article>
   );
 }
 

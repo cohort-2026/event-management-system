@@ -5,7 +5,7 @@ import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type C
 import PageWrapper from '@/components/layout/PageWrapper';
 import Button from '@/components/legacy/Button';
 import NotificationBell from '@/components/layout/NotificationBell';
-import VendorSidebar from '@/components/layout/VendorSidebar';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -236,7 +236,10 @@ export default function VendorProfilePage() {
 
           <div className="min-w-0 flex-1">
             <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
-              <span className="text-[12px] font-semibold text-[#333]">Business profile</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <VendorMenuButton />
+                <span className="truncate text-[12px] font-semibold text-[#333]">Business profile</span>
+              </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField />
                 <NotificationBell appearance="header" />

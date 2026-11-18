@@ -105,7 +105,7 @@ export default function NotificationBell({
         onClick={() => setOpen(current => !current)}
         className={appearance === 'sidebar'
           ? `relative flex shrink-0 items-center gap-1.5 rounded-md font-semibold transition hover:bg-slate-100 hover:text-slate-900 ${
-            compact ? 'px-3 py-2 text-[12px]' : 'w-full px-2.5 py-2.5 text-[12px]'
+            compact ? 'w-full px-2.5 py-2 text-[12px]' : 'w-full px-2.5 py-2.5 text-[12px]'
           } ${open ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444]'}`
           : appearance === 'header'
             ? 'relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800'

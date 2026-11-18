@@ -125,7 +125,7 @@ export default function VendorSearchField({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="flex h-7 w-[min(190px,calc(100vw-10rem))] items-center gap-2 rounded-md bg-[#f5f5f5] px-2.5 text-[12px] text-[#777] focus-within:ring-1 focus-within:ring-[#c8c8c8]">
+      <label className="flex h-7 w-[min(190px,calc(100vw-12rem))] items-center gap-2 rounded-md bg-[#f5f5f5] px-2.5 text-[12px] text-[#777] focus-within:ring-1 focus-within:ring-[#c8c8c8]">
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 shrink-0" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="6" />
           <path strokeLinecap="round" d="m16 16 4 4" />

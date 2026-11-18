@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import VendorSidebar from '@/components/layout/VendorSidebar';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { getEvents } from '@/services/eventService';
@@ -100,7 +100,10 @@ export default function EventList() {
 
           <div className="min-w-0 flex-1">
             <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
-              <span className="text-[12px] font-semibold text-[#333]">Find events</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <VendorMenuButton />
+                <span className="truncate text-[12px] font-semibold text-[#333]">Find events</span>
+              </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField />
                 <NotificationBell appearance="header" />
@@ -131,7 +134,7 @@ export default function EventList() {
               {applicationError && <p role="alert" className="mb-2 text-[13px] font-medium text-[#c62828]">{applicationError}</p>}
 
               {loading ? (
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {Array.from({ length: 6 }, (_, index) => (
                     <div key={index} className="h-[170px] animate-pulse rounded-lg border border-[#e5e5e5] bg-white" />
                   ))}
@@ -142,7 +145,7 @@ export default function EventList() {
                   <p className="mt-1 text-[13px] text-[#777]">Try another search.</p>
                 </div>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredEvents.map((event, index) => (
                     <EventCard
                       key={event.id}

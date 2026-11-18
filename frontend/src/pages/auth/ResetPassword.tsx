@@ -158,7 +158,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="auth-page min-h-screen w-full min-w-0 flex">
       <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
@@ -224,8 +224,8 @@ export default function ResetPassword() {
         </p>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
+      <div className="auth-content-panel min-w-0 flex-1 flex items-center justify-center bg-neutral-200 px-4 py-12 sm:px-6">
+        <div className="auth-content w-full min-w-0 max-w-sm">
           <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
             <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
               <svg

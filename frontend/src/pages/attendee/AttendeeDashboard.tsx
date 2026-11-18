@@ -43,7 +43,7 @@ export default function AttendeeDashboard() {
           ]}
         />
 
-        <section className="flex-1">
+        <section className="min-w-0 flex-1">
           <DashboardHeader
             title="Attendee Dashboard"
             subtitle="Manage your event journey"

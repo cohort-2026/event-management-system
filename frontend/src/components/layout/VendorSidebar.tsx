@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
+import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
 
 const items = [
   { label: 'Overview', to: '/vendor', icon: <OverviewIcon /> },
@@ -14,6 +15,7 @@ const items = [
 export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: string }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const navigation = useDashboardNavigation();
   const { count, error } = useVendorApplicationCount();
   const initials = `${user?.firstname?.[0] ?? ''}${user?.lastname?.[0] ?? ''}`.toUpperCase();
   const handleLogout = async () => {
@@ -22,8 +24,8 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
   };
 
   return (
-    <div className="w-full shrink-0 bg-white min-[768px]:sticky min-[768px]:top-0 min-[768px]:h-screen min-[768px]:w-[220px] min-[768px]:self-start">
-      <aside className="hidden h-full flex-col border-r border-[#e7e7e7] bg-white px-3 py-4 min-[768px]:flex">
+    <div className="w-full shrink-0 bg-white min-[1024px]:sticky min-[1024px]:top-0 min-[1024px]:h-screen min-[1024px]:w-[220px] min-[1024px]:self-start">
+      <aside className="hidden h-full flex-col border-r border-[#e7e7e7] bg-white px-3 py-4 min-[1024px]:flex">
         <Brand />
         <p className="mb-3 px-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#888]">Vendor</p>
         <nav className="space-y-1.5" aria-label="Vendor navigation">
@@ -63,18 +65,69 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
         </div>
       </aside>
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-[#e7e7e7] bg-white px-2 py-2 min-[768px]:hidden" aria-label="Vendor navigation">
+      {navigation?.mobileOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close vendor navigation"
+            onClick={navigation.closeMobile}
+            className="fixed inset-0 z-40 bg-slate-950/50 min-[1024px]:hidden"
+          />
+          <aside id="vendor-navigation-drawer" className="fixed inset-y-0 left-0 z-50 flex w-[min(280px,calc(100vw-2rem))] flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-3 py-4 shadow-xl min-[1024px]:hidden">
+            <Brand />
+            <p className="mb-3 px-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#888]">Vendor</p>
+            <nav className="space-y-1.5" aria-label="Vendor navigation">
+              {items.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/vendor' || item.to === '/vendor/applications'}
+                  onClick={navigation.closeMobile}
+                  className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${
+                    isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">{item.icon}</span>
+                    <span className="whitespace-nowrap text-[12px]">{item.label}</span>
+                  </span>
+                  {item.to === '/vendor/applications' && (
+                    <span className="rounded-full bg-[#ededed] px-2 py-1 text-[12px] font-bold leading-none text-[#555]">
+                      {error ? '!' : count ?? 'â€¦'}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+              {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" />}
+            </nav>
+            {error && <p role="alert" className="mt-2 px-2 text-[12px] text-rose-700">{error}</p>}
+            <div className="mt-auto space-y-2 pt-4">
+              <VendorAccount initials={initials} subtitle={accountSubtitle} />
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-rose-200 px-3 text-left text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
+              >
+                <LogoutIcon />
+                Logout
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      <nav className="hidden" aria-label="Vendor navigation">
         {items.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === '/vendor' || item.to === '/vendor/applications'}
-            className={({ isActive }) => `flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-[12px] font-semibold transition ${
+            className={({ isActive }) => `flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-[12px] font-semibold transition ${
               isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
             }`}
           >
             <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span>
-            <span className="whitespace-nowrap text-[12px]">{item.label}</span>
+            <span className="min-w-0 text-[12px] leading-tight">{item.label}</span>
             {item.to === '/vendor/applications' && (
               <span className="rounded-full bg-[#ededed] px-1.5 py-0.5 text-[12px] font-bold text-[#555]">
                 {error ? '!' : count ?? '…'}
@@ -86,13 +139,32 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="flex shrink-0 items-center gap-2 rounded-md border border-rose-200 px-3 py-2 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-rose-200 px-2 py-2 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
         >
           <LogoutIcon />
           Logout
         </button>
       </nav>
     </div>
+  );
+}
+
+export function VendorMenuButton() {
+  const navigation = useDashboardNavigation();
+
+  return (
+    <button
+      type="button"
+      aria-label="Open vendor navigation"
+      aria-controls="vendor-navigation-drawer"
+      aria-expanded={navigation?.mobileOpen ?? false}
+      onClick={navigation?.toggle}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e5e5e5] text-[#444] hover:bg-[#f5f5f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d15d2d] min-[1024px]:hidden"
+    >
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
   );
 }
 

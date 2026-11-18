@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import NotificationBell from '@/components/layout/NotificationBell';
 import PageWrapper from '@/components/layout/PageWrapper';
-import VendorSidebar from '@/components/layout/VendorSidebar';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 
 export default function VendorDashboard() {
@@ -13,7 +13,10 @@ export default function VendorDashboard() {
 
           <div className="min-w-0 flex-1">
             <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
-              <span className="text-[12px] font-semibold text-[#333]">Overview</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <VendorMenuButton />
+                <span className="truncate text-[12px] font-semibold text-[#333]">Overview</span>
+              </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField />
                 <NotificationBell appearance="header" />
