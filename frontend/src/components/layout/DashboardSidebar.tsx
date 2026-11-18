@@ -48,7 +48,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
         className={`shrink-0 self-start transition-[width,transform] duration-200 ${
           mobileOpen
             ? 'fixed inset-y-3 left-3 z-50 w-[min(290px,calc(100vw-1.5rem))] overflow-y-auto lg:sticky lg:inset-auto lg:top-20 lg:z-auto lg:w-[290px] lg:overflow-visible'
-            : 'block w-full lg:sticky lg:top-20 lg:block'
+            : 'hidden w-full lg:sticky lg:top-20 lg:block'
         } ${!mobileOpen && (collapsed ? 'lg:w-[76px]' : 'lg:w-[290px]')}`}
       >
         <div className={`min-h-full overflow-hidden rounded-[1.5rem] border shadow-xl ${
@@ -188,6 +188,7 @@ export function DashboardHeader({
   appearance?: 'default' | 'analytics';
 }) {
   const { user } = useAuth();
+  const navigation = useDashboardNavigation();
   const initials = `${user?.firstname?.[0] ?? 'E'}${user?.lastname?.[0] ?? 'M'}`;
   const analyticsAppearance = appearance === 'analytics';
 
@@ -197,7 +198,22 @@ export function DashboardHeader({
         ? 'border-slate-200 bg-white shadow-slate-900/[0.04]'
         : 'bg-white border-neutral-200'
     }`}>
-      <div>
+      <div className="flex min-w-0 items-start gap-3">
+        {navigation && (
+          <button
+            type="button"
+            aria-label="Open dashboard navigation"
+            aria-controls="dashboard-sidebar"
+            aria-expanded={navigation.mobileOpen}
+            onClick={navigation.toggle}
+            className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 lg:hidden"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+        <div className="min-w-0">
         <nav className={`flex items-center flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.22em] mb-2 ${
           analyticsAppearance ? 'text-slate-400' : 'text-neutral-400'
         }`}>
@@ -217,6 +233,7 @@ export function DashboardHeader({
         <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${analyticsAppearance ? 'text-blue-600' : 'text-brand-700'}`}>Dashboard</span>
         <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-3 border-l border-slate-200 pl-3">

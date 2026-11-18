@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
+import { useState } from 'react';
 
 const navigation = [
   { label: 'Dashboard', path: '/admin', icon: <HomeIcon /> },
@@ -14,18 +15,38 @@ export default function AdminLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-white px-4 py-8 text-[#1f2937] antialiased">
-      <div className="mx-auto flex h-full min-h-0 max-w-[1280px] overflow-hidden rounded-[18px] border border-[#dfe3ea] bg-[#f7f7f6] shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
-        <aside className="flex min-h-0 w-[220px] shrink-0 flex-col border-r border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4">
+    <div className="min-h-dvh bg-white p-2 text-[#1f2937] antialiased sm:p-4 lg:py-8">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close admin navigation"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        />
+      )}
+      <div className="relative mx-auto flex min-h-[calc(100dvh-1rem)] max-w-[1280px] overflow-hidden rounded-xl border border-[#dfe3ea] bg-[#f7f7f6] shadow-[0_18px_38px_rgba(15,23,42,0.08)] sm:min-h-[calc(100dvh-2rem)] sm:rounded-[18px]">
+        <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(260px,calc(100vw-2rem))] shrink-0 flex-col border-r border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4 transition-transform duration-200 lg:static lg:z-auto lg:h-auto lg:w-[220px] lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}>
           <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#f15d5d] text-sm font-bold text-white">E</div>
-            <div className="text-[29px] font-extrabold tracking-[-0.05em] text-[#1f2937]">EventMS</div>
+            <div className="text-[24px] font-extrabold tracking-[-0.05em] text-[#1f2937] sm:text-[29px]">EventMS</div>
+            <button
+              type="button"
+              aria-label="Close admin navigation"
+              onClick={() => setSidebarOpen(false)}
+              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] hover:bg-[#e9ebed] lg:hidden"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -54,6 +75,7 @@ export default function AdminLayout() {
                     disabled={!item.path}
                     onClick={() => {
                       if (item.path) navigate(item.path);
+                      setSidebarOpen(false);
                     }}
                     className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[14px] ${
                       isActive ? 'bg-[#f0e7ee] text-[#1f2937] shadow-inner shadow-[#efe2eb]' : 'text-[#4b5563] hover:bg-[#eef1f4] disabled:cursor-default'
@@ -90,7 +112,21 @@ export default function AdminLayout() {
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <main className="min-h-0 min-w-0 flex-1 overflow-auto p-5">
+          <main className="min-h-0 min-w-0 flex-1 overflow-auto p-3 sm:p-5">
+            <div className="mb-3 flex items-center gap-3 lg:hidden">
+              <button
+                type="button"
+                aria-label="Open admin navigation"
+                aria-expanded={sidebarOpen}
+                onClick={() => setSidebarOpen(true)}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#dfe3ea] bg-white text-[#4b5563]"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h16" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-[#4b5563]">EventMS Admin</span>
+            </div>
             <Outlet />
           </main>
         </div>

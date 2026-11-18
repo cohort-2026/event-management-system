@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
+import GlobalSearch from '@/components/layout/GlobalSearch';
 import { DashboardNavigationProvider } from '@/components/layout/DashboardNavigationContext';
 
 interface PageWrapperProps {
@@ -19,6 +20,12 @@ export default function PageWrapper({ children }: PageWrapperProps) {
       <main className={`flex-1 page-container section-gap ${isDashboardRoute ? 'dashboard-shell' : ''}`}>
         {isDashboardRoute ? (
           <DashboardNavigationProvider key={pathname.split('/')[1]}>
+            {user?.role === 'ORGANIZER' && (
+              <div className="sticky top-0 z-30 mb-4 flex items-center justify-end gap-3 bg-[#302d46]/95 py-2 backdrop-blur-sm">
+                <GlobalSearch />
+                <NotificationBell />
+              </div>
+            )}
             {showAdminBackButton && (
               <Link
                 to="/admin"

@@ -360,6 +360,14 @@ main.dashboard-shell {
   }
 }
 
+@media (max-width: 639px) {
+  main.dashboard-shell {
+    width: 100%;
+    min-height: calc(100dvh - 1rem);
+    border-radius: 1rem;
+  }
+}
+
 .dashboard-shell .dashboard-panel {
   border: 1px solid #252b40;
   border-radius: 1rem;
@@ -603,4 +611,10 @@ main.dashboard-shell {
   html {
     @apply font-sans;
   }
+}
+
+button:not(:disabled):active {
+  background-color: #f4dfe7 !important;
+  border-color: #d6a0b2 !important;
+  color: #7f1d3f !important;
 }

@@ -97,7 +97,7 @@ const pillClasses = {
 
 export default function EventRegistrations() {
   return (
-    <div className="min-h-screen bg-[#edf1f4] px-4 py-6 text-[#1f2937] antialiased">
+    <div className="min-h-screen bg-[#edf1f4] px-2 py-3 text-[#1f2937] antialiased sm:px-4 sm:py-6">
       <div className="mx-auto w-full max-w-[1280px] overflow-hidden rounded-[18px] border border-[#dfe5eb] bg-[#f4f5f3] shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
         <div className="flex h-12 items-center gap-3 border-b border-[#e4e7eb] bg-[#f2f4f5] px-4">
           <div className="flex items-center gap-2 text-[#7d8695]">
@@ -116,8 +116,8 @@ export default function EventRegistrations() {
           </div>
         </div>
 
-        <div className="flex min-h-[720px]">
-          <aside className="w-[220px] border-r border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4">
+        <div className="flex min-h-[720px] flex-col lg:flex-row">
+          <aside className="w-full border-b border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4 lg:w-[220px] lg:border-b-0 lg:border-r">
             <div className="mb-5 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f15d5d] text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
                 E
@@ -127,7 +127,7 @@ export default function EventRegistrations() {
               </div>
             </div>
 
-            <nav className="space-y-1.5 pt-3 text-[14px]">
+            <nav className="grid grid-cols-2 gap-1.5 pt-3 text-[14px] sm:grid-cols-3 lg:block lg:space-y-1.5">
               <NavItem label="Overview" active={false} icon={<OverviewIcon />} />
               <NavItem label="My events" active={true} icon={<EventsIcon />} />
               <NavItem label="Create event" active={false} icon={<PlusIcon />} />
@@ -147,9 +147,9 @@ export default function EventRegistrations() {
             </div>
           </aside>
 
-          <main className="flex-1 bg-[#f7f7f6] p-5">
+          <main className="min-w-0 flex-1 bg-[#f7f7f6] p-3 sm:p-5">
             <div className="rounded-[18px] bg-[#f7f7f6] px-2 pb-2 pt-1">
-              <div className="mb-5 flex items-center gap-2 text-[12px] font-medium text-[#8a8f9b]">
+              <div className="mb-5 flex flex-wrap items-center gap-2 text-[12px] font-medium text-[#8a8f9b]">
                 <span className="cursor-pointer hover:text-[#374151]">My events</span>
                 <span>/</span>
                 <span>Joburg Tech Summit 2026</span>
@@ -157,12 +157,12 @@ export default function EventRegistrations() {
                 <span className="text-[#374151]">Guest list</span>
               </div>
 
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-[34px] font-bold leading-tight tracking-[-0.03em] text-[#1f2937]">Guest list</h1>
+              <div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row">
+                <div className="min-w-0">
+                  <h1 className="text-[28px] font-bold leading-tight tracking-[-0.03em] text-[#1f2937] sm:text-[34px]">Guest list</h1>
                   <p className="mt-1 text-[15px] font-medium text-[#6b7280]">Joburg Tech Summit 2026 • Thu 3 Dec</p>
                 </div>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex w-full flex-wrap items-center gap-2 pt-1 sm:w-auto">
                   <ActionButton variant="secondary" label="Message guests" icon={<MessageIcon />} />
                   <ActionButton variant="secondary" label="Export CSV" icon={<DownloadIcon />} />
                   <ActionButton variant="primary" label="Check-in" icon={<CheckInIcon />} />
@@ -178,7 +178,7 @@ export default function EventRegistrations() {
                 </div>
               </div>
 
-              <div className="mb-4 flex items-center gap-3">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
                     <SearchIcon />
@@ -204,8 +204,8 @@ export default function EventRegistrations() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-[12px] border border-[#e3e7ec] bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-                <table className="min-w-full border-separate border-spacing-0 text-[13px]">
+              <div className="overflow-x-auto rounded-[12px] border border-[#e3e7ec] bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+                <table className="min-w-[700px] border-separate border-spacing-0 text-[13px]">
                   <thead>
                     <tr className="bg-[#f5f6f7] text-left text-[12px] font-semibold uppercase tracking-[0.02em] text-[#737d8a]">
                       <th className="px-4 py-3">Guest</th>
@@ -245,7 +245,7 @@ export default function EventRegistrations() {
                 </table>
               </div>
 
-              <div className="mt-4 flex items-center justify-between text-[12px] text-[#7c818b]">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#7c818b]">
                 <div>Showing 1-8 of 284</div>
                 <div className="flex items-center gap-2">
                   <button type="button" className="h-8 min-w-[72px] rounded-md border border-[#dfe3ea] bg-white px-3 font-medium text-[#374151] shadow-sm">

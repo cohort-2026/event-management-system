@@ -70,10 +70,10 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 bg-[#f7f7f6] p-5">
-          <div className="mb-5 flex items-center justify-between gap-4">
+        <main className="min-w-0 flex-1 bg-[#f7f7f6] p-3 sm:p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div className="text-[15px] font-semibold text-[#5a6470]">Vendors</div>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-3 sm:flex-none">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
                   <SearchIcon />
@@ -83,7 +83,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                   readOnly
                   aria-label="Search vendors"
                   placeholder="Search events, people..."
-                  className="h-10 w-[240px] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
+                  className="h-10 w-full rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none sm:w-[240px]"
                 />
               </div>
               <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe3ea] bg-white text-[#687280]">
@@ -92,14 +92,14 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
             </div>
           </div>
 
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h1 className="text-[34px] font-extrabold tracking-[-0.06em] text-[#1f2937]">Vendors</h1>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-[28px] font-extrabold tracking-[-0.06em] text-[#1f2937] sm:text-[34px]">Vendors</h1>
             <button type="button" className="rounded-lg border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#2d3748] shadow-sm">
               Export
             </button>
           </div>
 
-          <div className="mb-5 flex gap-3 overflow-hidden rounded-[12px] border border-[#e5e7eb] bg-[#f2f3f2] p-1">
+          <div className="mb-5 flex gap-3 overflow-x-auto rounded-[12px] border border-[#e5e7eb] bg-[#f2f3f2] p-1">
             {tabs.map((tab) => (
               <button
                 key={tab.label}
@@ -118,13 +118,13 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
             ))}
           </div>
 
-          <div className="grid h-[calc(100%-220px)] min-h-[560px] grid-cols-[1.2fr_1.7fr] gap-5">
+          <div className="grid min-h-0 grid-cols-1 gap-5 lg:min-h-[560px] lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.7fr)]">
             <section className="rounded-[14px] border border-[#e5e7eb] bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
               <div className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e6e8eb] bg-[#f4f6f8] px-3 py-3">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#5ad1c3] text-[16px] font-bold text-white">CV</div>
-                  <div>
-                    <div className="text-[18px] font-bold text-[#1f2937]">CloudVeld Hosting (Pty) Ltd</div>
+                  <div className="min-w-0">
+                    <div className="break-words text-[16px] font-bold text-[#1f2937] sm:text-[18px]">CloudVeld Hosting (Pty) Ltd</div>
                     <div className="mt-1 text-[12px] text-[#5f6b7a]">Technology · 3 documents</div>
                   </div>
                 </div>
@@ -133,11 +133,11 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
             </section>
 
             <section className="rounded-[14px] border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fc3b1] text-[16px] font-bold text-white">CV</div>
-                  <div>
-                    <div className="text-[20px] font-bold text-[#1f2937]">CloudVeld Hosting (Pty) Ltd</div>
+                  <div className="min-w-0">
+                    <div className="break-words text-[18px] font-bold text-[#1f2937] sm:text-[20px]">CloudVeld Hosting (Pty) Ltd</div>
                   </div>
                 </div>
                 <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
@@ -148,7 +148,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                 </span>
               </div>
 
-              <div className="mb-4 grid grid-cols-3 gap-3">
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-[10px] border border-[#e5e7eb] bg-[#f7f7f7] p-3">
                   <div className="text-[11px] uppercase tracking-[0.08em] text-[#6b7280]">CIPC number</div>
                   <div className="mt-2 text-[14px] font-semibold text-[#1f2937]">2021/119845/07</div>
@@ -165,7 +165,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 
               <div className="mb-5 rounded-[12px] border border-[#e5e7eb] bg-[#f9f9f9] p-4">
                 <div className="mb-3 text-[16px] font-bold text-[#1f2937]">Documents</div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {documents.map((doc, index) => (
                     <div key={doc} className="rounded-[10px] border border-[#dfe3ea] bg-[#f1f1f1] p-2">
                       <div className="mx-auto mb-3 h-[96px] rounded-[8px] border border-[#dfe3ea] bg-[#e5e7eb]">
@@ -187,7 +187,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
               </div>
 
               {isPending && (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button type="button" className="rounded-lg bg-[#1f2937] px-4 py-3 text-[14px] font-bold text-white shadow-sm hover:bg-[#111827]">
                     Approve vendor
                   </button>

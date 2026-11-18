@@ -25,7 +25,7 @@ type EventApproval = {
 
 export function EventApprovalReviewPanel({ approval, onBack }: { approval: EventApproval; onBack: () => void }) {
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
       <div className="min-w-0 flex-1 rounded-[12px] border border-[#e5e7eb] bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
         <div className="mb-4 flex items-center gap-2 text-[12px] font-medium text-[#5f6b7a]">
           <button type="button" onClick={onBack} className="text-[#4b5563] hover:text-[#1f2937]">Awaiting Approval</button>
@@ -41,15 +41,15 @@ export function EventApprovalReviewPanel({ approval, onBack }: { approval: Event
               </div>
             </div>
             <div className="mt-5 flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <h2 className="text-[26px] font-extrabold leading-none tracking-[-0.05em] text-white">{approval.name}</h2>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-extrabold leading-tight tracking-[-0.05em] text-white sm:text-[26px]">{approval.name}</h2>
                 <div className="mt-3 text-[13px] text-[#fff8f6]">{approval.venue}</div>
               </div>
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-[26px] text-white/80">◉</div>
             </div>
           </div>
 
-          <div className="mb-4 flex items-center gap-3 text-[13px] text-[#4b5563]">
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-[13px] text-[#4b5563]">
             <div>
               <span className="mr-2 font-bold">Capacity</span>
               <span>{approval.capacity}</span>
@@ -73,7 +73,7 @@ export function EventApprovalReviewPanel({ approval, onBack }: { approval: Event
             {approval.changes.length > 0 ? (
               <div className="space-y-2 text-[13px] text-[#4b5563]">
                 {approval.changes.map((change) => (
-                  <div key={change.label} className="grid grid-cols-[120px_1fr_1fr] gap-3">
+                  <div key={change.label} className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr_1fr] sm:gap-3">
                     <span className="font-medium text-[#6b7280]">{change.label}</span>
                     <span className="text-[#ef4444] line-through">{change.old}</span>
                     <span className="text-[#22c55e]">{change.new}</span>
@@ -103,7 +103,7 @@ export function EventApprovalReviewPanel({ approval, onBack }: { approval: Event
         </div>
       </div>
 
-      <aside className="w-[320px] shrink-0 rounded-[12px] border border-[#e5e7eb] bg-[#f8f8f8] p-4">
+      <aside className="w-full shrink-0 rounded-[12px] border border-[#e5e7eb] bg-[#f8f8f8] p-4 lg:w-[320px]">
         <div className="mb-4 text-[18px] font-bold text-[#1f2937]">Your decision</div>
 
         <div className="mb-4 rounded-[10px] border border-[#e5e7eb] bg-white p-3 text-[12px] text-[#4b5563]">
@@ -261,9 +261,9 @@ export default function EventApprovals() {
           </aside>
 
           <main className="min-w-0 flex-1 bg-[#f7f7f6] p-5">
-            <div className="mb-5 flex items-center justify-between gap-4">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div className="text-[15px] font-semibold text-[#5a6470]">Dashboard</div>
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center justify-end gap-3 sm:flex-none">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
                     <SearchIcon />
@@ -273,7 +273,7 @@ export default function EventApprovals() {
                     aria-label="Search"
                     readOnly
                     placeholder="Search events, people..."
-                    className="h-10 w-[230px] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
+                    className="h-10 w-full rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none sm:w-[230px]"
                   />
                 </div>
                 <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe3ea] bg-white text-[#687280]">
