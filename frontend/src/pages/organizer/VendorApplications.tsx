@@ -7,6 +7,7 @@ import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import Badge, { type BadgeVariant } from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { approveApplication, getEventApplications, rejectApplication } from '@/services/vendorService';
+import { getMyEvents } from '@/services/eventService';
 import type { VendorApplication } from '@/types/vendor';
 
 const statusVariant: Record<VendorApplication['status'], BadgeVariant> = {
@@ -19,6 +20,15 @@ const responseMessage = (error: unknown, fallback: string): string => (
   axios.isAxiosError<{ message?: string }>(error) ? error.response?.data.message ?? fallback : fallback
 );
 
+const formatRelativeTime = (value: string): string => {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  if (!Number.isFinite(minutes)) return '';
+  if (minutes < 60) return `${minutes || 1}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+};
+
 const safeDocumentUrl = (value: string): string | null => {
   try {
     const url = new URL(value);
@@ -26,6 +36,34 @@ const safeDocumentUrl = (value: string): string | null => {
   } catch {
     return null;
   }
+};
+
+const downloadApplicationsCsv = (applications: VendorApplication[]) => {
+  const columns = [
+    'Vendor', 'Business', 'Email', 'Stand type', 'Stand size', 'Status', 'Quoted amount', 'Assigned stand',
+  ];
+  const escapeCell = (value: unknown) => {
+    const text = String(value ?? '');
+    const safeText = /^[=+@\-\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replaceAll('"', '""')}"`;
+  };
+  const rows = applications.map(application => [
+    `${application.vendor?.firstname ?? ''} ${application.vendor?.lastname ?? ''}`.trim(),
+    application.vendor?.vendorProfile?.businessName || application.companyName,
+    application.vendor?.email,
+    application.requestedStandType,
+    application.requestedStandSize,
+    application.status.replaceAll('_', ' '),
+    application.quotedAmount,
+    application.assignedStand,
+  ]);
+  const csv = [columns, ...rows].map(row => row.map(escapeCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'vendors.csv';
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 export default function VendorApplications() {
@@ -38,16 +76,52 @@ export default function VendorApplications() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [activeStatus, setActiveStatus] = useState<'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'INACTIVE'>('APPROVED');
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+
+  const latestApplicationsByVendor = new Map<string, VendorApplication>();
+  [...applications]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .forEach(application => {
+      if (!latestApplicationsByVendor.has(application.vendorId)) latestApplicationsByVendor.set(application.vendorId, application);
+    });
+  const vendorDirectory = [...latestApplicationsByVendor.values()];
+  const statusTabs = [
+    { id: 'PENDING_REVIEW' as const, label: 'Pending', count: vendorDirectory.filter(application => application.status === 'PENDING_REVIEW' && application.vendor?.isActive !== false).length },
+    { id: 'APPROVED' as const, label: 'Approved', count: vendorDirectory.filter(application => application.status === 'APPROVED' && application.vendor?.isActive !== false).length },
+    { id: 'REJECTED' as const, label: 'Rejected', count: vendorDirectory.filter(application => application.status === 'REJECTED' && application.vendor?.isActive !== false).length },
+    { id: 'INACTIVE' as const, label: 'Inactive', count: vendorDirectory.filter(application => application.vendor?.isActive === false).length },
+  ];
+  const visibleApplications = activeStatus === 'INACTIVE'
+    ? vendorDirectory.filter(application => application.vendor?.isActive === false)
+    : vendorDirectory.filter(application => application.status === activeStatus && application.vendor?.isActive !== false);
+  const selectedApplication = visibleApplications.find(application => application.id === selectedApplicationId) ?? visibleApplications[0];
 
   const refresh = async () => {
-    if (!eventId) {
-      setError('A valid event is required.');
-      setLoading(false);
-      return;
-    }
+    setError('');
     try {
-      const response = await getEventApplications(eventId);
-      setApplications(response.data.data);
+      if (eventId) {
+        const response = await getEventApplications(eventId);
+        setApplications(response.data.data);
+      } else {
+        const eventsResponse = await getMyEvents();
+        const organizerEvents = eventsResponse.data.data;
+        const eventResults = await Promise.allSettled(organizerEvents.map(event => getEventApplications(event.id)));
+        const loadedApplications: VendorApplication[] = [];
+        let failedEvents = 0;
+        eventResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const event = organizerEvents[index];
+            loadedApplications.push(...result.value.data.data.map(application => ({
+              ...application,
+              event: { id: event.id, title: event.title, date: event.date, venue: event.venue },
+            })));
+          }
+          else failedEvents += 1;
+        });
+        setApplications(loadedApplications);
+        if (failedEvents > 0) setError(`Vendor applications could not be loaded for ${failedEvents} ${failedEvents === 1 ? 'event' : 'events'}.`);
+      }
     } catch (loadError) {
       setError(responseMessage(loadError, 'Stand requests could not be loaded.'));
     } finally {
@@ -101,59 +175,113 @@ export default function VendorApplications() {
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader
-            title="Stand requests"
-            subtitle="Review vendor profiles, requested setups, and supporting information."
-            breadcrumbs={[{ label: 'My events', to: '/organizer/events' }, { label: 'Stand requests' }]}
+            title="Vendors"
+            organizerTitleSize="large"
+            breadcrumbs={eventId ? [{ label: 'My events', to: '/organizer/events' }, { label: 'Vendors' }] : [{ label: 'Vendors' }]}
+            actions={(
+              <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
+                Export
+              </Button>
+            )}
           />
+          <p className="mb-2 text-sm font-bold tracking-wide text-slate-600">Organizer</p>
+          <div role="tablist" aria-label="Vendor application status" className="mb-6 flex min-h-[68px] items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-[#f3f4f5] p-1.5 sm:gap-3">
+            {statusTabs.map(tab => {
+              const selected = activeStatus === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveStatus(tab.id)}
+                  className={`inline-flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl px-4 text-base font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:px-5 sm:text-lg ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
+                >
+                  {tab.label}
+                  {tab.id !== 'INACTIVE' && <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
+                </button>
+              );
+            })}
+          </div>
           {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
           {loading ? (
             <p role="status" className="py-10 text-center text-neutral-500">Loading stand requests…</p>
-          ) : applications.length === 0 ? (
+          ) : visibleApplications.length === 0 ? (
             <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
-              <h2 className="font-bold text-neutral-900">No stand requests yet</h2>
-              <p className="mt-2 text-sm text-neutral-600">Requests for this event will appear here.</p>
-              <Link to="/organizer/events" className="mt-4 inline-flex text-sm font-semibold text-brand-700 underline">Back to events</Link>
+              <h2 className="font-bold text-neutral-900">No {activeStatus === 'INACTIVE' ? 'inactive vendors' : `${activeStatus === 'PENDING_REVIEW' ? 'pending' : activeStatus.toLowerCase()} vendors`} found</h2>
+              <p className="mt-2 text-sm text-neutral-600">{activeStatus === 'PENDING_REVIEW' ? `New requests ${eventId ? 'for this event' : 'from your events'} will appear here.` : `Vendors in this status ${eventId ? 'for this event' : 'from your events'} will appear here.`}</p>
+              <Link to={eventId ? `/organizer/events/${eventId}` : '/organizer/events'} className="mt-4 inline-flex text-sm font-semibold text-brand-700 underline">{eventId ? 'Back to event' : 'View events'}</Link>
             </div>
           ) : (
-            <div className="space-y-5">
-              {applications.map(application => {
+            <div className="grid min-h-[560px] grid-cols-1 gap-5 lg:grid-cols-[minmax(300px,1.2fr)_minmax(0,1.7fr)]">
+              <section aria-label="Vendors in selected status" className="rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="space-y-2">
+                  {visibleApplications.map(application => {
+                    const vendorName = application.vendor?.vendorProfile?.businessName || application.companyName;
+                    const initials = vendorName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'V';
+                    const selected = selectedApplication?.id === application.id;
+                    return (
+                      <button key={application.id} type="button" onClick={() => setSelectedApplicationId(application.id)} aria-pressed={selected} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${selected ? 'border-slate-200 bg-slate-100' : 'border-transparent bg-white hover:bg-slate-50'}`}>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-400 text-sm font-bold text-white">{initials}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-bold text-slate-900">{vendorName}</span>
+                          <span className="mt-1 block truncate text-sm text-slate-500">{application.vendor?.vendorProfile?.productsServices?.[0] || 'Vendor'} · {application.vendor?.vendorProfile?.supportingDocumentUrls?.length ?? 0} documents</span>
+                        </span>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{formatRelativeTime(application.createdAt)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+              {selectedApplication && (() => {
+                const application = selectedApplication;
                 const profile = application.vendor?.vendorProfile;
+                const eventTitle = application.event?.title;
                 const documentLinks = (profile?.supportingDocumentUrls ?? [])
                   .map(url => ({ url, safeUrl: safeDocumentUrl(url) }))
                   .filter((document): document is { url: string; safeUrl: string } => document.safeUrl !== null);
+                const vendorName = profile?.businessName || application.companyName;
+                const initials = vendorName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'V';
                 return (
-                  <article key={application.id} className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h2 className="text-lg font-bold text-neutral-900">{profile?.businessName || application.companyName}</h2>
-                        <p className="mt-1 text-sm text-neutral-600">
-                          {application.vendor?.firstname} {application.vendor?.lastname}
-                          {application.vendor?.email && <> · <a className="text-brand-700 underline" href={`mailto:${application.vendor.email}`}>{application.vendor.email}</a></>}
-                        </p>
+                  <article key={application.id} className="min-w-0 rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-400 text-base font-bold text-white">{initials}</span>
+                        <div className="min-w-0">
+                          <h2 className="break-words text-lg font-bold text-slate-900 sm:text-xl">{vendorName}</h2>
+                          <p className="mt-1 text-sm text-slate-600">{application.vendor?.firstname} {application.vendor?.lastname}{application.vendor?.email && <> · <a className="text-brand-700 underline" href={`mailto:${application.vendor.email}`}>{application.vendor.email}</a></>}</p>
+                        </div>
                       </div>
-                      <Badge variant={statusVariant[application.status]}>{application.status.replace('_', ' ')}</Badge>
+                      <Badge variant={application.vendor?.isActive === false ? 'danger' : statusVariant[application.status]}>{application.vendor?.isActive === false ? 'Inactive' : application.status.replace('_', ' ')}</Badge>
                     </div>
 
-                    <div className="mt-5 grid gap-5 border-t border-neutral-100 pt-5 md:grid-cols-2">
-                      <section>
-                        <h3 className="text-sm font-bold text-neutral-900">Vendor profile</h3>
-                        <dl className="mt-2 space-y-2 text-sm">
-                          <div><dt className="inline font-medium text-neutral-600">Registration: </dt><dd className="inline text-neutral-800">{profile?.businessRegistrationNumber || application.registrationNumber || 'Not provided'}</dd></div>
-                          <div><dt className="inline font-medium text-neutral-600">Contact: </dt><dd className="inline text-neutral-800">{profile?.contactPerson || 'Not provided'}</dd></div>
-                          <div><dt className="inline font-medium text-neutral-600">Email / phone: </dt><dd className="inline text-neutral-800">{profile?.contactEmail || 'Not provided'} / {profile?.contactPhone || 'Not provided'}</dd></div>
-                          <div><dt className="font-medium text-neutral-600">Products and services</dt><dd className="mt-1 text-neutral-800">{profile?.productsServices?.join(', ') || application.description || 'Not provided'}</dd></div>
-                          <div><dt className="font-medium text-neutral-600">Business profile</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{profile?.businessDescription || application.description || 'Not provided'}</dd></div>
-                          {documentLinks.length > 0 && (
-                            <div>
-                              <dt className="font-medium text-neutral-600">Supporting documents</dt>
-                              <dd className="mt-1 flex flex-col gap-1">
-                                {documentLinks.map((document, index) => <a key={`${document.safeUrl}-${index}`} href={document.safeUrl} target="_blank" rel="noreferrer" className="break-all text-brand-700 underline">Supporting document {index + 1}</a>)}
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
-                      </section>
+                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">CIPC number</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.businessRegistrationNumber || application.registrationNumber || 'Not provided'}</p></div>
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">Contact</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.contactEmail || application.vendor?.email || 'Not provided'}</p></div>
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">Category</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.productsServices?.[0] || 'Not provided'}</p></div>
+                    </div>
+
+                    <section className="mb-4 rounded-[12px] border border-slate-200 bg-[#f9f9f9] p-4">
+                      <h3 className="mb-3 text-base font-bold text-slate-900">Documents</h3>
+                      {documentLinks.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {documentLinks.map((document, index) => {
+                            let filename = `Supporting document ${index + 1}`;
+                            try { filename = decodeURIComponent(new URL(document.safeUrl).pathname.split('/').pop() || filename); } catch { /* Keep the fallback label for unusual URLs. */ }
+                            return <a key={`${document.safeUrl}-${index}`} href={document.safeUrl} target="_blank" rel="noreferrer" className="group rounded-[10px] border border-slate-200 bg-slate-100 p-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-200"><span className="mb-2 flex h-24 items-center justify-center rounded-lg border border-slate-200 bg-slate-200 text-2xl text-slate-400" aria-hidden="true">▤</span><span className="block break-all">{filename}</span></a>;
+                          })}
+                        </div>
+                      ) : <p className="text-sm text-slate-500">No supporting documents provided.</p>}
+                    </section>
+
+                    <section className="mb-5">
+                      <h3 className="mb-2 text-base font-bold text-slate-900">About</h3>
+                      <p className="whitespace-pre-line text-sm leading-6 text-slate-600">{profile?.businessDescription || application.description || 'No business description provided.'}</p>
+                    </section>
+
+                    <div className="mb-5 rounded-xl border border-slate-200 p-4">
+                      {eventTitle && <p className="mb-3 text-sm font-semibold text-slate-900">Application for {eventTitle}</p>}
                       <section>
                         <h3 className="text-sm font-bold text-neutral-900">Requested stand</h3>
                         <dl className="mt-2 space-y-2 text-sm">
@@ -169,7 +297,7 @@ export default function VendorApplications() {
                       </section>
                     </div>
 
-                    {application.status === 'PENDING_REVIEW' ? (
+                    {application.status === 'PENDING_REVIEW' && application.vendor?.isActive !== false ? (
                       <div className="mt-5 grid gap-5 border-t border-neutral-100 pt-5 md:grid-cols-2">
                         <form className="space-y-3" onSubmit={event => void approve(event, application.id)}>
                           <label className="block text-sm font-medium text-neutral-700">
@@ -198,7 +326,7 @@ export default function VendorApplications() {
                     )}
                   </article>
                 );
-              })}
+              })()}
             </div>
           )}
         </section>

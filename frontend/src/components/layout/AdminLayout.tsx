@@ -8,6 +8,7 @@ const navigation = [
   { label: 'Organisers', path: '/admin/users/organizers', icon: <UsersIcon />, count: 2 },
   { label: 'Vendors', path: '/admin/users/vendors', icon: <StoreIcon />, count: 1 },
   { label: 'People', path: '/admin/user-accounts', icon: <UsersIcon /> },
+  { label: 'Reports', path: '/admin/reports', icon: <ReportIcon /> },
   { label: 'Notifications', path: null, icon: <BellIcon /> },
 ];
 
@@ -23,7 +24,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-dvh bg-white p-2 text-[#1f2937] antialiased sm:p-4 lg:py-8">
+    <div className="h-dvh w-full overflow-hidden bg-white px-2 py-2 text-[#1f2937] antialiased sm:px-4 sm:py-4 lg:py-0">
       {sidebarOpen && (
         <button
           type="button"
@@ -32,8 +33,8 @@ export default function AdminLayout() {
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
         />
       )}
-      <div className="relative mx-auto flex min-h-[calc(100dvh-1rem)] max-w-[1280px] overflow-hidden rounded-xl border border-[#dfe3ea] bg-[#f7f7f6] shadow-[0_18px_38px_rgba(15,23,42,0.08)] sm:min-h-[calc(100dvh-2rem)] sm:rounded-[18px]">
-        <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(260px,calc(100vw-2rem))] shrink-0 flex-col border-r border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4 transition-transform duration-200 lg:static lg:z-auto lg:h-auto lg:w-[220px] lg:translate-x-0 ${
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-[1280px] overflow-hidden rounded-xl border border-[#dfe3ea] bg-[#f7f7f6] shadow-[0_18px_38px_rgba(15,23,42,0.08)] sm:rounded-[18px]">
+        <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(260px,calc(100vw-2rem))] shrink-0 flex-col border-r border-[#e5e7eb] bg-[#f7f8f8] px-3 py-4 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-full lg:w-[220px] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
           <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
@@ -49,7 +50,7 @@ export default function AdminLayout() {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="mb-3 px-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#8c93a0]">Admin</div>
           <nav aria-label="Admin navigation" className="space-y-1.5">
             {navigation.map((item) => {
@@ -66,7 +67,7 @@ export default function AdminLayout() {
                 ? pathname === '/admin'
                 : item.path !== null && (pathname === item.path || (
                   item.label !== 'Organisers' && item.label !== 'Vendors' && pathname.startsWith(`${item.path}/`)
-                ));
+                  ));
 
               return (
                 <div key={item.label} className="space-y-1">
@@ -111,8 +112,8 @@ export default function AdminLayout() {
           </div>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <main className="min-h-0 min-w-0 flex-1 overflow-auto p-3 sm:p-5">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+          <main className="h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-5">
             <div className="mb-3 flex items-center gap-3 lg:hidden">
               <button
                 type="button"
@@ -138,4 +139,5 @@ export default function AdminLayout() {
 function HomeIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 10.5 12 4l8 6.5V18a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-7.5Z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function UsersIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 8v-1a4 4 0 0 0-3-3.87M20 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function StoreIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 8h16l-1 11H5L4 8Zm3-3h10l1 3H6l1-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
+function ReportIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 20h16M7 16V9m5 7V4m5 12v-5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function BellIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" strokeLinecap="round" strokeLinejoin="round" /></svg>; }

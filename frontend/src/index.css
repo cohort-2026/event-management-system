@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -489,7 +488,6 @@ main.dashboard-shell {
   background-color: #242b41 !important;
 }
 
-<<<<<<< HEAD
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
@@ -618,7 +616,8 @@ button:not(:disabled):active {
   background-color: #f4dfe7 !important;
   border-color: #d6a0b2 !important;
   color: #7f1d3f !important;
-=======
+}
+
 main.dashboard-shell-light {
   border-color: #e5e7eb;
   background: #f8fafc;
@@ -809,5 +808,4 @@ main.organizer-shell {
 
 .dashboard-content-light .dashboard-panel:hover {
   box-shadow: 0 8px 20px rgb(15 23 42 / 0.08);
->>>>>>> 1dbe4e6e8c715cd663993991822876ac62db5dfa
 }

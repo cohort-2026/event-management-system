@@ -61,6 +61,31 @@ const formatEventDate = (date: string): string => new Date(date).toLocaleDateStr
   year: 'numeric',
 });
 
+const exportEventsCsv = (events: Event[]) => {
+  const columns = ['Event', 'Date', 'Venue', 'Status', 'Capacity', 'Booked places', 'Available places'];
+  const escapeCell = (value: unknown) => {
+    const text = String(value ?? '');
+    const safeText = /^[=+@\-\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replaceAll('"', '""')}"`;
+  };
+  const rows = events.map(event => [
+    event.title,
+    formatEventDate(event.startTime),
+    event.venue,
+    statusLabel(event.status),
+    event.capacity,
+    bookedPlaces(event),
+    event.availableCapacity,
+  ]);
+  const csv = [columns, ...rows].map(row => row.map(escapeCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'organizer-events.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 const bookedPlaces = (event: Event): number => Math.max(0, event.capacity - event.availableCapacity);
 
 const formatRelativeTime = (date: string): string => {
@@ -451,18 +476,21 @@ export default function OrganizerDashboard() {
               <OrganizerTopBar title="Overview" onSearch={() => setEventFilter('ALL')} />
               <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-700">Organizer overview</p>
-                  <h1 className="mt-1 text-2xl font-black tracking-tight text-neutral-900 sm:text-3xl">
-                    Good {greeting}, {user?.firstname || 'there'}
-                  </h1>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-700">Organizer</p>
+                  <h1 className="mt-1 text-3xl font-black tracking-tight text-neutral-900 sm:text-4xl">Overview</h1>
                   <p className="mt-1 text-sm text-neutral-500">
-                    {user?.organizationName || 'Here is the latest activity across your events.'}
+                    Good {greeting}, {user?.firstname || 'there'}{user?.organizationName ? ` · ${user.organizationName}` : ' — here is the latest activity across your events.'}
                   </p>
                 </div>
-                <Link to="/organizer/events/new" className="organizer-create-button inline-flex w-fit shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold">
-                  <span aria-hidden="true" className="text-base leading-none">+</span>
-                  Create event
-                </Link>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="button" variant="secondary" disabled={events.length === 0} onClick={() => exportEventsCsv(events)}>
+                    Export
+                  </Button>
+                  <Link to="/organizer/events/new" className="organizer-create-button inline-flex w-fit shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold">
+                    <span aria-hidden="true" className="text-base leading-none">+</span>
+                    Create event
+                  </Link>
+                </div>
               </div>
             </div>
           )}

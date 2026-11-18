@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { getEvents } from '@/services/eventService';
 import { getUsers } from '@/services/userService';
+import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
 import type { Event } from '@/types/event';
 import type { User } from '@/types/user';
 
@@ -14,14 +15,27 @@ interface SearchResult {
   to: string;
 }
 
+type RecentAuditEvent = AdminAuditEvent & { affectedUserName?: string };
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<RecentAuditEvent[]>([]);
   const [activeItem, setActiveItem] = useState('Dashboard');
   const [showAwaitingMenu, setShowAwaitingMenu] = useState(true);
+  const statCards = [
+    { title: 'Events to review', value: '3', sub: 'Oldest waiting 1 day 4 h', link: 'Open queue →', to: '/admin/approvals' },
+    { title: 'Organisers to vet', value: '2', sub: 'Oldest waiting 6 h', link: 'Review →', to: '/admin/users/organizers/pending' },
+    { title: 'Vendors to vet', value: '1', sub: 'Oldest waiting 2 h', link: 'Review →', to: '/admin/users/vendors/pending' },
+  ];
+  const summaryStats = [
+    { label: 'Upcoming published events', value: '14' },
+    { label: 'Bookings this week', value: '612' },
+    { label: 'Attendance, last 30 days', value: '79%' },
+  ];
   const reviewItems = [
     { label: 'Dashboard', active: true, count: 0 },
     { label: 'Awaiting Approval', active: false, count: 3 },
@@ -33,17 +47,19 @@ export default function AdminDashboard() {
     { label: 'Notifications', active: false, count: 0 },
   ];
 
-  const statCards = [
-    { title: 'Events to review', value: '3', sub: 'Oldest waiting 1 day 4 h', tone: 'beige', link: 'Open queue →' },
-    { title: 'Organisers to vet', value: '2', sub: 'Oldest waiting 6 h', tone: 'white', link: 'Review →' },
-    { title: 'Vendors to vet', value: '1', sub: 'Oldest waiting 2 h', tone: 'white', link: 'Review →' },
-  ];
-
-  const summaryStats = [
-    { label: 'Upcoming published events', value: '14' },
-    { label: 'Bookings this week', value: '612' },
-    { label: 'Attendance, last 30 days', value: '79%' },
-  ];
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([getAdminAuditHistory(), getUsers()]).then(([auditResult, usersResult]) => {
+      if (!active || auditResult.status !== 'fulfilled') return;
+      const users = usersResult.status === 'fulfilled' ? usersResult.value.data : [];
+      const userNames = new Map(users.map(user => [user.id, `${user.firstname} ${user.lastname}`]));
+      setRecentActivity(auditResult.value.data.data.slice(0, 4).map(activity => ({
+        ...activity,
+        affectedUserName: activity.affectedUserId ? userNames.get(activity.affectedUserId) : undefined,
+      })));
+    });
+    return () => { active = false; };
+  }, []);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -228,12 +244,7 @@ export default function AdminDashboard() {
 
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
               {statCards.map((card, index) => (
-                <div
-                  key={card.title}
-                  className={`rounded-[12px] border border-[#dfe3ea] p-4 ${
-                    index === 0 ? 'bg-[#f5efe4] text-[#1f2937]' : 'bg-white text-[#1f2937]'
-                  }`}
-                >
+                <div key={card.title} className={`rounded-[12px] border border-[#dfe3ea] p-4 ${index === 0 ? 'bg-[#f5efe4] text-[#1f2937]' : 'bg-white text-[#1f2937]'}`}>
                   <div className="mb-2 flex items-center justify-between">
                     <div className="text-[15px] font-semibold text-[#1f2937]">{card.title}</div>
                     <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#dfe3ea] bg-white text-[#5d6573]">
@@ -242,27 +253,76 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-[32px] font-extrabold tracking-[-0.04em] text-[#111827]">{card.value}</div>
                   <div className="mt-1 text-[12px] text-[#6b7280]">{card.sub}</div>
-                  <button type="button" className="mt-3 text-[12px] font-semibold text-[#d14d74] hover:text-[#bf3158]">
-                    {card.link}
-                  </button>
+                  <button type="button" onClick={() => navigate(card.to)} className="mt-3 text-[12px] font-semibold text-[#d14d74] hover:text-[#bf3158]">{card.link}</button>
                 </div>
               ))}
             </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {summaryStats.map((stat) => (
-                <div key={stat.label} className="rounded-[12px] border border-[#e5e7eb] bg-white px-4 py-5">
-                  <div className="text-[12px] font-medium text-[#697482]">{stat.label}</div>
-                  <div className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-[#111827]">{stat.value}</div>
-                </div>
-              ))}
-            </div>
+            <section id="reports" aria-labelledby="admin-reports-title" className="mb-6 scroll-mt-5">
+              <h2 id="admin-reports-title" className="mb-3 text-[31px] font-extrabold tracking-[-0.05em] text-[#1f2937]">Reports overview</h2>
+              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {summaryStats.map(stat => (
+                  <div key={stat.label} className="rounded-[12px] border border-[#e5e7eb] bg-white px-4 py-5">
+                    <div className="text-[12px] font-medium text-[#697482]">{stat.label}</div>
+                    <div className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-[#111827]">{stat.value}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="admin-recent-activity-title" className="rounded-[12px] border border-[#e5e7eb] bg-white p-4 sm:p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 id="admin-recent-activity-title" className="text-[15px] font-bold text-[#1f2937]">Recent activity</h2>
+                <button type="button" onClick={() => navigate('/admin/audit')} className="shrink-0 text-[11px] font-bold text-rose-700 hover:text-rose-800">
+                  Audit history →
+                </button>
+              </div>
+              {recentActivity.length > 0 ? (
+                <ul className="divide-y divide-[#eef0f3]">
+                  {recentActivity.map(activity => (
+                    <li key={activity.id} className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#dcebf7] text-[9px] font-bold text-[#24517d]">
+                        {`${activity.actor.firstname[0] ?? ''}${activity.actor.lastname[0] ?? ''}`.toUpperCase() || 'A'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] leading-4 text-[#1f2937]">
+                          <span className="font-bold">{activity.actor.firstname} {activity.actor.lastname}</span>{' '}
+                          {formatAuditAction(activity.action)}
+                          {activity.affectedUserName && <span className="text-[#5f6b7a]"> · {activity.affectedUserName}</span>}
+                        </p>
+                        <p className="mt-0.5 text-[10px] capitalize text-[#6b7280]">{activity.outcome.replaceAll('_', ' ')}</p>
+                      </div>
+                      <time dateTime={activity.createdAt} className="shrink-0 pt-0.5 text-[10px] text-[#8c93a0]">
+                        {new Date(activity.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-3 text-sm text-[#6b7280]">No recent administrative activity.</p>
+              )}
+            </section>
 
           </main>
         </div>
       </div>
     </div>
   );
+}
+
+function formatAuditAction(action: string) {
+  const labels: Record<string, string> = {
+    ORGANIZER_PROFILE_APPROVED: 'approved an organizer profile',
+    ORGANIZER_PROFILE_REJECTED: 'rejected an organizer profile',
+    ORGANIZER_ACCOUNT_CREATED: 'created an organizer account',
+    ORGANIZER_ACCOUNT_DELETED: 'deleted an organizer account',
+    VENDOR_PROFILE_APPROVED: 'approved a vendor profile',
+    VENDOR_PROFILE_REJECTED: 'rejected a vendor profile',
+    VENDOR_ACCOUNT_DELETED: 'deleted a vendor account',
+    ADMIN_ACCOUNT_CREATED: 'created an admin account',
+    ADMIN_ACCOUNT_STATUS_UPDATED: 'updated an admin account',
+  };
+  return labels[action] ?? action.toLowerCase().replaceAll('_', ' ');
 }
 
 function HomeIcon() {

@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Spinner from '@/components/ui/Spinner';
+import NotificationBell from '@/components/layout/NotificationBell';
 import {
   approveOrganizerProfile,
   deleteOrganizerAccount,
@@ -16,6 +17,33 @@ import type { ProfileApprovalStatus } from '@/types/user';
 type OrganizerTab = 'Pending' | 'Approved' | 'Rejected' | 'Inactive';
 
 const organizerTabs: OrganizerTab[] = ['Pending', 'Approved', 'Rejected', 'Inactive'];
+
+const downloadOrganizersCsv = (organizers: ManagedOrganizer[]) => {
+  const columns = ['Name', 'Email', 'Organization', 'Organization email', 'Registration number', 'Phone', 'Status', 'Active', 'Created'];
+  const escapeCell = (value: unknown) => {
+    const text = String(value ?? '');
+    const safeText = /^[=+@\-\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replaceAll('"', '""')}"`;
+  };
+  const rows = organizers.map(person => [
+    `${person.firstname} ${person.lastname}`,
+    person.email,
+    person.organizationName,
+    person.organizationEmail,
+    person.organizationRegistrationNumber,
+    person.phone,
+    person.profileApprovalStatus,
+    person.isActive ? 'Yes' : 'No',
+    person.createdAt,
+  ]);
+  const csv = [columns, ...rows].map(row => row.map(escapeCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = window.document.createElement('a');
+  link.href = url;
+  link.download = 'organizers.csv';
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 export default function UserManagement({ profileStatus }: { profileStatus?: ProfileApprovalStatus }) {
   const [organizers, setOrganizers] = useState<ManagedOrganizer[]>([]);
@@ -42,7 +70,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
         if (active) {
           setError(axios.isAxiosError(err)
             ? (err.response?.data?.message ?? 'Organizer accounts could not be loaded.')
-            : 'Organizer accounts could not be loaded.');
+            : err instanceof Error ? err.message : 'Organizer accounts could not be loaded.');
         }
       })
       .finally(() => {
@@ -136,11 +164,34 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
 
   return (
     <>
-      <div className="min-w-0">
+      <div className="min-w-0 rounded-[18px] border border-[#dfe3ea] bg-[#f7f7f6] p-3 sm:p-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-[15px] font-semibold text-[#5a6470]">Organisers</p>
+          <div className="ml-auto flex w-full items-center justify-end gap-3 sm:w-auto">
+            <div className="min-w-0 flex-1 sm:w-[360px] sm:flex-none">
+              <Input
+                aria-label="Search organizers"
+                placeholder="Search organizers..."
+                value={search}
+                onChange={event => {
+                  setSearch(event.target.value);
+                  setSelectedOrganizerId(null);
+                }}
+              />
+            </div>
+            <button type="button" onClick={() => downloadOrganizersCsv(filteredOrganizers)} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[#dfe3ea] bg-white px-2.5 text-xs font-semibold text-[#374151] shadow-sm hover:bg-[#f8f8f7]" aria-label="Download organizers as CSV">
+              <CsvIcon />CSV
+            </button>
+            <NotificationBell />
+          </div>
+        </div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[28px] font-extrabold tracking-[-0.06em] text-[#1f2937] sm:text-[34px]">Organisers</h1>
+        </div>
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
         {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>}
 
-        <div className="mb-5 flex flex-wrap gap-2 rounded-[16px] border border-[#e5e7eb] bg-[#f2f3f2] p-1.5" role="tablist" aria-label="Organizer status">
+        <div className="mb-5 flex gap-3 overflow-x-auto rounded-[12px] border border-[#e5e7eb] bg-[#f2f3f2] p-1" role="tablist" aria-label="Organizer status">
           {organizerTabs.map(tab => (
             <button
               key={tab}
@@ -152,32 +203,23 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                 setSearch('');
                 setSelectedOrganizerId(null);
               }}
-              className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[15px] font-medium transition-colors ${
+              className={`flex shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-medium transition-colors ${
                 selectedTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'
               }`}
             >
               <span>{tab}</span>
               {tabCounts[tab] > 0 && (
-                <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-bold text-[#374151]">{tabCounts[tab]}</span>
+                <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-[#374151]">{tabCounts[tab]}</span>
               )}
             </button>
           ))}
         </div>
 
-        <div className="grid min-h-[560px] grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)]">
-          <section aria-label={`${selectedTab} organizers`} className="min-w-0 rounded-[20px] border border-[#e5e7eb] bg-white p-3">
-            <div className="mb-3 px-1">
-              <Input
-                aria-label="Search organizers"
-                placeholder="Search organizers"
-                value={search}
-                onChange={event => {
-                  setSearch(event.target.value);
-                  setSelectedOrganizerId(null);
-                }}
-              />
-            </div>
-            {loading ? <div className="flex justify-center py-8"><Spinner /></div> : filteredOrganizers.length === 0 ? (
+        <div className="grid min-h-[560px] grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.7fr)]">
+          <section aria-label={`${selectedTab} organizers`} className="min-w-0 rounded-[14px] border border-[#e5e7eb] bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+            {loading ? <div className="flex justify-center py-8"><Spinner /></div> : error && organizers.length === 0 ? (
+              <p role="status" className="px-3 py-8 text-sm text-rose-700">Organizer records could not be displayed.</p>
+            ) : filteredOrganizers.length === 0 ? (
               <p className="px-3 py-8 text-sm text-neutral-500">
                 {search ? 'No organizers match your search.' : `No ${selectedTab.toLowerCase()} organizers.`}
               </p>
@@ -200,10 +242,10 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                         {getInitials(person.organizationName || `${person.firstname} ${person.lastname}`)}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-[17px] font-bold text-[#1f2937]">
+                        <span className="block truncate text-[16px] font-bold text-[#1f2937] sm:text-[18px]">
                           {person.organizationName?.trim() || `${person.firstname} ${person.lastname}`}
                         </span>
-                        <span className="mt-1 block truncate text-[13px] text-[#5f6b7a]">
+                        <span className="mt-1 block truncate text-[12px] text-[#5f6b7a]">
                           {person.organizationEmail || person.email}
                         </span>
                       </span>
@@ -217,7 +259,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
             )}
           </section>
 
-          <section aria-label="Organizer details" className="min-w-0 rounded-[20px] border border-[#e5e7eb] bg-white p-5 sm:p-6">
+          <section aria-label="Organizer details" className="min-w-0 rounded-[14px] border border-[#e5e7eb] bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.03)] sm:p-5">
             {selectedOrganizer ? (
               <>
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -226,7 +268,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                       {getInitials(selectedOrganizer.organizationName || `${selectedOrganizer.firstname} ${selectedOrganizer.lastname}`)}
                     </div>
                     <div className="min-w-0">
-                      <h2 className="truncate text-[22px] font-bold text-[#1f2937]">
+                      <h2 className="truncate text-[18px] font-bold text-[#1f2937] sm:text-[20px]">
                         {selectedOrganizer.organizationName?.trim() || `${selectedOrganizer.firstname} ${selectedOrganizer.lastname}`}
                       </h2>
                       <p className="mt-1 truncate text-sm text-[#5f6b7a]">
@@ -234,7 +276,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                       </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center rounded-full border border-[#dfe3ea] bg-[#f0f1f4] px-3 py-1.5 text-[12px] font-semibold text-[#4b5563]">
+                  <span className="inline-flex items-center rounded-full border border-[#dfe3ea] bg-[#f0f1f4] px-3 py-1.5 text-[11px] font-semibold text-[#4b5563]">
                     <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#4b5563]" />
                     {selectedOrganizer.profileApprovalStatus === 'PENDING_APPROVAL'
                       ? 'Pending review'
@@ -251,26 +293,31 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                 </div>
 
                 <div className="mb-5 rounded-[16px] border border-[#e5e7eb] bg-[#f9f9f9] p-4">
-                  <h3 className="mb-3 text-[18px] font-bold text-[#1f2937]">Documents</h3>
+                  <h3 className="mb-3 text-[16px] font-bold text-[#1f2937]">Documents</h3>
                   <div className="flex min-h-[150px] items-center justify-center rounded-[12px] border border-dashed border-[#dfe3ea] bg-white px-4 text-center text-sm text-[#6b7280]">
-                    No organization documents have been submitted.
+                    Organization documents are not available from the organizer management data.
                   </div>
                 </div>
 
+                <div className="mb-6 rounded-[16px] border border-[#e5e7eb] bg-[#f9f9f9] p-4">
+                  <h3 className="mb-2 text-[16px] font-bold text-[#1f2937]">Associated events</h3>
+                  <p className="text-sm text-[#6b7280]">Event associations are not included in the organizer management data.</p>
+                </div>
+
                 <div className="mb-6">
-                  <h3 className="mb-2 text-[18px] font-bold text-[#1f2937]">About</h3>
+                  <h3 className="mb-2 text-[16px] font-bold text-[#1f2937]">About</h3>
                   <p className="text-[14px] leading-6 text-[#4b5563]">
                     {selectedOrganizer.organizationDescription?.trim() || 'No organization description provided.'}
                   </p>
                 </div>
 
                 {selectedTab === 'Pending' && selectedOrganizer.profileApprovalStatus === 'PENDING_APPROVAL' && (
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="min-h-20 w-40 rounded-xl bg-black px-6 text-base font-bold leading-6 text-white shadow-sm hover:bg-neutral-500 focus-visible:ring-black"
+                      className="min-h-10 whitespace-nowrap rounded-lg bg-black px-4 text-sm font-bold leading-5 text-white shadow-sm hover:bg-neutral-500 focus-visible:ring-black"
                       loading={approvingId === selectedOrganizer.id}
                       disabled={Boolean(approvingId || rejectingId)}
                       onClick={() => void handleApproveProfile(selectedOrganizer)}
@@ -281,7 +328,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                       type="button"
                       variant="secondary"
                       size="sm"
-                      className="min-h-20 w-48 rounded-xl border border-[#d9e0ea] px-6 text-base font-bold leading-6 text-[#26354b] shadow-none hover:bg-neutral-50"
+                      className="min-h-10 whitespace-nowrap rounded-lg border border-[#d9e0ea] px-4 text-sm font-bold leading-5 text-[#26354b] shadow-none hover:bg-neutral-50"
                       loading={rejectingId === selectedOrganizer.id}
                       disabled={Boolean(approvingId || rejectingId)}
                       onClick={() => { setOrganizerToReject(selectedOrganizer); setRejectionReason(''); }}
@@ -304,6 +351,8 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
               </>
             ) : loading ? (
               <div className="flex h-full min-h-[240px] items-center justify-center"><Spinner /></div>
+            ) : error && organizers.length === 0 ? (
+              <div className="flex h-full min-h-[240px] items-center justify-center text-center text-sm text-[#6b7280]">Organizer details are unavailable until the list loads.</div>
             ) : (
               <div className="flex h-full min-h-[240px] items-center justify-center text-center text-sm text-[#6b7280]">
                 Select an organizer to view their profile.
@@ -418,4 +467,8 @@ function formatAge(createdAt: string) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
+}
+
+function CsvIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }

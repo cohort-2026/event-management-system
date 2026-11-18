@@ -50,6 +50,7 @@ import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
 import AdminAccounts from '@/pages/admin/AdminAccounts';
 import AdminAuditHistory from '@/pages/admin/AdminAuditHistory';
+import AdminReports from '@/pages/admin/AdminReports';
 
 export default function App() {
   return (
@@ -89,6 +90,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/vendors"                     element={<VendorApplications />} />
             <Route path="/organizer/reports"                     element={<OrganizerReports />} />
             <Route path="/organizer/notifications"               element={<OrganizerDashboard />} />
             <Route path="/organizer/events/:id"                  element={<OrganizerEventHub />} />
@@ -118,11 +120,12 @@ export default function App() {
               <Route path="/admin/approvals" element={<EventApprovals />} />
               <Route path="/admin/vendors" element={<Navigate to="/admin/users/vendors/pending" replace />} />
               <Route path="/admin/users" element={<Navigate to="/admin/users/organizers/pending" replace />} />
-              <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />
+              <Route path="/admin/users/organizers" element={<UserManagement key="organizers-approved" profileStatus="APPROVED" />} />
               <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
-              <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
+              <Route path="/admin/users/organizers/pending" element={<UserManagement key="organizers-pending" profileStatus="PENDING_APPROVAL" />} />
               <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
               <Route path="/admin/user-accounts" element={<UserAccounts />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/accounts" element={<AdminAccounts />} />
               <Route path="/admin/audit" element={<AdminAuditHistory />} />
             </Route>
