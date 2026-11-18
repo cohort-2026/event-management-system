@@ -106,19 +106,9 @@ export default function EventList() {
 
       <section aria-labelledby="event-filters-title" className="mb-6 rounded-2xl border border-rose-100 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600" aria-hidden="true">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M7 12h10m-7 6h4" />
-                <circle cx="8" cy="6" r="1.5" fill="currentColor" stroke="none" />
-                <circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                <circle cx="11" cy="18" r="1.5" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
-            <div>
-              <h2 id="event-filters-title" className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Find an event</h2>
-              <p className="mt-0.5 text-sm text-neutral-500">Search and narrow the list</p>
-            </div>
+          <div>
+            <h2 id="event-filters-title" className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Find an event</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">Search and narrow the list</p>
           </div>
           <button type="button" onClick={clearFilters} className="rounded-md px-2 py-1 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">
             Clear filters
