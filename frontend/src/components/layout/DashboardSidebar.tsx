@@ -116,7 +116,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                   ) : (
                     <NavLink
                       to={item.to}
-                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events'}
+                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/attendee' || item.to === '/organizer/events'}
                       onClick={navigation?.closeMobile}
                       title={collapsed && !mobileOpen ? item.label : undefined}
                       className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}

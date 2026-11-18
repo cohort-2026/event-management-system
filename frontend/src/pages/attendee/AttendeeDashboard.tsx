@@ -50,7 +50,7 @@ function isOnlineEvent(event: Event): boolean {
 }
 
 function isInGauteng(venue: string): boolean {
-  return /\b(gauteng|johannesburg|sandton|pretoria|centurion|midrand|rosebank|fourways)\b/i.test(venue);
+  return /\b(gauteng|johannesburg|joburg|jozi|sandton|pretoria|tshwane|centurion|midrand|rosebank|fourways|soweto|randburg|roodepoort|krugersdorp|kempton park|benoni|boksburg|germiston|alberton|edenvale|springs|brakpan|vereeniging|vanderbijlpark|bryanston|melville|braamfontein|menlyn|hatfield|sunninghill|waterkloof|bedfordview|ekurhuleni|east rand|west rand)\b/i.test(venue);
 }
 
 function formatPrice(event: Event): string {
@@ -81,7 +81,7 @@ export default function AttendeeDashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('month');
+  const [dateFilter, setDateFilter] = useState<DateFilter>(null);
   const [gautengOnly, setGautengOnly] = useState(false);
   const [freeOnly, setFreeOnly] = useState(false);
   const [onlineOnly, setOnlineOnly] = useState(false);
@@ -448,6 +448,20 @@ export default function AttendeeDashboard() {
             <div className="rounded-lg border border-dashed border-neutral-200 py-16 text-center">
               <p className="text-sm font-semibold text-neutral-700">No upcoming events found</p>
               <p className="mt-1 text-xs text-neutral-500">Try changing your search or filters.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setCategory('All');
+                  setDateFilter(null);
+                  setGautengOnly(false);
+                  setFreeOnly(false);
+                  setOnlineOnly(false);
+                }}
+                className="mt-3 rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Clear filters
+              </button>
             </div>
           )}
       </section>

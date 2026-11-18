@@ -309,7 +309,25 @@ a:hover {
   }
 }
 
+.attendee-sidebar a,
+.attendee-sidebar .attendee-profile p {
+  color: #000;
+}
+
+.attendee-sidebar .attendee-nav-hover:hover,
+.attendee-sidebar .attendee-nav-hover:hover * {
+  color: #fff;
+}
+
 @layer components {
+  .attendee-nav-hover:hover {
+    background-color: #000;
+    background-image:
+      radial-gradient(circle at 80% 15%, #9b1b3a 0%, rgba(155, 27, 58, 0.55) 35%, transparent 70%),
+      linear-gradient(to right, transparent calc(50% - 0.5px), rgba(192, 49, 79, 0.35) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+      linear-gradient(to bottom, transparent calc(50% - 0.5px), rgba(192, 49, 79, 0.35) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  }
+
   .dashboard-shell {
     width: calc(100% - 2rem);
     max-width: 90rem;

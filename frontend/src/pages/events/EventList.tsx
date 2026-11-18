@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import AttendeeLayout from '@/components/attendee/AttendeeLayout';
 import PageWrapper from '@/components/layout/PageWrapper';
 import EventCard from '@/components/ui/EventCard';
 import Input from '@/components/ui/Input';
@@ -14,7 +15,9 @@ export default function EventList() {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get('search') ?? '';
+  const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true });
   const [category, setCategory] = useState('All');
   const [location, setLocation] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -64,8 +67,8 @@ export default function EventList() {
       matchesStart && matchesEnd && matchesApplications;
   });
 
-  return (
-    <PageWrapper>
+  const content = (
+    <>
       <div className="mb-8">
         <button
           type="button"
@@ -122,6 +125,9 @@ export default function EventList() {
           )}
         </>
       )}
-    </PageWrapper>
+    </>
   );
+
+  if (user?.role === 'ATTENDEE') return <AttendeeLayout>{content}</AttendeeLayout>;
+  return <PageWrapper>{content}</PageWrapper>;
 }
