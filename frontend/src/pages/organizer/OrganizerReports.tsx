@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
@@ -48,6 +49,62 @@ const formatPercent = (percent: number) => {
   return `${Number(percent.toFixed(1))}%`;
 };
 
+function EventCalendar({ events }: { events: Event[] }) {
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const firstDay = month.getDay();
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const monthEvents = events
+    .map(event => ({ event, date: new Date(event.startTime) }))
+    .filter(({ date }) => Number.isFinite(date.getTime()) && date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth())
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const counts = new Map<number, number>();
+  for (const { date } of monthEvents) counts.set(date.getDate(), (counts.get(date.getDate()) ?? 0) + 1);
+
+  return (
+    <section aria-labelledby="report-event-calendar" className="min-w-0 rounded-lg border border-[#6b1834] bg-[#090909] p-3" style={{ backgroundImage: 'radial-gradient(ellipse at 72% 20%, #81132f 0%, #4d0b1c 30%, #090909 70%)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="report-event-calendar" className="text-sm font-bold text-white">Event calendar</h2>
+          <p className="mt-1 text-sm text-rose-100">Event start dates, including all statuses.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg border border-[#9f3556] bg-[#6b1834] px-3 py-1 text-white hover:bg-[#842746]">‹</button>
+          <span aria-live="polite" className="min-w-32 text-center text-sm font-semibold text-white">{month.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</span>
+          <button type="button" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg border border-[#9f3556] bg-[#6b1834] px-3 py-1 text-white hover:bg-[#842746]">›</button>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <span key={day} className="py-1 font-semibold text-rose-200">{day}</span>)}
+        {Array.from({ length: firstDay }, (_, index) => <span key={`empty-${index}`} />)}
+        {Array.from({ length: daysInMonth }, (_, index) => {
+          const day = index + 1;
+          const count = counts.get(day) ?? 0;
+          return (
+            <div key={day} aria-label={`${day}: ${count} ${count === 1 ? 'event' : 'events'}`} className={`rounded-lg py-1 ${count ? 'bg-yellow-200 font-semibold text-yellow-950' : 'text-neutral-100'}`}>
+              {day}{count > 0 && <span aria-hidden="true" className="block text-[10px]">{count} {count === 1 ? 'event' : 'events'}</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 border-t border-[#6b1834] pt-2">
+        {monthEvents.length === 0 ? <p className="text-sm text-rose-100">No events start this month.</p> : (
+          <ul className="divide-y divide-[#6b1834]">
+            {monthEvents.map(({ event, date }) => (
+              <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <Link to={`/organizer/events/${event.id}`} className="font-semibold text-rose-200 hover:underline">{event.title}</Link>
+                <span className="text-neutral-300">{date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} · {date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })} · {event.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function BookingHeatmapCalendar({
   registrations,
   loading,
@@ -90,7 +147,7 @@ function BookingHeatmapCalendar({
   const levels = ['bg-neutral-100', 'bg-green-200', 'bg-green-400', 'bg-green-600', 'bg-green-800'];
 
   return (
-    <section aria-labelledby="report-booking-heatmap" className="mt-4 rounded-lg border border-neutral-200 bg-white p-3 sm:p-4">
+    <section aria-labelledby="report-booking-heatmap" className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3">
       <h2 id="report-booking-heatmap" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking activity</h2>
       <p className="mt-1 text-sm text-neutral-500">Daily registrations over the past year.</p>
       {loading ? (
@@ -99,7 +156,7 @@ function BookingHeatmapCalendar({
         <p className="mt-5 text-sm text-neutral-500">Booking activity is unavailable.</p>
       ) : (
         <>
-          <div className="mt-5 overflow-x-auto pb-2">
+          <div className="mt-3 overflow-x-auto pb-2">
             <div className="flex min-w-max gap-1" role="img" aria-label={`Daily booking heat map for the past year, ${total} registrations in total.`}>
               <div aria-hidden="true" className="grid shrink-0 grid-rows-[16px_repeat(7,12px)] gap-1 text-[9px] leading-3 text-neutral-500">
                 <span />
@@ -467,8 +524,7 @@ export default function OrganizerReports() {
           ) : !events ? (
             <div role="status" className="flex items-center gap-3 py-12 text-neutral-700"><Spinner /> Loading reports…</div>
           ) : (
-            <>
-              <section aria-labelledby="reports-visualization-title" className="rounded-3xl bg-[#f2e5e9] p-3 sm:p-5">
+            <section aria-labelledby="reports-visualization-title" className="rounded-3xl bg-[#f2e5e9] p-3 sm:p-5">
               <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
                 <h2 id="reports-visualization-title" className="organizer-visualization-header rounded-t-xl px-4 py-3 text-center text-sm font-bold text-white" style={{ color: '#fff', fontSize: '0.875rem', lineHeight: 1.25 }}>
                   Data Visualization
@@ -483,18 +539,22 @@ export default function OrganizerReports() {
                   <div className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
                     <EventSummaryChart events={events} booked={booked} capacity={capacity} />
                   </div>
-                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3 xl:col-span-3">
-                    <EventTrendsAreaChart events={events} />
+                  <div className="min-w-0 xl:col-span-3">
+                    <EventCalendar events={events} />
                   </div>
                 </div>
+                <div className="mt-4 grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3">
+                    <EventTrendsAreaChart events={events} />
+                  </div>
+                  <BookingHeatmapCalendar
+                    registrations={registrations}
+                    loading={!registrations && !bookingError}
+                    unavailable={Boolean(bookingError)}
+                  />
+                </div>
               </div>
-              </section>
-              <BookingHeatmapCalendar
-                registrations={registrations}
-                loading={!registrations && !bookingError}
-                unavailable={Boolean(bookingError)}
-              />
-            </>
+            </section>
           )}
         </section>
       </div>
