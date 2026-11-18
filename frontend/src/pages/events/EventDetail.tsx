@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Spinner from '@/components/legacy/Spinner';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
+import VendorSearchField from '@/components/layout/VendorSearchField';
+import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
 import { getEventById } from '@/services/eventService';
 import type { Event } from '@/types/event';
@@ -36,6 +39,50 @@ export default function EventDetail() {
     return () => { active = false; };
   }, [id]);
 
+  if (user?.role === 'VENDOR') {
+    if (loading) {
+      return <VendorEventLayout><div className="flex justify-center py-16"><Spinner /></div></VendorEventLayout>;
+    }
+    if (!event) {
+      return (
+        <VendorEventLayout>
+          <div role="alert" className="rounded-lg border border-[#e5e5e5] bg-white p-5 text-center">
+            <p className="text-[9px] font-semibold text-[#333]">{error || 'Event not found.'}</p>
+            <p className="mt-1 text-[8px] text-[#777]">Vendor applications are unavailable for this event.</p>
+            <Link to="/vendor/events" className="mt-3 inline-flex rounded-md bg-[#111] px-2.5 py-1.5 text-[8px] font-bold text-white">Back to find events</Link>
+          </div>
+        </VendorEventLayout>
+      );
+    }
+
+    const fillPercent = event.capacity > 0
+      ? Math.round(((event.capacity - event.availableCapacity) / event.capacity) * 100)
+      : 0;
+    const start = new Date(event.startTime);
+    const end = new Date(event.endTime);
+    const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+    const vendorApproved = user.vendorProfileStatus === 'APPROVED';
+    const vendorApprovalMessage = user.vendorProfileStatus === 'PENDING_REVIEW'
+      ? 'Your business profile is awaiting administrator approval.'
+      : user.vendorProfileStatus === 'REJECTED'
+        ? 'Update and resubmit your business profile to apply.'
+        : 'Submit your business profile for administrator approval to apply.';
+
+    return (
+      <VendorEventLayout eventTitle={event.title}>
+        <VendorEventContent
+          event={event}
+          start={start}
+          end={end}
+          fillPercent={fillPercent}
+          applicationsOpen={applicationsOpen}
+          vendorApproved={vendorApproved}
+          vendorApprovalMessage={vendorApprovalMessage}
+        />
+      </VendorEventLayout>
+    );
+  }
+
   if (loading) return <PageWrapper><div className="flex justify-center py-20"><Spinner /></div></PageWrapper>;
   if (!event) {
     return (
@@ -54,13 +101,6 @@ export default function EventDetail() {
     : 0;
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
-  const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
-  const vendorApproved = user?.role === 'VENDOR' && user.vendorProfileStatus === 'APPROVED';
-  const vendorApprovalMessage = user?.vendorProfileStatus === 'PENDING_REVIEW'
-    ? 'Your business profile is awaiting administrator approval.'
-    : user?.vendorProfileStatus === 'REJECTED'
-      ? 'Update and resubmit your business profile to apply.'
-      : 'Submit your business profile for administrator approval to apply.';
 
   return (
     <PageWrapper>
@@ -135,7 +175,7 @@ export default function EventDetail() {
                 </li>
               ))}
             </ul>
-          </section>}
+          </section>
         </div>
 
         <aside>
@@ -193,6 +233,167 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">{label}</p>
         <p className="mt-0.5 whitespace-pre-line text-sm font-medium text-neutral-700">{value}</p>
       </div>
+    </div>
+  );
+}
+
+function VendorEventLayout({ children, eventTitle }: { children: ReactNode; eventTitle?: string }) {
+  return (
+    <PageWrapper>
+      <div className="vendor-events-page min-h-screen bg-[#fafafa] text-[#171717]">
+        <div className="flex min-h-screen">
+          <VendorSidebar />
+          <div className="min-w-0 flex-1">
+            <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+              <div className="flex min-w-0 items-center gap-1 text-[8px] font-semibold text-[#333]">
+                <VendorMenuButton />
+                <Link to="/vendor/events" className="shrink-0 hover:text-[#171717]">Find events</Link>
+                {eventTitle && (
+                  <>
+                    <span className="text-[#aaa]">/</span>
+                    <span className="truncate">{eventTitle}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <VendorSearchField />
+                <NotificationBell appearance="header" />
+              </div>
+            </header>
+            <main className="px-3.5 pb-4 pt-4">{children}</main>
+          </div>
+        </div>
+      </div>
+    </PageWrapper>
+  );
+}
+
+function VendorEventContent({
+  event,
+  start,
+  end,
+  fillPercent,
+  applicationsOpen,
+  vendorApproved,
+  vendorApprovalMessage,
+}: {
+  event: Event;
+  start: Date;
+  end: Date;
+  fillPercent: number;
+  applicationsOpen: boolean;
+  vendorApproved: boolean;
+  vendorApprovalMessage: string;
+}) {
+  return (
+    <>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="truncate text-[17px] font-extrabold leading-5 tracking-tight text-[#151515]">{event.title}</h1>
+          <p className="mt-0.5 truncate text-[8px] text-[#777]">{event.venue} · {start.toLocaleDateString('en-ZA', { dateStyle: 'medium' })}</p>
+        </div>
+        <Link
+          to="/vendor/events"
+          className="inline-flex h-[21px] shrink-0 items-center rounded-md border border-[#dedede] bg-white px-2 text-[7px] font-semibold text-[#444] hover:bg-[#f5f5f5]"
+        >
+          All events
+        </Link>
+      </div>
+
+      <div className="grid gap-2 lg:grid-cols-3">
+        <div className="min-w-0 space-y-2 lg:col-span-2">
+          <article className="min-w-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
+            <div className="relative h-[68px] overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
+              {event.bannerImageUrl ? (
+                <img src={event.bannerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <>
+                  <span className="absolute -left-4 top-6 h-16 w-16 rounded-full bg-[#ffb45c]" />
+                  <span className="absolute left-[27%] top-8 h-20 w-20 rounded-full bg-[#ad2c18]/75" />
+                  <span className="absolute right-2 -top-5 h-12 w-12 rounded-full bg-[#ffb46b]/70" />
+                </>
+              )}
+              <div className="absolute left-1 top-1 rounded-md bg-white/95 px-1.5 py-1 text-[6px] font-bold uppercase text-[#c54821]">
+                {event.category} · {event.eventType.replace('_', ' ')}
+              </div>
+            </div>
+            <div className="p-2">
+              <h2 className="text-[10px] font-extrabold leading-3 text-[#202020]">Event details</h2>
+              <div className="mt-1.5 grid grid-cols-2 gap-1">
+                <EventDetailTile label="Starts" value={start.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
+                <EventDetailTile label="Ends" value={end.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
+                <EventDetailTile label="Venue" value={event.venue} />
+                <EventDetailTile label="Capacity" value={`${event.availableCapacity} of ${event.capacity} places left`} />
+              </div>
+              <div className="mt-1.5">
+                <div className="mb-0.5 flex justify-between text-[6px] text-[#777]">
+                  <span>{event.capacity - event.availableCapacity} registered</span>
+                  <span>{fillPercent}% full</span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-[#eee]">
+                  <div className="h-full rounded-full bg-[#f15a2a]" style={{ width: `${fillPercent}%` }} />
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <section className="rounded-lg border border-[#e5e5e5] bg-white p-2">
+            <h2 className="text-[9px] font-extrabold leading-3 text-[#171717]">About this event</h2>
+            <p className="mt-1 whitespace-pre-line text-[8px] leading-relaxed text-[#666]">{event.description}</p>
+          </section>
+        </div>
+
+        <aside className="min-w-0">
+          <section className="rounded-lg border border-[#e5e5e5] bg-white p-2">
+            <h2 className="text-[9px] font-extrabold leading-3 text-[#171717]">Vendor spaces</h2>
+            <div className="mt-1.5 rounded-md bg-[#f7f7f7] px-2 py-1.5">
+              <p className="text-[6px] leading-[8px] text-[#777]">Stands left</p>
+              <p className="text-[8px] font-bold leading-[10px] text-[#333]">
+                {event.availableVendorStands} of {event.vendorStandsAvailable}
+              </p>
+            </div>
+            <div className="mt-1 rounded-md bg-[#f7f7f7] px-2 py-1.5">
+              <p className="text-[6px] leading-[8px] text-[#777]">Rate</p>
+              <p className="text-[8px] font-bold leading-[10px] text-[#333]">
+                R{event.vendorStandRatePerSqm.toLocaleString('en-ZA')}/m²
+              </p>
+            </div>
+
+            <div className="mt-2">
+              {!applicationsOpen ? (
+                <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">
+                  Vendor applications are closed
+                </div>
+              ) : event.availableVendorStands <= 0 ? (
+                <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">
+                  All stands taken
+                </div>
+              ) : vendorApproved ? (
+                <Link
+                  to={`/vendor/events/${event.id}/apply`}
+                  className="flex h-[21px] items-center justify-center rounded-md bg-[#111] text-[8px] font-bold text-white transition hover:bg-[#333]"
+                >
+                  Apply for a stand
+                </Link>
+              ) : (
+                <div className="rounded-md border border-[#ffe3a2] bg-[#fff9e8] p-2 text-[7px] leading-relaxed text-[#8a5a00]">
+                  <p>{vendorApprovalMessage}</p>
+                  <Link to="/vendor/profile" className="mt-1 inline-block font-bold underline">Business profile</Link>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function EventDetailTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-[#f7f7f7] px-2 py-1.5">
+      <p className="text-[6px] leading-[8px] text-[#777]">{label}</p>
+      <p className="mt-0.5 truncate text-[7px] font-semibold leading-[9px] text-[#333]">{value}</p>
     </div>
   );
 }

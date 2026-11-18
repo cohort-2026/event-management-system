@@ -3,8 +3,9 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
 import AdminLayout from '@/components/layout/AdminLayout';
-import Spinner from '@/components/ui/Spinner';
+import Spinner from '@/components/legacy/Spinner';
 import Navbar from '@/components/layout/Navbar';
+import { Toaster } from '@/components/ui/sonner';
 import type { UserRole } from '@/types/user';
 
 // Auth
@@ -60,6 +61,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <NavbarVisibility />
+        <Toaster />
         <Routes>
 
           {/* ── Root: landing entry for guests, dashboard for signed-in users ── */}

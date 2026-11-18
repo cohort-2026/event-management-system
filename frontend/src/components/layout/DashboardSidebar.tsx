@@ -50,7 +50,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
         className={`shrink-0 self-start transition-[width,transform] duration-200 ${
           mobileOpen
             ? 'fixed inset-y-3 left-3 z-50 w-[min(290px,calc(100vw-1.5rem))] overflow-y-auto lg:sticky lg:inset-auto lg:top-20 lg:z-auto lg:w-[290px] lg:overflow-visible'
-            : 'block w-full lg:sticky lg:top-20 lg:block'
+            : 'hidden w-full lg:sticky lg:top-20 lg:block'
         } ${!mobileOpen && (collapsed ? 'lg:w-[76px]' : 'lg:w-[290px]')}`}
       >
         <div className={`min-h-full overflow-hidden rounded-[1.5rem] border shadow-xl ${
@@ -215,6 +215,7 @@ export function DashboardHeader({
   const { pathname } = useLocation();
   const initials = `${user?.firstname?.[0] ?? 'E'}${user?.lastname?.[0] ?? 'M'}`;
   const analyticsAppearance = appearance === 'analytics';
+  const navigation = useDashboardNavigation();
   const showOrganizerNotifications = user?.role === 'ORGANIZER' &&
     (pathname === '/organizer' || pathname.startsWith('/organizer/'));
   const hasActions = Boolean(actions);

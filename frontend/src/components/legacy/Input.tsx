@@ -31,7 +31,7 @@ export default function Input({ label, error, helperText, showPasswordToggle = f
           type={isPassword && showPassword ? 'text' : type}
           aria-invalid={error ? true : props['aria-invalid']}
           aria-describedby={describedBy}
-          className={`block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400
+          className={`block w-full min-w-0 max-w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400
             shadow-xs transition-colors duration-150
             focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
             disabled:bg-neutral-50 disabled:text-neutral-400 disabled:cursor-not-allowed

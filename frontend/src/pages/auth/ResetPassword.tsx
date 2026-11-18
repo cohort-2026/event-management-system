@@ -5,8 +5,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import axios from "axios";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import Button from "@/components/legacy/Button";
+import Input from "@/components/legacy/Input";
 import { resetPassword, requestPasswordReset } from "@/services/authService";
 import { LockKeyhole } from "lucide-react";
 
