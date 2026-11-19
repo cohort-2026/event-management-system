@@ -3,6 +3,7 @@ import { useAuth } from '@/context/useAuth';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
+import vendorLogo from '@/assets/organizer-logo.png';
 
 const items = [
   { label: 'Overview', to: '/vendor', icon: <OverviewIcon /> },
@@ -161,11 +162,7 @@ function VendorAccount({ initials, subtitle }: { initials: string; subtitle?: st
 function Brand() {
   return (
     <div className="mb-5 flex items-center gap-2 px-1">
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#f0442d] text-white">
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v3m8-3v3M4 9h16M5 5h14a1 1 0 011 1v13H4V6a1 1 0 011-1z" />
-        </svg>
-      </div>
+      <img src={vendorLogo} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
       <div className="text-sm font-extrabold tracking-tight text-[#262626]">EventMS</div>
     </div>
   );
