@@ -925,6 +925,7 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
         include: {
           staffMembers: true,
           invoice: true,
+          event: { select: { id: true, title: true, date: true, venue: true } },
           vendor: {
             select: {
               id: true,
