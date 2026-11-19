@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/useAuth';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -16,6 +17,7 @@ export default function NotificationBell({
   compact?: boolean;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -138,7 +140,7 @@ export default function NotificationBell({
             role="dialog"
             aria-modal="true"
             aria-label="Notifications"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl"
+            className={`${user?.role === 'VENDOR' ? 'vendor-notification-panel ' : ''}max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl`}
           >
             <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
               <h2 className="text-sm font-bold text-neutral-900">Notifications</h2>

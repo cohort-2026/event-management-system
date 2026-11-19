@@ -89,7 +89,7 @@ export default function EventDetail() {
           <div role="alert" className="rounded-lg border border-[#e5e5e5] bg-white p-5 text-center">
             <p className="text-[9px] font-semibold text-[#333]">{error || 'Event not found.'}</p>
             <p className="mt-1 text-[8px] text-[#777]">Vendor applications are unavailable for this event.</p>
-            <Link to="/vendor/events" className="mt-3 inline-flex rounded-md bg-[#111] px-2.5 py-1.5 text-[8px] font-bold text-white">Back to find events</Link>
+            <Link to="/vendor/events" className="vendor-button mt-3 inline-flex rounded-md bg-[#111] px-2.5 py-1.5 text-[8px] font-bold text-white">Back to find events</Link>
           </div>
         </VendorEventLayout>
       );
@@ -669,7 +669,7 @@ function VendorEventContent({
         </div>
         <Link
           to="/vendor/events"
-          className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-[#dedede] bg-white px-2 text-[7px] font-semibold text-[#444] hover:bg-[#f5f5f5]"
+          className="vendor-button inline-flex min-h-9 shrink-0 items-center rounded-md border border-[#dedede] bg-white px-2 text-[7px] font-semibold text-[#444] hover:bg-[#f5f5f5]"
         >
           All events
         </Link>
@@ -746,7 +746,7 @@ function VendorEventContent({
               ) : vendorApproved ? (
                 <Link
                   to={`/vendor/events/${event.id}/apply`}
-                  className="flex min-h-10 items-center justify-center rounded-md bg-[#111] px-2 py-1 text-[8px] font-bold text-white transition hover:bg-[#333]"
+                  className="vendor-button flex min-h-10 items-center justify-center rounded-md bg-[#111] px-2 py-1 text-[8px] font-bold text-white transition hover:bg-[#333]"
                 >
                   Apply for a stand
                 </Link>

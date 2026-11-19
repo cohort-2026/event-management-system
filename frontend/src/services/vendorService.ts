@@ -47,7 +47,8 @@ export const downloadVendorReviewDocument = (id: string) =>
 export const applyForStand      = (data: CreateVendorApplicationDto)              => api.post<ApiResponse<VendorApplication>>('/vendors/apply', data);
 export const getVendorEvents    = (params?: { search?: string; category?: string; location?: string; page?: number; limit?: number }) =>
 	api.get<ApiResponse<VendorEvent[]>>('/vendors/events', { params });
-export const getMyApplications  = (params?: { page?: number; limit?: number })   => api.get<ApiResponse<VendorApplication[]>>('/vendors/applications/me', { params });
+export const getMyApplications  = (params?: { page?: number; limit?: number })   =>
+	api.get<ApiResponse<VendorApplication[]> & { pagination: { page: number; limit: number; total: number; totalPages: number } }>('/vendors/applications/me', { params });
 export const getVendorApplication = (id: string)                                 => api.get<ApiResponse<VendorApplication>>(`/vendors/applications/${encodeURIComponent(id)}`);
 export const getVendorInvoices  = (params?: { page?: number; limit?: number })   => api.get<ApiResponse<VendorInvoice[]>>('/vendors/invoices', { params });
 export const getVendorInvoice   = (id: string)                                   => api.get<ApiResponse<VendorInvoice>>(`/vendors/invoices/${encodeURIComponent(id)}`);

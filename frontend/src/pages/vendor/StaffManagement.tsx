@@ -125,7 +125,7 @@ export default function StaffManagement() {
                 <div className="rounded-lg border border-[#e5e5e5] bg-white p-6 text-center">
                   <h1 className="text-[13px] font-extrabold text-[#171717]">No approved stands yet</h1>
                   <p className="mt-1 text-[12px] text-[#777]">Staff passes will appear here after an organizer approves your stand application.</p>
-                  <Link to="/vendor/applications" className="mt-3 inline-flex rounded-md bg-[#f15a2a] px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-[#e24d1f]">
+                  <Link to="/vendor/applications" className="vendor-button mt-3 inline-flex rounded-md bg-[#f15a2a] px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-[#e24d1f]">
                     View my applications
                   </Link>
                 </div>
@@ -315,7 +315,7 @@ function StaffPassCard({
       <div className="mt-1 grid grid-cols-2 gap-1">
         <a
           href={emailHref}
-          className="rounded border border-[#d8d8d8] bg-white px-1 py-1 text-center text-[10px] font-medium text-[#444] hover:bg-slate-50"
+          className="vendor-button rounded border border-[#d8d8d8] bg-white px-1 py-1 text-center text-[10px] font-medium text-[#444] hover:bg-slate-50"
         >
           Email pass
         </a>
@@ -355,7 +355,7 @@ function OtherApplication({ application }: { application: VendorApplication }) {
       </div>
       <Link
         to={paid ? `/vendor/applications/${application.id}/staff` : '/vendor/applications'}
-        className="shrink-0 rounded border border-[#d8d8d8] bg-white px-1.5 py-1 text-[10px] font-medium text-[#444] hover:bg-slate-50"
+        className="vendor-button shrink-0 rounded border border-[#d8d8d8] bg-white px-1.5 py-1 text-[10px] font-medium text-[#444] hover:bg-slate-50"
       >
         {paid ? 'View passes' : 'View invoice'}
       </Link>

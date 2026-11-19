@@ -406,8 +406,8 @@ export default function ApplyForStand() {
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}
                         {message && <p role="status" className="text-[8px] font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
                         <div className="flex justify-end gap-1.5">
-                          <Link to="/vendor/events" className="inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
-                          <Button type="submit" className="!min-h-10 !rounded !px-3 !text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
+                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
+                          <Button type="submit" className="!min-h-10 !rounded !px-3 text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
                             Send application
                           </Button>
                         </div>

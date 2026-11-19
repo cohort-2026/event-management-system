@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
@@ -24,26 +24,26 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
   };
 
   return (
-    <div className="vendor-sidebar w-full shrink-0 bg-white min-[1024px]:sticky min-[1024px]:top-0 min-[1024px]:h-screen min-[1024px]:w-[220px] min-[1024px]:self-start">
-      <aside className="hidden h-full flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-3 py-4 min-[1024px]:flex">
+    <div className="vendor-sidebar w-0 shrink-0 bg-white md:sticky md:top-0 md:h-screen md:w-56 md:self-start">
+      <aside className="hidden h-full flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-2 py-4 md:flex">
         <Brand />
-        <p className="mb-3 px-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#888]">Vendor</p>
-        <nav className="space-y-1.5" aria-label="Vendor navigation">
+        <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
+        <nav className="space-y-1" aria-label="Vendor navigation">
           {items.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/vendor' || item.to === '/vendor/applications'}
-              className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${
+              className={({ isActive }) => `vendor-sidebar-action flex w-full items-center justify-between gap-1 rounded-lg px-2 py-2 text-left text-xs font-semibold transition ${
                 isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
               }`}
             >
-              <span className="flex min-w-0 items-center gap-1">
+              <span className="flex min-w-0 items-center gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center">{item.icon}</span>
-                <span className="whitespace-nowrap text-[12px]">{item.label}</span>
+                <span className="whitespace-nowrap">{item.label}</span>
               </span>
               {item.to === '/vendor/applications' && (
-                <span className="rounded-full bg-[#ededed] px-2 py-1 text-[12px] font-bold leading-none text-[#555]">
+                <span className="rounded-full bg-[#ededed] px-1.5 py-1 text-xs font-bold leading-none text-[#555]">
                   {error ? '!' : count ?? '…'}
                 </span>
               )}
@@ -51,13 +51,13 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
           ))}
           {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" />}
         </nav>
-        {error && <p role="alert" className="mt-2 px-2 text-[12px] text-rose-700">{error}</p>}
+        {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
         <div className="mt-auto space-y-2">
           <VendorAccount initials={initials} subtitle={accountSubtitle} />
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-rose-200 px-3 text-left text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+            className="vendor-sidebar-action vendor-logout-button flex min-h-9 w-full items-center gap-2 rounded-lg border border-rose-200 px-2 text-left text-xs font-semibold text-rose-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
           >
             <LogoutIcon />
             Logout
@@ -71,42 +71,42 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
             type="button"
             aria-label="Close vendor navigation"
             onClick={navigation.closeMobile}
-            className="fixed inset-0 z-40 bg-slate-950/50 min-[1024px]:hidden"
+            className="vendor-drawer-backdrop fixed inset-0 z-40 bg-slate-950/50 md:hidden"
           />
-          <aside id="vendor-navigation-drawer" className="fixed inset-y-0 left-0 z-50 flex w-[min(280px,calc(100vw-2rem))] flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-3 py-4 shadow-xl min-[1024px]:hidden">
+          <aside id="vendor-navigation-drawer" className="fixed inset-y-0 left-0 z-50 flex w-[min(280px,calc(100vw-2rem))] flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-2 py-4 shadow-xl md:hidden">
             <Brand />
-            <p className="mb-3 px-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#888]">Vendor</p>
-            <nav className="space-y-1.5" aria-label="Vendor navigation">
+            <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
+            <nav className="space-y-1" aria-label="Vendor navigation">
               {items.map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.to === '/vendor' || item.to === '/vendor/applications'}
                   onClick={navigation.closeMobile}
-                  className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${
+                  className={({ isActive }) => `vendor-sidebar-action flex w-full items-center justify-between gap-1 rounded-lg px-2 py-2 text-left text-xs font-semibold transition ${
                     isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
                   }`}
                 >
-                  <span className="flex min-w-0 items-center gap-1">
+                  <span className="flex min-w-0 items-center gap-2">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center">{item.icon}</span>
-                    <span className="whitespace-nowrap text-[12px]">{item.label}</span>
+                    <span className="whitespace-nowrap">{item.label}</span>
                   </span>
                   {item.to === '/vendor/applications' && (
-                    <span className="rounded-full bg-[#ededed] px-2 py-1 text-[12px] font-bold leading-none text-[#555]">
-                      {error ? '!' : count ?? 'â€¦'}
+                    <span className="rounded-full bg-[#ededed] px-1.5 py-1 text-xs font-bold leading-none text-[#555]">
+                      {error ? '!' : count ?? '…'}
                     </span>
                   )}
                 </NavLink>
               ))}
               {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" />}
             </nav>
-            {error && <p role="alert" className="mt-2 px-2 text-[12px] text-rose-700">{error}</p>}
+            {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
             <div className="mt-auto space-y-2 pt-4">
               <VendorAccount initials={initials} subtitle={accountSubtitle} />
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-rose-200 px-3 text-left text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
+                className="vendor-sidebar-action vendor-logout-button flex min-h-9 w-full items-center gap-2 rounded-lg border border-rose-200 px-2 text-left text-xs font-semibold text-rose-700 transition"
               >
                 <LogoutIcon />
                 Logout
@@ -116,35 +116,6 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
         </>
       )}
 
-      <nav className="hidden" aria-label="Vendor navigation">
-        {items.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/vendor' || item.to === '/vendor/applications'}
-            className={({ isActive }) => `flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-[12px] font-semibold transition ${
-              isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
-            }`}
-          >
-            <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span>
-            <span className="min-w-0 text-[12px] leading-tight">{item.label}</span>
-            {item.to === '/vendor/applications' && (
-              <span className="rounded-full bg-[#ededed] px-1.5 py-0.5 text-[12px] font-bold text-[#555]">
-                {error ? '!' : count ?? '…'}
-              </span>
-            )}
-          </NavLink>
-        ))}
-        {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" compact />}
-        <button
-          type="button"
-          onClick={() => void handleLogout()}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-rose-200 px-2 py-2 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
-        >
-          <LogoutIcon />
-          Logout
-        </button>
-      </nav>
     </div>
   );
 }
@@ -159,7 +130,7 @@ export function VendorMenuButton() {
       aria-controls="vendor-navigation-drawer"
       aria-expanded={navigation?.mobileOpen ?? false}
       onClick={navigation?.toggle}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e5e5e5] text-[#444] hover:bg-[#f5f5f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d15d2d] min-[1024px]:hidden"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e5e5e5] text-[#444] hover:bg-[#f5f5f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d15d2d] md:hidden"
     >
       <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M4 6h16M4 12h16M4 18h16" />
@@ -170,31 +141,32 @@ export function VendorMenuButton() {
 
 function VendorAccount({ initials, subtitle }: { initials: string; subtitle?: string }) {
   const { user } = useAuth();
+  const navigation = useDashboardNavigation();
 
   return (
-    <div className="mt-auto rounded-lg border border-[#e7e7e7] bg-white p-2">
+    <Link to="/vendor/profile" onClick={navigation?.closeMobile} className="vendor-sidebar-action block rounded-lg border border-[#e7e7e7] bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f97316] text-[12px] font-bold text-white">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f97316] text-xs font-bold text-white">
           {initials || 'V'}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[12px] font-bold leading-tight text-[#222]">{user ? `${user.firstname} ${user.lastname}` : 'Vendor'}</p>
-          <p className="truncate text-[12px] leading-tight text-[#888]">{subtitle ?? user?.email}</p>
+          <p className="vendor-account-name truncate text-xs font-bold leading-tight text-[#222]">{user ? `${user.firstname} ${user.lastname}` : 'Vendor'}</p>
+          <p className="vendor-account-subtitle truncate text-[11px] leading-tight text-[#888]">{subtitle ?? user?.email}</p>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
 function Brand() {
   return (
-    <div className="mb-5 flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f0442d] text-white">
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="2">
+    <div className="mb-5 flex items-center gap-2 px-1">
+      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#f0442d] text-white">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v3m8-3v3M4 9h16M5 5h14a1 1 0 011 1v13H4V6a1 1 0 011-1z" />
         </svg>
       </div>
-      <div className="text-[16px] font-extrabold tracking-tight text-[#262626]">EventMS</div>
+      <div className="text-sm font-extrabold tracking-tight text-[#262626]">EventMS</div>
     </div>
   );
 }

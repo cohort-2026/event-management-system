@@ -125,7 +125,7 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
                 <option value="name">Name or keyword</option>
                 <option value="location">Location</option>
               </select>
-              {searchBy !== 'all' && <Input id="event-search" aria-label={searchBy === 'location' ? 'Search by location' : 'Search by name or keyword'} placeholder={searchBy === 'location' ? 'Enter a venue or city' : 'Enter a name or keyword'} value={search} onChange={event => setSearch(event.target.value)} className="!h-10 !min-w-0 !rounded-lg !border-neutral-200 !bg-neutral-50 !px-3 !py-2 !text-sm focus:!border-rose-400 focus:!bg-white focus:!ring-4 focus:!ring-rose-100" />}
+              {searchBy !== 'all' && <Input id="event-search" aria-label={searchBy === 'location' ? 'Search by location' : 'Search by name or keyword'} placeholder={searchBy === 'location' ? 'Enter a venue or city' : 'Enter a name or keyword'} value={search} onChange={event => setSearch(event.target.value)} className="!h-10 !min-w-0 !rounded-lg !border-neutral-200 !bg-neutral-50 !px-3 !py-2 text-sm focus:!border-rose-400 focus:!bg-white focus:!ring-4 focus:!ring-rose-100" />}
             </div>
           </div>
           <label className="block text-xs font-semibold text-neutral-700">Category
