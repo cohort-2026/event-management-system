@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Spinner from '@/components/legacy/Spinner';
 import { getEventRegistrations, getMyEvents, type EventRegistration } from '@/services/eventService';
 import type { Event, EventStatus } from '@/types/event';
 

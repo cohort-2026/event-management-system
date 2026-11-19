@@ -7,10 +7,10 @@ import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 import OrganizerNotificationInbox from '@/components/layout/OrganizerNotificationInbox';
-import StatCard from '@/components/ui/StatCard';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
+import StatCard from '@/components/app/StatCard';
+import Badge from '@/components/legacy/Badge';
+import Button from '@/components/legacy/Button';
+import Spinner from '@/components/legacy/Spinner';
 import { cancelEvent, completeEvent, getEventRegistrations, getMyEvents, publishEvent } from '@/services/eventService';
 import { getEventApplications } from '@/services/vendorService';
 import { getOrganizerProfile } from '@/services/organizerService';
@@ -18,7 +18,7 @@ import type { OrganizerProfile } from '@/services/organizerService';
 import type { Event, EventStatus } from '@/types/event';
 import type { EventRegistration } from '@/services/eventService';
 import type { VendorApplication } from '@/types/vendor';
-import type { BadgeVariant } from '@/components/ui/Badge';
+import type { BadgeVariant } from '@/components/legacy/Badge';
 
 const statusVariant: Record<EventStatus, BadgeVariant> = {
   PUBLISHED: 'success',

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Modal from '@/components/ui/Modal';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
+import Modal from '@/components/legacy/Modal';
+import Spinner from '@/components/legacy/Spinner';
 import NotificationBell from '@/components/layout/NotificationBell';
 import {
   approveOrganizerProfile,

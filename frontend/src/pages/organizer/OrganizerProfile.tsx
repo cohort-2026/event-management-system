@@ -3,8 +3,8 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
 import type { ApiError } from '@/types/api';
 import {
   getOrganizerProfile,

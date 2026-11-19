@@ -4,7 +4,7 @@ import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
-import Spinner from '@/components/ui/Spinner';
+import Spinner from '@/components/legacy/Spinner';
 import { getEventRegistrations } from '@/services/eventService';
 import type { EventRegistration } from '@/services/eventService';
 

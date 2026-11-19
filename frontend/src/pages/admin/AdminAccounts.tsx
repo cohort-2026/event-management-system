@@ -1,11 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
+import Badge from '@/components/legacy/Badge';
+import Spinner from '@/components/legacy/Spinner';
 import { createManagedAdmin, getManagedAdmins, updateManagedAdminStatus, type ManagedAdmin } from '@/services/adminService';
 
 export default function AdminAccounts() {
@@ -84,9 +84,9 @@ export default function AdminAccounts() {
               </div>
               <form onSubmit={handleCreateAdmin}>
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="First name" autoComplete="given-name" value={admin.firstname} onChange={event => setAdmin({ ...admin, firstname: event.target.value })} required />
-                  <Input label="Last name" autoComplete="family-name" value={admin.lastname} onChange={event => setAdmin({ ...admin, lastname: event.target.value })} required />
-                  <Input label="Email address" type="email" autoComplete="email" value={admin.email} onChange={event => setAdmin({ ...admin, email: event.target.value })} required />
+                  <Input label="First name" autoComplete="given-name" value={admin.firstname} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, firstname: event.target.value })} required />
+                  <Input label="Last name" autoComplete="family-name" value={admin.lastname} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, lastname: event.target.value })} required />
+                  <Input label="Email address" type="email" autoComplete="email" value={admin.email} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, email: event.target.value })} required />
                 </div>
                 <p className="mt-3 text-xs text-neutral-500">A temporary password will be emailed. The new administrator must replace it at first sign-in.</p>
                 <div className="mt-5 flex justify-end">

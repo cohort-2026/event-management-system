@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Modal from '@/components/ui/Modal';
+import Modal from '@/components/legacy/Modal';
 
 const sidebarItems = [
   { label: 'Dashboard', active: false },

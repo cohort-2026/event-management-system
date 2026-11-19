@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import AuthCard from '@/components/auth/AuthCard';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
 import { setupOrganizerPassword } from '@/services/organizerService';
 import { ShieldCheck } from 'lucide-react';
 

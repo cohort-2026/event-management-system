@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -101,6 +101,7 @@ export default function EventDetail() {
     : 0;
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
+  const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
 
   return (
     <PageWrapper>
@@ -175,7 +176,7 @@ export default function EventDetail() {
                 </li>
               ))}
             </ul>
-          </section>
+          </section>}
         </div>
 
         <aside>
@@ -191,17 +192,10 @@ export default function EventDetail() {
               applicationsOpen ? (
                 event.availableVendorStands <= 0 ? (
                   <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700">All vendor stands have been allocated.</div>
-                ) : vendorApproved ? (
-                  <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
                 ) : !user ? (
                   <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
-                ) : user.role !== 'VENDOR' ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">A vendor account is required to apply for a stand.</div>
                 ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
-                    <p>{vendorApprovalMessage}</p>
-                    <Link to="/vendor/profile" className="mt-2 inline-block font-semibold underline">View business profile</Link>
-                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">A vendor account is required to apply for a stand.</div>
                 )
               ) : (
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm font-medium text-neutral-600">Vendor applications are closed</div>

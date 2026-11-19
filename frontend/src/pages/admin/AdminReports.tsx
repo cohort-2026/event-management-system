@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import NotificationBell from '@/components/layout/NotificationBell';
-import Spinner from '@/components/ui/Spinner';
+import Spinner from '@/components/legacy/Spinner';
 import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
 import { getAdminEventAnalytics, getEvents } from '@/services/eventService';
 import type { AdminEventAnalytics } from '@/services/eventService';
