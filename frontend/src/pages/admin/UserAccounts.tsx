@@ -1,40 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from '@/components/legacy/Modal';
+import { getUsers } from '@/services/userService';
+import type { User, UserRole } from '@/types/user';
 
+type Person = { id: string; name: string; email: string; role: string; org: string; status: string; lastActive: string; initials: string; tone: string };
 const sidebarItems = [
-  { label: 'Dashboard', active: false },
-  { label: 'Event approvals', active: false, count: 3 },
-  { label: 'Organisers', active: false, count: 2 },
-  { label: 'Vendors', active: false, count: 1 },
-  { label: 'People', active: true },
-  { label: 'Reports', active: false },
-  { label: 'Audit history', active: false },
-  { label: 'Notifications', active: false },
+  { label: 'Dashboard', active: false }, { label: 'Event approvals', active: false },
+  { label: 'Organisers', active: false }, { label: 'Vendors', active: false },
+  { label: 'People', active: true }, { label: 'Reports', active: false }, { label: 'Audit history', active: false },
 ];
-
-const people = [
-  { name: 'Lerato Mokoena', email: 'lerato@jozidev.co.za', role: 'Organizer', org: 'Jozi Collective', status: 'Active', lastActive: 'Today', initials: 'LM', tone: 'bg-[#d7e8f8] text-[#2c4d7a]' },
-  { name: 'Karabo Dube', email: 'karabo@dube', role: 'Vendor', org: 'CloudVeld', status: 'Active', lastActive: '2 days ago', initials: 'KD', tone: 'bg-[#d9e8ff] text-[#214d7d]' },
-  { name: 'Test Org 2', email: 'test@east.com', role: 'Organizer', org: 'Test Org 2', status: 'Deactivated', lastActive: '6 Nov', initials: 'TO', tone: 'bg-[#f0f0f0] text-[#404b5a]' },
-];
-
-const roleTabs = [
+const accountRoles: Array<{ label: string; role: UserRole | null }> = [
   { label: 'All roles', role: null },
-  { label: 'Attendees 181', role: 'Attendee' },
-  { label: 'Organisers 12', role: 'Organizer' },
-  { label: 'Vendors 24', role: 'Vendor' },
-  { label: 'Admins 4', role: 'Admin' },
+  { label: 'Attendees', role: 'ATTENDEE' },
+  { label: 'Organisers', role: 'ORGANIZER' },
+  { label: 'Vendors', role: 'VENDOR' },
+  { label: 'Admins', role: 'ADMIN' },
 ];
+const toRoleLabel = (role: UserRole) => ({ ATTENDEE: 'Attendee', ORGANIZER: 'Organizer', VENDOR: 'Vendor', ADMIN: 'Admin' })[role];
+
+const toPerson = (user: User): Person => ({
+  id: user.id,
+  name: `${user.firstname} ${user.lastname}`.trim(),
+  email: user.email,
+  role: ({ ATTENDEE: 'Attendee', ORGANIZER: 'Organizer', VENDOR: 'Vendor', ADMIN: 'Admin' })[user.role],
+  org: user.organizationName || '—',
+  status: user.isActive === false ? 'Deactivated' : 'Active',
+  lastActive: new Date(user.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }),
+  initials: `${user.firstname[0] ?? ''}${user.lastname[0] ?? ''}`.toUpperCase() || 'U',
+  tone: user.isActive === false ? 'bg-[#f0f0f0] text-[#404b5a]' : 'bg-[#d7e8f8] text-[#2c4d7a]',
+});
 
 export default function UserAccounts() {
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [search, setSearch] = useState('');
   const [openMenuEmail, setOpenMenuEmail] = useState<string | null>(null);
-  const [viewingPerson, setViewingPerson] = useState<(typeof people)[number] | null>(null);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [viewingPerson, setViewingPerson] = useState<Person | null>(null);
+  useEffect(() => {
+    let active = true;
+    getUsers().then(response => {
+      if (active) setPeople(response.data.data.map(toPerson));
+    }).catch(() => {
+      if (active) setError('Accounts could not be loaded. Please try again.');
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+  const roleCounts = useMemo(() => Object.fromEntries(accountRoles.map(tab => [
+    tab.role ?? 'ALL', tab.role ? people.filter(person => person.role === toRoleLabel(tab.role!)).length : people.length,
+  ])), [people]);
   const filteredPeople = people.filter((person) => {
-    const matchesRole = selectedRole === null || person.role === selectedRole;
+    const matchesRole = selectedRole === null || person.role === toRoleLabel(selectedRole);
     const query = search.trim().toLowerCase();
     const matchesSearch = !query || person.name.toLowerCase().includes(query) || person.email.toLowerCase().includes(query);
     return matchesRole && matchesSearch;
@@ -73,11 +94,6 @@ export default function UserAccounts() {
                   </span>
                   <span className="font-medium">{item.label}</span>
                 </span>
-                {item.count ? (
-                  <span className="min-w-[18px] rounded-full bg-[#f7dfe4] px-1.5 py-0.5 text-center text-[11px] font-bold text-[#d14d74]">
-                    {item.count}
-                  </span>
-                ) : null}
               </button>
             ))}
           </nav>
@@ -102,8 +118,8 @@ export default function UserAccounts() {
                   <SearchIcon />
                 </span>
                 <input
-                  value=""
-                  readOnly
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
                   placeholder="Search events, people..."
                   className="h-10 w-full rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
                 />
@@ -117,7 +133,7 @@ export default function UserAccounts() {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-[33px] font-extrabold tracking-[-0.06em] text-[#1f2937]">People</h1>
-              <div className="mt-1 text-[14px] text-[#5f6b7a]">1 046 accounts</div>
+              <div className="mt-1 text-[14px] text-[#5f6b7a]">{people.length.toLocaleString('en-ZA')} accounts</div>
             </div>
           </div>
 
@@ -135,7 +151,7 @@ export default function UserAccounts() {
               />
             </div>
             <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 sm:flex-1">
-              {roleTabs.map((tab) => (
+                  {accountRoles.map((tab) => (
                 <button
                   key={tab.label}
                   type="button"
@@ -144,8 +160,8 @@ export default function UserAccounts() {
                   className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
                     selectedRole === tab.role ? 'bg-[#1f2937] text-white' : 'text-[#526071] hover:bg-white hover:text-[#1f2937]'
                   }`}
-                >
-                  {tab.label}
+                  >
+                  {tab.label}{' '}{roleCounts[tab.role ?? 'ALL'] ?? 0}
                 </button>
               ))}
             </div>
@@ -157,13 +173,13 @@ export default function UserAccounts() {
               <div>Role</div>
               <div>Organisation</div>
               <div>Status</div>
-              <div>Last active</div>
+              <div>Created</div>
               <div />
             </div>
 
             <div className="hidden divide-y divide-[#e5e7eb] xl:block">
               {filteredPeople.map((person) => (
-                <div key={person.email} className="grid grid-cols-[minmax(180px,1.6fr)_minmax(90px,1.1fr)_minmax(110px,1.2fr)_minmax(90px,0.9fr)_minmax(80px,0.7fr)_36px] items-center gap-3 px-4 py-3 text-[13px] text-[#1f2937]">
+                <div key={person.id} className="grid grid-cols-[minmax(180px,1.6fr)_minmax(90px,1.1fr)_minmax(110px,1.2fr)_minmax(90px,0.9fr)_minmax(80px,0.7fr)_36px] items-center gap-3 px-4 py-3 text-[13px] text-[#1f2937]">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold ${person.tone}`}>
                       {person.initials}
@@ -195,13 +211,15 @@ export default function UserAccounts() {
                   </div>
                 </div>
               ))}
-              {filteredPeople.length === 0 && (
+              {loading ? <p className="px-4 py-8 text-center text-sm text-[#6b7280]">Loading accounts…</p> : null}
+              {error && <p role="alert" className="px-4 py-8 text-center text-sm text-rose-700">{error}</p>}
+              {!loading && !error && filteredPeople.length === 0 && (
                 <p className="px-4 py-8 text-center text-sm text-[#6b7280]">No people match the selected filters.</p>
               )}
             </div>
             <div className="divide-y divide-[#e5e7eb] xl:hidden">
               {filteredPeople.map((person) => (
-                <article key={person.email} className="min-w-0 p-4">
+                <article key={person.id} className="min-w-0 p-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${person.tone}`}>
                       {person.initials}
@@ -227,11 +245,13 @@ export default function UserAccounts() {
                     <div><dt className="text-[#6b7280]">Status</dt><dd className="mt-1"><span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${
                       person.status === 'Active' ? 'bg-[#dff6ed] text-[#1a8c72]' : person.status === 'Invited' ? 'bg-[#dff3ff] text-[#0f6a94]' : person.status === 'Deactivated' ? 'bg-[#f6dfe1] text-[#a1394d]' : 'bg-[#f0f1f4] text-[#5f6b7a]'
                     }`}>{person.status}</span></dd></div>
-                    <div><dt className="text-[#6b7280]">Last active</dt><dd className="mt-0.5 text-[#1f2937]">{person.lastActive}</dd></div>
+                    <div><dt className="text-[#6b7280]">Created</dt><dd className="mt-0.5 text-[#1f2937]">{person.lastActive}</dd></div>
                   </dl>
                 </article>
               ))}
-              {filteredPeople.length === 0 && (
+              {loading ? <p className="px-4 py-8 text-center text-sm text-[#6b7280]">Loading accounts…</p> : null}
+              {error && <p role="alert" className="px-4 py-8 text-center text-sm text-rose-700">{error}</p>}
+              {!loading && !error && filteredPeople.length === 0 && (
                 <p className="px-4 py-8 text-center text-sm text-[#6b7280]">No people match the selected filters.</p>
               )}
             </div>
@@ -255,7 +275,7 @@ export default function UserAccounts() {
               <PersonInfo label="Role" value={viewingPerson.role} />
               <PersonInfo label="Organisation" value={viewingPerson.org} />
               <PersonInfo label="Account status" value={viewingPerson.status} />
-              <PersonInfo label="Last active" value={viewingPerson.lastActive} />
+              <PersonInfo label="Created" value={viewingPerson.lastActive} />
               <PersonInfo label="Initials" value={viewingPerson.initials} />
             </dl>
           </div>

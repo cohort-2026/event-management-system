@@ -139,7 +139,7 @@ export default function AdminReports() {
 
       <div role="tablist" aria-label="Report type" className="mb-5 flex gap-2 overflow-x-auto rounded-xl border border-[#e5e7eb] bg-[#f2f3f2] p-1 print:hidden">
         {reportTabs.map(tab => (
-          <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${activeTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70'}`}>
+          <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-black ${activeTab === tab ? 'bg-[#e6e7e8] shadow-sm' : 'hover:bg-white/70'}`}>
             {tab === 'Organisers' ? 'Organisers' : tab === 'Audit' ? 'User activity & audit' : tab}
           </button>
         ))}

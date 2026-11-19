@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { getEvents } from '@/services/eventService';
 import { getUsers } from '@/services/userService';
-import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
+import { getAdminAuditHistory, getAdminDashboardOverview, type AdminAuditEvent, type AdminDashboardOverview } from '@/services/adminService';
+import { useAuth } from '@/context/useAuth';
 import type { Event } from '@/types/event';
 import type { User } from '@/types/user';
 
@@ -19,22 +20,25 @@ type RecentAuditEvent = AdminAuditEvent & { affectedUserName?: string };
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
   const [recentActivity, setRecentActivity] = useState<RecentAuditEvent[]>([]);
+  const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
   const [activeItem, setActiveItem] = useState('Dashboard');
   const [showAwaitingMenu, setShowAwaitingMenu] = useState(true);
+  const review = overview?.review;
   const statCards = [
-    { title: 'Events to review', value: '3', sub: 'Oldest waiting 1 day 4 h', link: 'Open queue →', to: '/admin/approvals' },
-    { title: 'Organisers to vet', value: '2', sub: 'Oldest waiting 6 h', link: 'Review →', to: '/admin/users/organizers/pending' },
-    { title: 'Vendors to vet', value: '1', sub: 'Oldest waiting 2 h', link: 'Review →', to: '/admin/users/vendors/pending' },
+    { title: 'Events to review', count: review?.events.count, oldest: review?.events.oldestWaitingHours, link: 'Open queue →', to: '/admin/approvals' },
+    { title: 'Organisers to vet', count: review?.organizers.count, oldest: review?.organizers.oldestWaitingHours, link: 'Review →', to: '/admin/users/organizers/pending' },
+    { title: 'Vendors to vet', count: review?.vendors.count, oldest: review?.vendors.oldestWaitingHours, link: 'Review →', to: '/admin/users/vendors/pending' },
   ];
   const summaryStats = [
-    { label: 'Upcoming published events', value: '14' },
-    { label: 'Bookings this week', value: '612' },
-    { label: 'Attendance, last 30 days', value: '79%' },
+    { label: 'Upcoming published events', value: overview?.reports.upcomingPublishedEvents },
+    { label: 'Bookings this week', value: overview?.reports.bookingsThisWeek },
+    { label: 'Attendance, last 30 days', value: overview ? `${overview.reports.attendanceLast30Days}%` : undefined },
   ];
   const reviewItems = [
     { label: 'Dashboard', active: true, count: 0 },
@@ -49,7 +53,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([getAdminAuditHistory(), getUsers()]).then(([auditResult, usersResult]) => {
+    Promise.allSettled([getAdminAuditHistory(), getUsers(), getAdminDashboardOverview()]).then(([auditResult, usersResult, overviewResult]) => {
+      if (active && overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
       if (!active || auditResult.status !== 'fulfilled') return;
       const users = usersResult.status === 'fulfilled' ? usersResult.value.data.data : [];
       const userNames = new Map(users.map(user => [user.id, `${user.firstname} ${user.lastname}`]));
@@ -238,8 +243,8 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mb-5">
-              <h1 className="text-[31px] font-extrabold tracking-[-0.05em] text-[#1f2937]">Good morning, Johan</h1>
-              <p className="mt-1 text-[14px] text-[#6b7280]">6 items are waiting for a decision.</p>
+              <h1 className="text-[31px] font-extrabold tracking-[-0.05em] text-[#1f2937]">Good morning, {user?.firstname || 'Admin'}</h1>
+              <p className="mt-1 text-[14px] text-[#6b7280]">{overview ? `${statCards.reduce((total, card) => total + (card.count ?? 0), 0)} items are waiting for a decision.` : 'Loading review queue…'}</p>
             </div>
 
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -251,8 +256,8 @@ export default function AdminDashboard() {
                       {index === 0 ? <ListIcon /> : <UsersIcon />}
                     </span>
                   </div>
-                  <div className="text-[32px] font-extrabold tracking-[-0.04em] text-[#111827]">{card.value}</div>
-                  <div className="mt-1 text-[12px] text-[#6b7280]">{card.sub}</div>
+                  <div className="text-[32px] font-extrabold tracking-[-0.04em] text-[#111827]">{card.count ?? '—'}</div>
+                  <div className="mt-1 text-[12px] text-[#6b7280]">{card.oldest == null ? 'No items waiting' : `Oldest waiting ${formatWaiting(card.oldest)}`}</div>
                   <button type="button" onClick={() => navigate(card.to)} className="mt-3 text-[12px] font-semibold text-[#d14d74] hover:text-[#bf3158]">{card.link}</button>
                 </div>
               ))}
@@ -264,7 +269,7 @@ export default function AdminDashboard() {
                 {summaryStats.map(stat => (
                   <div key={stat.label} className="rounded-[12px] border border-[#e5e7eb] bg-white px-4 py-5">
                     <div className="text-[12px] font-medium text-[#697482]">{stat.label}</div>
-                    <div className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-[#111827]">{stat.value}</div>
+                    <div className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-[#111827]">{stat.value ?? '—'}</div>
                   </div>
                 ))}
               </div>
@@ -323,6 +328,13 @@ function formatAuditAction(action: string) {
     ADMIN_ACCOUNT_STATUS_UPDATED: 'updated an admin account',
   };
   return labels[action] ?? action.toLowerCase().replaceAll('_', ' ');
+}
+
+function formatWaiting(hours: number) {
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours ? `${days} day${days === 1 ? '' : 's'} ${remainingHours} h` : `${days} day${days === 1 ? '' : 's'}`;
 }
 
 function HomeIcon() {

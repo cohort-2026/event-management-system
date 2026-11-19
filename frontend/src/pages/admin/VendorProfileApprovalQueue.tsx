@@ -238,7 +238,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
             role="tab"
             aria-selected={selectedTab === tab}
             onClick={() => { setSelectedTab(tab); setSelectedProfileId(null); setSearch(''); setError(''); setNotice(''); }}
-            className={`flex shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-medium transition-colors ${selectedTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'}`}
+            className={`flex shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-bold transition-colors ${selectedTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'}`}
           >
             {tab}
             {tab !== 'Inactive' && <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-[#374151]">{tabCounts[tab]}</span>}
@@ -320,7 +320,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 
                 {selectedProfile.status === 'PENDING_REVIEW' && (
                   <div className="flex flex-wrap items-center gap-3 border-t border-[#eef0f3] pt-5">
-                    <Button type="button" size="md" variant="ghost" loading={approvingId === selectedProfile.id} disabled={Boolean(approvingId || rejectingId)} onClick={() => void approveProfile(selectedProfile)} className="rounded-lg bg-black font-bold text-white shadow-sm hover:bg-neutral-800 hover:text-white focus-visible:ring-black">
+                    <Button type="button" size="md" variant="brand" loading={approvingId === selectedProfile.id} disabled={Boolean(approvingId || rejectingId)} onClick={() => void approveProfile(selectedProfile)} className="coral-action rounded-lg font-bold shadow-sm">
                       Approve vendor
                     </Button>
                     <Button type="button" size="md" variant="secondary" disabled={Boolean(approvingId || rejectingId)} onClick={() => { setRejectionTarget(selectedProfile); setRejectionReason(''); setError(''); }} className="rounded-lg border border-[#dfe3ea] bg-white font-bold text-[#374151] hover:bg-[#f3f4f6]">

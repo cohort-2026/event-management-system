@@ -19,6 +19,19 @@ export interface AdminAuditEvent {
   actor: { firstname: string; lastname: string; email: string };
 }
 
+export interface AdminDashboardOverview {
+  review: {
+    events: { count: number; oldestWaitingHours: number | null };
+    organizers: { count: number; oldestWaitingHours: number | null };
+    vendors: { count: number; oldestWaitingHours: number | null };
+  };
+  reports: {
+    upcomingPublishedEvents: number;
+    bookingsThisWeek: number;
+    attendanceLast30Days: number;
+  };
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -31,3 +44,4 @@ export const createManagedAdmin = (data: { firstname: string; lastname: string; 
 export const updateManagedAdminStatus = (id: string, isActive: boolean) =>
   api.patch(`/platform-admin/admins/${encodeURIComponent(id)}/status`, { isActive });
 export const getAdminAuditHistory = () => api.get<ApiResponse<AdminAuditEvent[]>>('/platform-admin/audit-logs');
+export const getAdminDashboardOverview = () => api.get<ApiResponse<AdminDashboardOverview>>('/platform-admin/dashboard');

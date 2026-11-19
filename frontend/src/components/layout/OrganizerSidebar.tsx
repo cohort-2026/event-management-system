@@ -10,7 +10,7 @@ const items = [
   { label: 'Create event', to: '/organizer/events/new', path: 'M12 5v14M5 12h14' },
   { label: 'Reports', to: '/organizer/reports', path: 'M4 20h16M6 17v-5h3v5m3 0V7h3v10m3 0V4h3v13' },
   { label: 'Notifications', to: '/organizer/notifications', path: 'M18 8a6 6 0 0 0-12 0v5l-2 3h16l-2-3V8ZM10 19a2 2 0 0 0 4 0' },
-  { label: 'Profile Organization', to: '/organizer/profile', path: 'M4 5h16v15H4zM4 9h16M8 13h8m-8 3h5' },
+  { label: 'Organization Profile', to: '/organizer/profile', path: 'M4 5h16v15H4zM4 9h16M8 13h8m-8 3h5' },
 ];
 
 export default function OrganizerSidebar() {
@@ -55,7 +55,7 @@ export default function OrganizerSidebar() {
                   ? pathname === item.to || (pathname.startsWith(`${item.to}/`) && pathname !== '/organizer/events/new')
                   : pathname === item.to;
                 const classes = `organizer-nav-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  active ? 'bg-rose-50 font-semibold text-rose-700' : 'text-neutral-700'
+                  active ? 'bg-[#fff0f2] font-semibold text-[#f01446]' : 'text-neutral-700'
                 }`;
                 const icon = <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.7"><path strokeLinecap="round" strokeLinejoin="round" d={item.path} /></svg>;
                 return (
@@ -74,7 +74,7 @@ export default function OrganizerSidebar() {
                 <span className="block truncate text-[11px] text-neutral-500">{user?.organizationName || 'Organizer'}</span>
               </span>
             </Link>
-            <button type="button" onClick={() => void handleLogout()} className="organizer-nav-link organizer-logout w-full rounded-lg px-2 py-1 text-xs transition-colors" title="Logout">
+            <button type="button" onClick={() => void handleLogout()} className="organizer-logout coral-action w-full px-3 py-2 text-xs" title="Logout">
               Logout
             </button>
           </div>

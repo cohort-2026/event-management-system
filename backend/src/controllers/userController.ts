@@ -11,6 +11,8 @@ const USER_SAFE_SELECT = {
   isActive: true,
   emailVerified: true,
   createdAt: true,
+  organizationName: true,
+  profileApprovalStatus: true,
 } as const;
 
 const USER_DETAIL_SELECT = {

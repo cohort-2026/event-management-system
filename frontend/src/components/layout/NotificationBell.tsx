@@ -104,7 +104,7 @@ export default function NotificationBell({
         aria-expanded={open}
         onClick={() => setOpen(current => !current)}
         className={appearance === 'sidebar'
-          ? `relative flex shrink-0 items-center gap-1.5 rounded-md font-semibold transition hover:bg-slate-100 hover:text-slate-900 ${
+          ? `relative flex shrink-0 items-center gap-1.5 rounded-md font-bold transition hover:bg-slate-100 hover:text-slate-900 ${
             compact ? 'w-full px-2.5 py-2 text-[12px]' : 'w-full px-2.5 py-2.5 text-[12px]'
           } ${open ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444]'}`
           : appearance === 'header'

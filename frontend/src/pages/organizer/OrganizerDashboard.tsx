@@ -137,7 +137,7 @@ function BookingProgress({ event }: { event: Event }) {
         aria-valuenow={progress}
         className="h-2 overflow-hidden rounded-full bg-neutral-200"
       >
-        <div className="h-full rounded-full bg-gradient-to-r from-[#123456] to-orange-500" style={{ width: `${progress}%` }} />
+      <div className="h-full rounded-full bg-gradient-to-r from-[#f43f5e] to-[#e11d48]" style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -485,7 +485,7 @@ export default function OrganizerDashboard() {
               <OrganizerTopBar title="Overview" onSearch={() => setEventFilter('ALL')} />
               <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-700">Organizer</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Organizer</p>
                   <h1 className="mt-1 text-3xl font-black tracking-tight text-neutral-900 sm:text-4xl">Overview</h1>
                   <p className="mt-1 text-sm text-neutral-500">
                     Good {greeting}, {user?.firstname || 'there'}{user?.organizationName ? ` · ${user.organizationName}` : ' — here is the latest activity across your events.'}
@@ -515,58 +515,58 @@ export default function OrganizerDashboard() {
           {isNotificationsPage && (
             <div className="space-y-5">
               <OrganizerNotificationInbox />
-              <section className="organizer-notification-card overflow-hidden rounded-xl border border-black/20 text-[#15100e] shadow-sm" aria-labelledby="profile-activity-heading">
-                <h2 id="profile-activity-heading" className="border-b border-black/20 px-5 py-4 font-bold text-[#15100e]">Organization status</h2>
+              <section className="organizer-notification-card overflow-hidden rounded-xl border border-neutral-200 text-[#1b3653] shadow-sm" aria-labelledby="profile-activity-heading">
+                <h2 id="profile-activity-heading" className="border-b border-neutral-200 px-5 py-4 font-bold text-[#1b3653]">Organization status</h2>
                 <ProfileActivity />
               </section>
-              <section className="organizer-notification-card overflow-hidden rounded-xl border border-black/20 text-[#15100e] shadow-sm" aria-labelledby="event-activity-heading">
-                <h2 id="event-activity-heading" className="border-b border-black/20 px-5 py-4 font-bold text-[#15100e]">Needs attention</h2>
+              <section className="organizer-notification-card overflow-hidden rounded-xl border border-neutral-200 text-[#1b3653] shadow-sm" aria-labelledby="event-activity-heading">
+                <h2 id="event-activity-heading" className="border-b border-neutral-200 px-5 py-4 font-bold text-[#1b3653]">Needs attention</h2>
                 {loading || standRequestsLoading ? (
                   <p role="status" className="px-5 py-4 text-sm text-[#15100e]">Loading event activity…</p>
                 ) : (
                   <>
                     {standRequestsError && <p role="alert" className="px-5 py-4 text-sm font-semibold text-[#15100e]">{standRequestsError}</p>}
-                    <ul className="divide-y divide-black/20">
+                    <ul className="divide-y divide-neutral-200">
                       {pendingRequestsByEvent.map(({ event, applications }) => (
                         <li key={`requests-${event.id}`} className="px-5 py-4">
-                          <p className="font-semibold text-[#15100e]">{applications.length} pending stand {applications.length === 1 ? 'request' : 'requests'} for {event.title}</p>
-                          <Link to={`/organizer/events/${event.id}/vendors`} className="mt-2 inline-block text-sm font-semibold text-[#15100e] underline underline-offset-4">Review requests</Link>
+                          <p className="font-semibold text-[#1b3653]">{applications.length} pending stand {applications.length === 1 ? 'request' : 'requests'} for {event.title}</p>
+                          <Link to={`/organizer/events/${event.id}/vendors`} className="mt-2 inline-block text-sm font-semibold text-[#d61e42] underline underline-offset-4">Review requests</Link>
                         </li>
                       ))}
                       {attentionEvents.map(event => (
                         <li key={event.id} className="px-5 py-4">
-                          <p className="font-semibold text-[#15100e]">{event.title}</p>
-                          <p className="mt-1 text-sm text-[#15100e]">{event.status === 'DRAFT' ? 'This event is a draft.' : `This event ended ${formatDate(event.endTime)}.`}</p>
-                          <Link to={`/organizer/events/${event.id}`} className="mt-2 inline-block text-sm font-semibold text-[#15100e] underline underline-offset-4">View event</Link>
+                          <p className="font-semibold text-[#1b3653]">{event.title}</p>
+                          <p className="mt-1 text-sm text-[#5d7892]">{event.status === 'DRAFT' ? 'This event is a draft.' : `This event ended ${formatDate(event.endTime)}.`}</p>
+                          <Link to={`/organizer/events/${event.id}`} className="mt-2 inline-block text-sm font-semibold text-[#d61e42] underline underline-offset-4">View event</Link>
                         </li>
                       ))}
                     </ul>
                     {!error && !standRequestsError && pendingRequestsByEvent.length === 0 && attentionEvents.length === 0 && (
-                      <p className="px-5 py-4 text-sm text-[#15100e]">No event actions need your attention.</p>
+                      <p className="px-5 py-4 text-sm text-[#5d7892]">No event actions need your attention.</p>
                     )}
                   </>
                 )}
               </section>
-              <section className="organizer-notification-card overflow-hidden rounded-xl border border-black/20 text-[#15100e] shadow-sm" aria-labelledby="booking-activity-heading">
-                <div className="border-b border-black/20 px-5 py-4">
-                  <h2 id="booking-activity-heading" className="font-bold text-[#15100e]">Recent bookings</h2>
-                  <p className="mt-1 text-xs text-[#15100e]">Up to four recent registrations.</p>
+              <section className="organizer-notification-card overflow-hidden rounded-xl border border-neutral-200 text-[#1b3653] shadow-sm" aria-labelledby="booking-activity-heading">
+                <div className="border-b border-neutral-200 px-5 py-4">
+                  <h2 id="booking-activity-heading" className="font-bold text-[#1b3653]">Recent bookings</h2>
+                  <p className="mt-1 text-xs text-[#5d7892]">Up to four recent registrations.</p>
                 </div>
                 {loading || bookingsLoading ? (
                   <p role="status" className="px-5 py-4 text-sm text-[#15100e]">Loading bookings…</p>
                 ) : (
                   <>
                     {bookingsError && <p role="alert" className="px-5 py-4 text-sm font-semibold text-[#15100e]">{bookingsError}</p>}
-                    <ul className="divide-y divide-black/20">
+                    <ul className="divide-y divide-neutral-200">
                       {recentBookings.map(booking => (
                         <li key={booking.id} className="px-5 py-4">
-                          <p className="text-sm text-[#15100e]"><span className="font-semibold">{booking.attendee.firstname} {booking.attendee.lastname}</span> registered for {booking.eventTitle}</p>
-                          <p className="mt-1 text-xs text-[#15100e]">{formatRelativeTime(booking.createdAt)}</p>
-                          <Link to={`/organizer/events/${booking.eventId}/registrations`} className="mt-2 inline-block text-sm font-semibold text-[#15100e] underline underline-offset-4">View registrations</Link>
+                          <p className="text-sm text-[#1b3653]"><span className="font-semibold">{booking.attendee.firstname} {booking.attendee.lastname}</span> registered for {booking.eventTitle}</p>
+                          <p className="mt-1 text-xs text-[#5d7892]">{formatRelativeTime(booking.createdAt)}</p>
+                          <Link to={`/organizer/events/${booking.eventId}/registrations`} className="mt-2 inline-block text-sm font-semibold text-[#d61e42] underline underline-offset-4">View registrations</Link>
                         </li>
                       ))}
                     </ul>
-                    {!error && !bookingsError && recentBookings.length === 0 && <p className="px-5 py-4 text-sm text-[#15100e]">No recent bookings.</p>}
+                    {!error && !bookingsError && recentBookings.length === 0 && <p className="px-5 py-4 text-sm text-[#5d7892]">No recent bookings.</p>}
                   </>
                 )}
               </section>
@@ -588,21 +588,21 @@ export default function OrganizerDashboard() {
                       value={bookingsLoading || bookingsError ? '—' : bookingsThisMonth}
                       sub={bookingsError ? 'Could not load booking totals' : 'New registrations'}
                       icon={<TicketIcon />}
-                  color="emerald"
+                  color="brand"
                 />
                 <StatCard
                       label="Average capacity filled"
                       value={loading || totalCapacity === 0 ? '—' : `${averageCapacityFilled}%`}
                       sub="Booked places across your events"
                       icon={<ChartIcon />}
-                  color="amber"
+                  color="brand"
                 />
                 <StatCard
                       label="Stand requests"
                       value={standRequestsLoading || standRequestsError ? '—' : pendingRequests.length}
                       sub={standRequestsError ? 'Could not load request statuses' : 'Awaiting your review'}
                       icon={<StandIcon />}
-                  color="purple"
+                  color="brand"
                 />
               </div>
 
@@ -628,7 +628,7 @@ export default function OrganizerDashboard() {
                     <section className="dashboard-panel p-5 sm:p-6" aria-labelledby="next-event-heading">
                       <div className="mb-5 flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-700">Coming up</p>
+                          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Coming up</p>
                           <h2 id="next-event-heading" className="mt-1 text-lg font-bold text-neutral-900">Next event</h2>
                         </div>
                         <Link to="/organizer/events" className="text-xs font-semibold text-brand-700 underline-offset-4 hover:underline">
@@ -639,13 +639,13 @@ export default function OrganizerDashboard() {
                       {nextEvent ? (
                         <article className="overflow-hidden rounded-xl border border-neutral-200">
                           <div className="grid sm:grid-cols-[8rem_minmax(0,1fr)]">
-                            <div className="relative min-h-36 overflow-hidden bg-gradient-to-br from-[#123456] via-[#1e4970] to-orange-500 sm:min-h-full">
+                            <div className="relative min-h-36 overflow-hidden bg-gradient-to-br from-[#193653] via-[#335b7a] to-[#f43f5e] sm:min-h-full">
                               {nextEvent.bannerImageUrl && (
                                 <img src={nextEvent.bannerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
                               )}
-                              <div className="absolute inset-0 bg-gradient-to-br from-[#123456]/35 to-orange-500/25" />
+                              <div className="absolute inset-0 bg-gradient-to-br from-[#193653]/35 to-[#f43f5e]/25" />
                               <div className="absolute left-4 top-4 rounded-xl bg-white px-3 py-2 text-center shadow-md">
-                                <span className="block text-[10px] font-bold uppercase text-orange-700">
+                                <span className="block text-[10px] font-bold uppercase text-brand-700">
                                   {new Date(nextEvent.startTime).toLocaleDateString('en-ZA', { month: 'short' })}
                                 </span>
                                 <time dateTime={nextEvent.startTime} className="block text-2xl font-black leading-none text-slate-900">
@@ -694,7 +694,7 @@ export default function OrganizerDashboard() {
                     <section className="dashboard-panel p-5 sm:p-6" aria-labelledby="attention-heading">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">Next steps</p>
+                          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Next steps</p>
                           <h2 id="attention-heading" className="mt-1 text-lg font-bold text-neutral-900">Needs your attention</h2>
                         </div>
                         {!loading && !standRequestsLoading && !standRequestsError && (
@@ -867,7 +867,7 @@ export default function OrganizerDashboard() {
                     type="button"
                     aria-pressed={eventFilter === filter.value}
                     onClick={() => setEventFilter(filter.value)}
-                    className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                    className={`shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
                       eventFilter === filter.value
                         ? 'border-rose-600 bg-rose-50 text-rose-700'
                         : 'border-transparent text-neutral-700'
@@ -927,7 +927,7 @@ export default function OrganizerDashboard() {
                             <tr key={event.id} className="align-middle transition-colors">
                               <td className="px-5 py-3">
                                 <div className="flex min-w-64 items-center gap-3">
-                                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-rose-500 to-orange-400">
+                                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-rose-500 to-rose-600">
                                     {event.bannerImageUrl ? (
                                       <img src={event.bannerImageUrl} alt="" className="h-full w-full object-cover" />
                                     ) : (
@@ -962,7 +962,7 @@ export default function OrganizerDashboard() {
                                       className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200"
                                     >
                                       <div
-                                        className="h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-400"
+                                        className="h-full rounded-full bg-gradient-to-r from-rose-500 to-rose-600"
                                         style={{ width: `${event.capacity > 0 ? Math.min(100, (booked / event.capacity) * 100) : 0}%` }}
                                       />
                                     </div>

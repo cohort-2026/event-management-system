@@ -8,7 +8,7 @@ const items = [
   { label: 'Overview', to: '/vendor', icon: <OverviewIcon /> },
   { label: 'Find events', to: '/vendor/events', icon: <CalendarIcon /> },
   { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
-  { label: 'Staff passes', to: '/vendor/staff', icon: <UsersIcon /> },
+  { label: 'Staff members', to: '/vendor/staff', icon: <UsersIcon /> },
   { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
 ];
 
@@ -34,7 +34,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
               key={item.to}
               to={item.to}
               end={item.to === '/vendor' || item.to === '/vendor/applications'}
-              className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${
+              className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-bold transition ${
                 isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
               }`}
             >
@@ -57,7 +57,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-rose-200 px-3 text-left text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+            className="coral-action flex min-h-10 w-full items-center gap-2 px-3 text-left text-[12px] font-bold"
           >
             <LogoutIcon />
             Logout
@@ -83,7 +83,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
                   to={item.to}
                   end={item.to === '/vendor' || item.to === '/vendor/applications'}
                   onClick={navigation.closeMobile}
-                  className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${
+                  className={({ isActive }) => `flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-bold transition ${
                     isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
                   }`}
                 >
@@ -106,7 +106,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-rose-200 px-3 text-left text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
+                className="coral-action flex min-h-10 w-full items-center gap-2 px-3 text-left text-[12px] font-bold"
               >
                 <LogoutIcon />
                 Logout
@@ -122,7 +122,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
             key={item.to}
             to={item.to}
             end={item.to === '/vendor' || item.to === '/vendor/applications'}
-            className={({ isActive }) => `flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-[12px] font-semibold transition ${
+            className={({ isActive }) => `flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-[12px] font-bold transition ${
               isActive ? 'bg-[#fff0f1] text-[#e11d48]' : 'text-[#444] hover:bg-[#f5f5f5] hover:text-[#171717]'
             }`}
           >
@@ -139,7 +139,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-rose-200 px-2 py-2 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-50"
+          className="coral-action flex w-full items-center justify-center gap-2 px-2 py-2 text-[12px] font-bold"
         >
           <LogoutIcon />
           Logout

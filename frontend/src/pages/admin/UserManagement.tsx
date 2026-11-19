@@ -203,7 +203,7 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                 setSearch('');
                 setSelectedOrganizerId(null);
               }}
-              className={`flex shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-medium transition-colors ${
+              className={`flex shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-bold transition-colors ${
                 selectedTab === tab ? 'bg-[#e6e7e8] text-[#1f2937] shadow-sm' : 'text-[#65707d] hover:bg-white/70 hover:text-[#1f2937]'
               }`}
             >
@@ -315,9 +315,9 @@ export default function UserManagement({ profileStatus }: { profileStatus?: Prof
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="brand"
                       size="sm"
-                      className="min-h-10 whitespace-nowrap rounded-lg bg-black px-4 text-sm font-bold leading-5 text-white shadow-sm hover:bg-neutral-500 focus-visible:ring-black"
+                      className="coral-action min-h-10 whitespace-nowrap rounded-lg px-4 text-sm font-bold leading-5 shadow-sm"
                       loading={approvingId === selectedOrganizer.id}
                       disabled={Boolean(approvingId || rejectingId)}
                       onClick={() => void handleApproveProfile(selectedOrganizer)}

@@ -209,10 +209,10 @@ export default function VendorApplications() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setActiveStatus(tab.id)}
-                  className={`inline-flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl px-4 text-base font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:px-5 sm:text-lg ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
+                  className={`inline-flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl px-4 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:px-5 sm:text-sm ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
                 >
                   {tab.label}
-                  {tab.id !== 'INACTIVE' && <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
+                  {tab.id !== 'INACTIVE' && <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[10px] font-bold sm:text-xs ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
                 </button>
               );
             })}
@@ -317,7 +317,7 @@ export default function VendorApplications() {
                             Assign stand identifier
                             <input required maxLength={80} value={assignedStands[application.id] ?? ''} onChange={event => setAssignedStands(current => ({ ...current, [application.id]: event.target.value }))} placeholder="e.g. A-12" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
                           </label>
-                          <Button type="submit" size="sm" className="min-h-20 w-full max-w-40 rounded-xl bg-black px-6 text-base font-bold leading-6 text-white shadow-sm hover:bg-neutral-900" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve vendor</Button>
+                          <Button type="submit" size="sm" variant="brand" className="coral-action min-h-12 w-full max-w-40 rounded-xl px-6 text-base font-bold leading-6 shadow-sm" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve vendor</Button>
                         </form>
                         <form className="space-y-3" onSubmit={event => void reject(event, application.id)}>
                           <label className="block text-sm font-medium text-neutral-700">

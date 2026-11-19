@@ -16,6 +16,17 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
   const isVendorEventDetail = isEventDetailPage && user?.role === 'VENDOR';
   const isDashboardRoute = isVendorEventDetail || ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const isOrganizerDashboard = [
+    '/organizer',
+    '/organizer/events',
+    '/organizer/notifications',
+    '/organizer/reports',
+    '/organizer/events/new',
+    '/organizer/profile',
+  ].includes(pathname)
+    || pathname === '/organizer/vendors'
+    || pathname.endsWith('/vendors')
+    || /^\/organizer\/events\/[^/]+\/edit$/.test(pathname);
   const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
   const isVendorRoute = isVendorEventDetail || pathname === '/vendor' || pathname.startsWith('/vendor/');
   const lightDashboard = appearance === 'light' && isDashboardRoute;
@@ -36,7 +47,7 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
                 Back to admin dashboard
               </Link>
             )}
-            <div className={`dashboard-content ${lightDashboard ? 'dashboard-content-light' : ''} ${isVendorRoute ? 'vendor-dashboard-content' : ''}`}>{children}</div>
+            <div className={`dashboard-content ${lightDashboard ? 'dashboard-content-light' : ''} ${isVendorRoute ? 'vendor-dashboard-content' : ''} ${isOrganizerDashboard ? 'organizer-dashboard-theme' : ''}`}>{children}</div>
           </DashboardNavigationProvider>
         ) : (
           <>

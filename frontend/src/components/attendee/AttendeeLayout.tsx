@@ -113,13 +113,7 @@ export default function AttendeeLayout({
             type="button"
             disabled={loggingOut}
             onClick={() => void handleLogout()}
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 80% 15%, #9b1b3a 0%, rgba(155,27,58,0.55) 35%, transparent 70%),' +
-                'linear-gradient(to right, transparent calc(50% - 0.5px), rgba(192,49,79,0.35) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),' +
-                'linear-gradient(to bottom, transparent calc(50% - 0.5px), rgba(192,49,79,0.35) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px))',
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-black px-3 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+            className="coral-action flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-bold"
           >
             {loggingOut ? 'Logging out…' : 'Logout'}
           </button>
