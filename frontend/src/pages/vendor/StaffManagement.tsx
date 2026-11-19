@@ -140,7 +140,7 @@ export default function StaffManagement() {
                     <>
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <h1 className="truncate text-[22px] font-extrabold leading-7 tracking-tight text-[#151515]">Staff passes</h1>
+                          <h1 className="truncate text-3xl font-extrabold tracking-tight text-[#151515] sm:text-4xl">Staff passes</h1>
                           <p className="mt-0.5 truncate text-[11px] text-[#777]">
                             {selectedApplication.event?.title ?? 'Event'}
                             {selectedApplication.assignedStand ? ` · Stand ${selectedApplication.assignedStand}` : ''}
@@ -151,7 +151,7 @@ export default function StaffManagement() {
                           type="button"
                           disabled={refreshing}
                           onClick={() => void refreshPasses()}
-                          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-[#171717] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed"
+                          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md bg-[#171717] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed"
                         >
                           {refreshing ? 'Refreshing…' : 'Refresh payment status'}
                         </button>

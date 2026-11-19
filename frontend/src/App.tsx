@@ -159,6 +159,7 @@ function NavbarVisibility() {
   const navbarPages = ['/landing', '/upcoming', '/for/attendees', '/for/organisers', '/for/vendors'];
   const isEventBrowsePage = pathname === '/events' || pathname.startsWith('/events/');
   if (isEventBrowsePage && (loading || user?.role === 'ATTENDEE')) return null;
+  if (pathname.startsWith('/events/') && user?.role === 'VENDOR') return null;
   if (!navbarPages.includes(pathname) && !isEventBrowsePage) return null;
   return <Navbar />;
 }

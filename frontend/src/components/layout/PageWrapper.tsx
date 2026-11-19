@@ -13,10 +13,11 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
   const isEventDetailPage = pathname.startsWith('/events/');
-  const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
+  const isVendorEventDetail = isEventDetailPage && user?.role === 'VENDOR';
+  const isDashboardRoute = isVendorEventDetail || ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
   const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
-  const isVendorRoute = pathname === '/vendor' || pathname.startsWith('/vendor/');
+  const isVendorRoute = isVendorEventDetail || pathname === '/vendor' || pathname.startsWith('/vendor/');
   const lightDashboard = appearance === 'light' && isDashboardRoute;
 
   return (

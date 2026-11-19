@@ -66,7 +66,7 @@ export default function MyApplications() {
 
   return (
     <PageWrapper>
-      <div className="vendor-dashboard-page min-h-screen bg-[#fafafa] text-[#171717]">
+      <div className="vendor-dashboard-page vendor-applications-page min-h-screen bg-[#fafafa] text-[#171717]">
         <div className="flex min-h-screen">
           <VendorSidebar />
 
@@ -85,11 +85,11 @@ export default function MyApplications() {
             <main className="px-3.5 pb-4 pt-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h1 className="text-[22px] font-extrabold leading-7 tracking-tight text-[#151515]">My applications</h1>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-[#151515] sm:text-4xl">My applications</h1>
                 </div>
                 <Link
                   to="/vendor/events"
-                  className="inline-flex h-[17px] items-center rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-2 text-[11px] font-bold text-white shadow-sm transition hover:brightness-95"
+                  className="inline-flex min-h-9 items-center rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-3 text-[11px] font-bold text-white shadow-sm transition hover:brightness-95"
                 >
                   Find events
                 </Link>
@@ -208,8 +208,8 @@ function ApplicationsTable({
 }) {
   return (
     <section className="overflow-x-auto rounded-lg border border-[#e5e5e5] bg-white" aria-label="Applications">
-      <div className="min-w-[430px]">
-        <div className="grid grid-cols-[minmax(0,2fr)_minmax(30px,.4fr)_minmax(38px,.55fr)_minmax(46px,.65fr)_minmax(70px,1fr)_minmax(48px,.65fr)] items-center gap-1 border-b border-[#ededed] bg-white px-2 py-1 text-[10px] font-bold text-[#777]">
+      <div className="min-w-[900px]">
+        <div className="grid grid-cols-[minmax(200px,2fr)_minmax(90px,0.7fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(180px,1.3fr)_minmax(110px,0.8fr)] items-center gap-2 border-b border-[#ededed] bg-white px-3 py-2 text-[10px] font-bold text-[#777]">
           <span>Event</span>
           <span>Stand</span>
           <span>Quote</span>
@@ -354,7 +354,7 @@ function ApplicationRow({
 
   return (
     <article className="border-b border-slate-100 last:border-b-0">
-      <div className="grid min-h-[32px] grid-cols-[minmax(0,2fr)_minmax(30px,.4fr)_minmax(38px,.55fr)_minmax(46px,.65fr)_minmax(70px,1fr)_minmax(48px,.65fr)] items-center gap-1 px-2 py-1">
+      <div className="grid min-h-[52px] grid-cols-[minmax(200px,2fr)_minmax(90px,0.7fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(180px,1.3fr)_minmax(110px,0.8fr)] items-center gap-2 px-3 py-2">
         <button
           type="button"
           onClick={onToggle}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { SlidersHorizontal } from 'lucide-react';
 import AttendeeLayout from '@/components/attendee/AttendeeLayout';
@@ -7,12 +7,16 @@ import EventCard from '@/components/app/EventCard';
 import Input from '@/components/legacy/Input';
 import Spinner from '@/components/legacy/Spinner';
 import PageWrapper from '@/components/layout/PageWrapper';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
+import VendorSearchField from '@/components/layout/VendorSearchField';
+import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/context/useAuth';
 import { getEvents } from '@/services/eventService';
 import type { Event } from '@/types/event';
 
 export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boolean }) {
   const [searchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const { user } = useAuth();
   const standsOnly = searchParams.get('stands') === 'available';
   const [events, setEvents] = useState<Event[]>([]);
@@ -187,6 +191,30 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
   );
 
   if (user?.role === 'ATTENDEE') return <AttendeeLayout>{content}</AttendeeLayout>;
+  if (user?.role === 'VENDOR' && pathname === '/vendor/events') {
+    return (
+      <PageWrapper>
+        <div className="vendor-events-page min-h-screen bg-[#fafafa] text-[#171717]">
+          <div className="flex min-h-screen">
+            <VendorSidebar />
+            <div className="min-w-0 flex-1">
+              <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  <VendorMenuButton />
+                  <span className="truncate text-[12px] font-semibold text-[#333]">Find events</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <VendorSearchField />
+                  <NotificationBell appearance="header" />
+                </div>
+              </header>
+              <main className="px-4 pb-6 pt-5 sm:px-6 lg:px-8">{content}</main>
+            </div>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
   return <PageWrapper>{content}</PageWrapper>;
 }
 

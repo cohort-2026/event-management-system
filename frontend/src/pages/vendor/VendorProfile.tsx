@@ -273,7 +273,7 @@ export default function VendorProfilePage() {
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[#0b9a79]"><CheckIcon /></span>
                     <div>
-                      <p className="text-[13px] font-bold leading-[11px]">Approved vendor</p>
+                      <p className="text-[13px] font-bold leading-5">Approved vendor</p>
                       <p className="text-[12px] leading-4">
                         {profile.reviewedAt ? `Approved on ${new Date(profile.reviewedAt).toLocaleDateString()}. ` : ''}
                         You can apply for stands at any event.
@@ -284,7 +284,7 @@ export default function VendorProfilePage() {
                     type="button"
                     disabled
                     title="Approved business profiles cannot be edited by the current backend."
-                    className="h-[20px] shrink-0 rounded border border-[#d6e8e2] bg-white px-2 text-[12px] font-semibold text-[#333] disabled:cursor-not-allowed"
+                    className="min-h-9 shrink-0 rounded border border-[#d6e8e2] bg-white px-2 text-[12px] font-semibold text-[#333] disabled:cursor-not-allowed"
                   >
                     Request a change
                   </button>
@@ -324,7 +324,7 @@ export default function VendorProfilePage() {
                         </Field>
                       ) : (
                         <Field label="Products/services">
-                          <div className="flex min-h-[21px] flex-wrap items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-1">
+                          <div className="flex min-h-10 flex-wrap items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1">
                             {profile.productsServices.map(item => (
                               <span key={item} className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[12px] text-slate-700">
                                 {item}
@@ -399,7 +399,7 @@ export default function VendorProfilePage() {
                               setPhoneCountry(event.target.value as CountryCode);
                               setFieldErrors(current => ({ ...current, contactPhone: '' }));
                             }}
-                            className="h-[20px] max-w-[46%] rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 focus:border-[#d15d2d] focus:outline-none"
+                            className="h-10 max-w-[46%] rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 focus:border-[#d15d2d] focus:outline-none"
                           >
                             {phoneCountries.map(country => (
                               <option key={country.country} value={country.country}>{country.name} (+{country.callingCode})</option>
@@ -432,9 +432,9 @@ export default function VendorProfilePage() {
                             </div>
                           </div>
                           <div className="flex shrink-0 gap-1.5">
-                            <button type="button" onClick={() => viewDocument(document)} className="h-6 rounded border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">View</button>
+                            <button type="button" onClick={() => viewDocument(document)} className="min-h-9 rounded border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">View</button>
                             {isEditable && (
-                              <button type="button" onClick={() => removeDocument(document)} className="h-6 rounded border border-rose-200 bg-white px-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Remove</button>
+                              <button type="button" onClick={() => removeDocument(document)} className="min-h-9 rounded border border-rose-200 bg-white px-2 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Remove</button>
                             )}
                           </div>
                         </li>
@@ -443,7 +443,7 @@ export default function VendorProfilePage() {
                   ) : (
                     <p className="rounded border border-dashed border-slate-300 bg-white px-2 py-3 text-center text-[12px] text-slate-500">No documents uploaded yet.</p>
                   )}
-                  {isEditable && <label className="mt-1.5 flex h-[30px] cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-transparent text-[12px] text-slate-500 hover:bg-white">
+                  {isEditable && <label className="mt-1.5 flex min-h-10 cursor-pointer flex-wrap items-center justify-center rounded-md border border-dashed border-slate-300 bg-transparent px-2 py-2 text-center text-[12px] text-slate-500 hover:bg-white">
                     {uploading ? 'Uploading…' : <>Drop PDFs here or <span className="ml-1 font-semibold text-rose-600">browse</span> · max 10 files, 10 MB each</>}
                     <input type="file" accept="application/pdf" className="hidden" onChange={uploadDocument} disabled={uploading} />
                   </label>}
@@ -472,7 +472,7 @@ export default function VendorProfilePage() {
   );
 }
 
-const fieldClassName = 'h-[20px] w-full rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 outline-none focus:border-[#d15d2d] disabled:bg-slate-50';
+const fieldClassName = 'h-10 w-full rounded border border-slate-300 bg-white px-3 py-0 text-[12px] text-slate-800 outline-none focus:border-[#d15d2d] disabled:bg-slate-50';
 
 function ProfileSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (

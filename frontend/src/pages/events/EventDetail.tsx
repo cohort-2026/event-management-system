@@ -669,7 +669,7 @@ function VendorEventContent({
         </div>
         <Link
           to="/vendor/events"
-          className="inline-flex h-[21px] shrink-0 items-center rounded-md border border-[#dedede] bg-white px-2 text-[7px] font-semibold text-[#444] hover:bg-[#f5f5f5]"
+          className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-[#dedede] bg-white px-2 text-[7px] font-semibold text-[#444] hover:bg-[#f5f5f5]"
         >
           All events
         </Link>
@@ -746,7 +746,7 @@ function VendorEventContent({
               ) : vendorApproved ? (
                 <Link
                   to={`/vendor/events/${event.id}/apply`}
-                  className="flex h-[21px] items-center justify-center rounded-md bg-[#111] text-[8px] font-bold text-white transition hover:bg-[#333]"
+                  className="flex min-h-10 items-center justify-center rounded-md bg-[#111] px-2 py-1 text-[8px] font-bold text-white transition hover:bg-[#333]"
                 >
                   Apply for a stand
                 </Link>

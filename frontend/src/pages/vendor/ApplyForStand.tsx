@@ -192,7 +192,7 @@ export default function ApplyForStand() {
                   <Link to="/vendor/profile" className="mt-2 inline-flex text-[8px] font-semibold text-brand-700 hover:text-brand-900">Open business profile</Link>
                 </div>
               ) : event && (
-                <div className="grid items-start gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                <div className="grid items-start gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
                   <aside className="space-y-2">
                     <article className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
                       <div className="relative h-[66px] overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
@@ -204,7 +204,7 @@ export default function ApplyForStand() {
                             <span className="absolute right-2 -top-5 h-12 w-12 rounded-full bg-[#ffb46b]/70" />
                           </>
                         )}
-                        <div className="absolute left-1 top-1 flex h-[22px] w-[22px] flex-col items-center justify-center rounded-md bg-white text-[#222] shadow-sm">
+                        <div className="absolute left-1 top-1 flex min-h-10 min-w-10 flex-col items-center justify-center rounded-md bg-white text-[#222] shadow-sm">
                           <span className="text-[6px] font-bold leading-[7px] text-rose-600">
                             {new Date(event.startTime).toLocaleDateString('en-ZA', { month: 'short' }).toUpperCase()}
                           </span>
@@ -278,7 +278,7 @@ export default function ApplyForStand() {
                               return (
                                 <label
                                   key={option.size}
-                                  className={`flex h-[38px] cursor-pointer items-center justify-between gap-1.5 rounded-md border px-2 py-1 transition ${
+                                  className={`flex min-h-14 cursor-pointer items-center justify-between gap-1.5 rounded-md border px-2 py-2 transition ${
                                     requestedStandSize === option.size
                                       ? 'border-rose-600 ring-1 ring-rose-600'
                                       : 'border-neutral-200 hover:border-neutral-400'
@@ -304,7 +304,7 @@ export default function ApplyForStand() {
                               );
                             })}
                             {customSize && (
-                              <label className="flex h-[38px] items-center justify-between gap-1.5 rounded-md border border-rose-600 px-2 py-1 ring-1 ring-rose-600 sm:col-span-2">
+                              <label className="flex min-h-14 items-center justify-between gap-1.5 rounded-md border border-rose-600 px-2 py-2 ring-1 ring-rose-600 sm:col-span-2">
                                 <span>
                                   <span className="block text-[8px] font-bold text-neutral-900">Previous request · {requestedStandType}</span>
                                   <span className="block text-[7px] text-neutral-500">Revise this size or choose a preset.</span>
@@ -337,7 +337,7 @@ export default function ApplyForStand() {
                             value={standDescription}
                             onChange={formEvent => setStandDescription(formEvent.target.value)}
                             placeholder="Describe the products or services you will offer at this event."
-                            className={`${inputClassName} !h-[30px] resize-none`}
+                            className={`${inputClassName} !h-20 resize-y py-2`}
                           />
                         </label>
 
@@ -406,8 +406,8 @@ export default function ApplyForStand() {
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}
                         {message && <p role="status" className="text-[8px] font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
                         <div className="flex justify-end gap-1.5">
-                          <Link to="/vendor/events" className="inline-flex h-[18px] items-center rounded border border-neutral-200 px-2 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
-                          <Button type="submit" className="!h-[18px] !rounded !px-2 !py-0 !text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
+                          <Link to="/vendor/events" className="inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
+                          <Button type="submit" className="!min-h-10 !rounded !px-3 !text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
                             Send application
                           </Button>
                         </div>
@@ -433,7 +433,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const inputClassName = 'mt-1 h-[20px] w-full rounded border border-neutral-300 bg-white px-2 py-0 text-[8px] font-normal text-neutral-800 outline-none focus:border-rose-500';
+const inputClassName = 'mt-1 h-10 w-full rounded border border-neutral-300 bg-white px-2 py-0 text-[8px] font-normal text-neutral-800 outline-none focus:border-rose-500';
 
 function formatCurrency(value: number) {
   const amount = new Intl.NumberFormat('en-ZA', {
