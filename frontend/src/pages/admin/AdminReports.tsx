@@ -58,7 +58,7 @@ export default function AdminReports() {
       .then(([eventsResponse, usersResponse, analyticsResponse, auditResponse]) => {
         if (!active) return;
         setEvents(eventsResponse.data.data);
-        setUsers(usersResponse.data);
+        setUsers(usersResponse.data.data);
         setAnalytics(analyticsResponse.data.data);
         setAuditEvents(auditResponse.data.data);
       })

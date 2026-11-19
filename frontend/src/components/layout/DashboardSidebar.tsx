@@ -1,5 +1,5 @@
-﻿import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/useAuth';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
@@ -126,7 +126,7 @@ export default function DashboardSidebar({ title, subtitle, items, appearance = 
                   ) : (
                     <NavLink
                       to={item.to}
-                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/organizer/events'}
+                      end={item.to === '/admin' || item.to === '/vendor' || item.to === '/organizer' || item.to === '/attendee' || item.to === '/organizer/events'}
                       onClick={navigation?.closeMobile}
                       title={collapsed && !mobileOpen ? item.label : undefined}
                       className={({ isActive }) => `${itemClass} ${isActive ? activeClass : inactiveClass}`}
@@ -215,7 +215,6 @@ export function DashboardHeader({
   const { pathname } = useLocation();
   const initials = `${user?.firstname?.[0] ?? 'E'}${user?.lastname?.[0] ?? 'M'}`;
   const analyticsAppearance = appearance === 'analytics';
-  const navigation = useDashboardNavigation();
   const showOrganizerNotifications = user?.role === 'ORGANIZER' &&
     (pathname === '/organizer' || pathname.startsWith('/organizer/'));
   const hasActions = Boolean(actions);

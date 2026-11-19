@@ -1,24 +1,46 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import PageWrapper from '@/components/layout/PageWrapper';
+import AttendeeLayout from '@/components/attendee/AttendeeLayout';
+import EventArtwork from '@/components/attendee/EventArtwork';
 import Button from '@/components/legacy/Button';
 import Spinner from '@/components/legacy/Spinner';
+import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import NotificationBell from '@/components/layout/NotificationBell';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getEventById } from '@/services/eventService';
+import { createBooking, getMyBookings } from '@/services/bookingService';
+import { startPayFastCheckout, submitPayFastCheckout } from '@/services/paymentService';
+import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
+
+interface BookingConfirmation {
+  reference: string;
+  amount: number;
+  paymentStatus: string;
+  tickets: Array<{ id: string; referenceNumber: string; type?: string }>;
+}
 
 export default function EventDetail() {
   const { id = '' } = useParams();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const vendorBrowse = user?.role === 'VENDOR' || searchParams.get('vendor') === 'true';
+  const navigate = useNavigate();
+  const location = useLocation();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedTicketId, setSelectedTicketId] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [checkoutBooking, setCheckoutBooking] = useState<Booking | null>(null);
+  const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
+  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
+  const [bookingError, setBookingError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -38,6 +60,24 @@ export default function EventDetail() {
       });
     return () => { active = false; };
   }, [id]);
+
+  useEffect(() => {
+    if (!event || user?.role !== 'ATTENDEE') return;
+
+    let active = true;
+    getMyBookings()
+      .then(response => {
+        if (!active) return;
+        const booking = response.data.data.find(item =>
+          item.eventId === event.id && item.status !== 'CANCELLED');
+        setExistingBooking(booking ?? null);
+      })
+      .catch(lookupError => {
+        if (active) setBookingError(getErrorMessage(lookupError, 'Your existing booking could not be checked.'));
+      });
+
+    return () => { active = false; };
+  }, [event, user?.role]);
 
   if (user?.role === 'VENDOR') {
     if (loading) {
@@ -83,16 +123,16 @@ export default function EventDetail() {
     );
   }
 
-  if (loading) return <PageWrapper><div className="flex justify-center py-20"><Spinner /></div></PageWrapper>;
+  if (loading) return <AttendeeLayout><div className="flex justify-center py-20"><Spinner /></div></AttendeeLayout>;
   if (!event) {
     return (
-      <PageWrapper>
+      <AttendeeLayout>
         <div role="alert" className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
           <p className="font-semibold text-neutral-800">{error || 'Event not found.'}</p>
           {vendorBrowse && <p className="mt-2 text-sm text-neutral-500">Vendor applications are unavailable for this event.</p>}
           <Link to="/events" className="mt-4 inline-block text-sm font-semibold text-brand-700">Browse approved events</Link>
         </div>
-      </PageWrapper>
+      </AttendeeLayout>
     );
   }
 
@@ -102,52 +142,174 @@ export default function EventDetail() {
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
   const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+  const selectedTicket = event.ticketTypes.find(ticket => ticket.id === selectedTicketId) ?? event.ticketTypes[0];
+  const activeTicketId = selectedTicket?.id ?? '';
+  const maxQuantity = Math.max(0, Math.min(
+    event.availableCapacity,
+    selectedTicket?.availableQuantity ?? 0,
+    100,
+  ));
+  const bookingQuantity = Math.min(Math.max(1, quantity), maxQuantity || 1);
+  const canRegister = event.status === 'PUBLISHED' && start > new Date() && maxQuantity > 0;
+  const eventBooking = existingBooking?.eventId === event.id ? existingBooking : null;
+
+  const reserveTickets = (ticketCount: number, ticketId: string) => {
+    setEvent(current => current ? {
+      ...current,
+      availableCapacity: Math.max(0, current.availableCapacity - ticketCount),
+      ticketTypes: current.ticketTypes.map(ticket => ticket.id === ticketId
+        ? { ...ticket, availableQuantity: Math.max(0, ticket.availableQuantity - ticketCount) }
+        : ticket),
+    } : current);
+  };
+
+  const handleRegister = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+    if (user.role !== 'ATTENDEE' || !selectedTicket || !canRegister) return;
+
+    setBookingError('');
+    setBookingLoading(true);
+    try {
+      const response = await createBooking({
+        eventId: event.id,
+        ticketTypeId: selectedTicket.id,
+        quantity: bookingQuantity,
+      });
+      const booking = response.data.data;
+      if (booking.paymentStatus === 'NOT_REQUIRED') {
+        reserveTickets(booking.quantity, selectedTicket.id);
+        setConfirmation({
+          reference: booking.reference,
+          amount: booking.totalAmount,
+          paymentStatus: booking.paymentStatus,
+          tickets: booking.tickets.map(ticket => ({
+            id: ticket.id,
+            referenceNumber: ticket.referenceNumber,
+            type: ticket.type,
+          })),
+        });
+      } else {
+        setCheckoutBooking(booking);
+        try {
+          const checkout = await startPayFastCheckout(booking.id);
+          submitPayFastCheckout(checkout.data.data);
+        } catch (checkoutError) {
+          setBookingError(getErrorMessage(checkoutError, 'PayFast checkout could not be started.'));
+        }
+      }
+    } catch (bookingRequestError) {
+      setBookingError(getErrorMessage(bookingRequestError, 'Your booking could not be created.'));
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!checkoutBooking) return;
+    setBookingError('');
+    setPaymentLoading(true);
+    try {
+      const checkout = await startPayFastCheckout(checkoutBooking.id);
+      submitPayFastCheckout(checkout.data.data);
+    } catch (paymentRequestError) {
+      setBookingError(getErrorMessage(paymentRequestError, 'PayFast checkout could not be started.'));
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   return (
-    <PageWrapper>
-      <nav className="mb-6 flex items-center gap-2 text-sm text-neutral-400">
-        <Link to="/events" className="transition-colors hover:text-brand-600">Events</Link>
-        <span>/</span>
-        <span className="truncate text-neutral-600">{event.title}</span>
-      </nav>
+    <AttendeeLayout mainClassName="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="grid items-start gap-5 lg:grid-cols-[242px_minmax(250px,1fr)_238px]">
+        <aside className="space-y-4">
+          <EventArtwork
+            title={event.title}
+            category={event.category}
+            bannerImageUrl={event.bannerImageUrl}
+            className="aspect-square rounded-2xl shadow-sm"
+          />
+          <section className="rounded-xl border border-neutral-200 bg-white p-4">
+            <p className="text-[10px] text-neutral-500">Hosted by</p>
+            <p className="mt-1 text-sm font-bold text-neutral-950">
+              {event.organizer ? `${event.organizer.firstname} ${event.organizer.lastname}` : 'Event organizer'}
+            </p>
+            {event.organizer?.email && (
+              <a href={`mailto:${event.organizer.email}`} className="mt-3 inline-flex w-full justify-center rounded-md border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
+                Contact organizer
+              </a>
+            )}
+          </section>
+          <section className="rounded-xl border border-neutral-200 bg-white p-4">
+            <p className="text-xs font-semibold text-neutral-900">Availability</p>
+            <p className="mt-1 text-xs text-neutral-600">
+              {event.availableCapacity} of {event.capacity} places left
+            </p>
+          </section>
+        </aside>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-            {event.bannerImageUrl
-              ? <img src={event.bannerImageUrl} alt={`${event.title} banner`} className="max-h-96 w-full object-cover" />
-              : <div className="h-3 bg-brand-600" />}
-            <div className="flex flex-col gap-4 p-6">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span className="text-xs font-medium uppercase tracking-wide text-brand-600">{event.category} · {event.eventType.replace('_', ' ')}</span>
-                  <h1 className="mt-1 text-2xl font-bold text-neutral-900">{event.title}</h1>
-                </div>
-              </div>
+        <section className="space-y-5">
+          <div>
+            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-medium text-rose-700">
+              {event.category} · {event.eventType === 'IN_PERSON' ? 'In person' : event.eventType === 'HYBRID' ? 'Hybrid' : 'Online'}
+            </span>
+            <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-neutral-950 sm:text-4xl">{event.title}</h1>
+          </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <InfoRow icon="📅" label="Starts" value={start.toLocaleString('en-ZA', { dateStyle: 'full', timeStyle: 'short' })} />
-                <InfoRow icon="⌛" label="Ends" value={end.toLocaleString('en-ZA', { dateStyle: 'full', timeStyle: 'short' })} />
-                {event.venue && <InfoRow icon="📍" label="Venue" value={event.venue} />}
-                {event.meetingDetails && <InfoRow icon="🔗" label="Online meeting" value={event.meetingDetails} />}
-                <InfoRow icon="👥" label="Capacity" value={`${event.availableCapacity} places remaining of ${event.capacity}`} />
-              </div>
-
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3">
+              <DateTile date={start} />
               <div>
-                <div className="mb-1 flex justify-between text-xs text-neutral-500">
-                  <span>{event.capacity - event.availableCapacity} registered</span>
-                  <span>{fillPercent}% full</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-                  <div className={`h-full rounded-full ${fillPercent > 80 ? 'bg-rose-500' : fillPercent > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${fillPercent}%` }} />
-                </div>
+                <p className="text-xs font-semibold text-neutral-950">
+                  {start.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+                <p className="mt-0.5 text-[10px] text-neutral-500">
+                  {start.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+                  {' – '}
+                  {end.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700" aria-hidden="true">⌖</span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-neutral-950">{event.venue || 'Online event'}</p>
+                {event.venue && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] font-medium text-rose-700 hover:text-rose-800"
+                  >
+                    View map
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {event.meetingDetails && (
+            <div className="rounded-lg bg-neutral-50 p-3">
+              <p className="text-[10px] font-semibold text-neutral-700">Online meeting details</p>
+              <p className="mt-1 break-words text-xs text-neutral-600">{event.meetingDetails}</p>
+            </div>
+          )}
+
+          <section>
+            <h2 className="text-sm font-bold text-neutral-950">About</h2>
+            <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-neutral-600">{event.description}</p>
           </section>
 
-          <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold text-neutral-900">About this event</h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">{event.description}</p>
+          <section className="rounded-lg border border-neutral-200 bg-white p-4">
+            <div className="mb-1 flex justify-between text-[10px] text-neutral-500">
+              <span>{event.capacity - event.availableCapacity} registered</span>
+              <span>{fillPercent}% full</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
+              <div className={`h-full rounded-full ${fillPercent > 80 ? 'bg-rose-500' : fillPercent > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${fillPercent}%` }} />
+            </div>
           </section>
 
           {vendorBrowse && (
@@ -177,7 +339,7 @@ export default function EventDetail() {
               ))}
             </ul>
           </section>}
-        </div>
+        </section>
 
         <aside>
           <section className="sticky top-20 flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -195,40 +357,259 @@ export default function EventDetail() {
                 ) : !user ? (
                   <Link to={`/vendor/events/${event.id}/apply`}><Button className="w-full">Apply for a stand</Button></Link>
                 ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">A vendor account is required to apply for a stand.</div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">A vendor account is required to apply for a stand.</div>
                 )
               ) : (
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm font-medium text-neutral-600">Vendor applications are closed</div>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700">Vendor applications are closed.</div>
               )
-            ) : event.availableCapacity === 0 ? (
-              <div className="rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700 text-center font-medium">
-                Sold out
+            ) : user?.role === 'ATTENDEE' && eventBooking ? (
+              <div>
+                <p className="text-sm font-bold text-emerald-800">You&apos;re going!</p>
+                <p className="mt-1 text-xs text-neutral-700">
+                  {eventBooking.eventTicketType?.name ?? eventBooking.ticketType}
+                  {' · '}
+                  {new Date(eventBooking.event.startTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                </p>
+                <p className="mt-2 text-[10px] text-neutral-500">
+                  Booking reference <span className="font-mono font-semibold text-neutral-800">{eventBooking.reference}</span>
+                </p>
+                {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
+                {eventBooking.tickets[0] ? (
+                  <Link to={`/attendee/tickets/${eventBooking.tickets[0].id}`} className="mt-4 block rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white">
+                    View ticket
+                  </Link>
+                ) : eventBooking.paymentStatus === 'PENDING' ? (
+                  <Link to="/attendee/bookings" className="mt-4 block rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white">
+                    Complete payment
+                  </Link>
+                ) : null}
+                <Link to="/attendee/bookings" className="mt-3 block text-center text-[10px] font-semibold text-neutral-600 hover:text-neutral-950">
+                  Manage or cancel booking
+                </Link>
               </div>
-            ) : user ? (
-              <Button className="w-full" disabled>Registration coming soon</Button>
             ) : (
-              <div className="flex flex-col gap-2">
-                <Link to="/login"><Button className="w-full">Sign in to register</Button></Link>
-                <Link to="/register" className="text-center text-sm text-brand-600 hover:text-brand-700">Don't have an account? Register</Link>
-              </div>
+              <>
+                <h2 className="mb-3 text-sm font-bold text-neutral-950">Choose your ticket</h2>
+                <ul className="space-y-1.5">
+                  {event.ticketTypes.map(ticket => (
+                    <li key={ticket.id}>
+                      <button
+                        type="button"
+                        aria-pressed={activeTicketId === ticket.id}
+                        disabled={ticket.availableQuantity <= 0 || event.availableCapacity <= 0}
+                        onClick={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          activeTicketId === ticket.id
+                            ? 'border-rose-600 bg-rose-50'
+                            : 'border-neutral-200 hover:border-neutral-400'
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-start gap-2">
+                          <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${activeTicketId === ticket.id ? 'border-rose-600' : 'border-neutral-300'}`}>
+                            {activeTicketId === ticket.id && <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-semibold text-neutral-900">{ticket.name}</span>
+                            <span className="mt-0.5 block text-[9px] text-neutral-500">
+                              {ticket.availableQuantity > 0 ? `${ticket.availableQuantity} left` : 'Sold out'}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-neutral-900">
+                          {ticket.price === 0 ? 'Free' : formatPrice(ticket.price)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && !checkoutBooking && (
+                  <div className="mt-3 space-y-3">
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Quantity
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxQuantity}
+                        value={bookingQuantity}
+                        onChange={change => {
+                          const next = Number(change.target.value);
+                          setQuantity(Number.isFinite(next) ? Math.min(maxQuantity, Math.max(1, Math.floor(next))) : 1);
+                        }}
+                        className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                      />
+                    </label>
+                    <div className="flex justify-between text-xs text-neutral-600">
+                      <span>Total</span>
+                      <span className="font-bold text-neutral-950">
+                        {formatPrice(selectedTicket.price * bookingQuantity)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {checkoutBooking ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold text-amber-950">Complete your payment with PayFast</p>
+                    <p className="mt-1 text-xs text-amber-900">
+                      {checkoutBooking.eventTicketType?.name} × {checkoutBooking.quantity} · {formatPrice(checkoutBooking.totalAmount)}
+                    </p>
+                    <p className="mt-2 text-[10px] leading-relaxed text-amber-900">
+                      Your booking is confirmed after PayFast verifies the payment.
+                    </p>
+                    {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
+                    <Button className="mt-3 w-full" loading={paymentLoading} onClick={handlePayment}>Continue to PayFast</Button>
+                    <Link to="/attendee/bookings" className="mt-2 block text-center text-[10px] font-semibold text-amber-950 underline">Manage this booking later</Link>
+                  </div>
+                ) : (
+                  <>
+                    {!canRegister && (
+                      <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-center text-xs text-neutral-600">
+                        {event.availableCapacity <= 0 || maxQuantity <= 0 ? 'Sold out' : 'Registration is closed.'}
+                      </p>
+                    )}
+                    {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
+                    {user?.role === 'ATTENDEE' ? (
+                      <Button
+                        className="mt-3 w-full bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600"
+                        loading={bookingLoading}
+                        disabled={!canRegister || !selectedTicket || bookingQuantity > maxQuantity}
+                        onClick={handleRegister}
+                      >
+                        Book my place
+                      </Button>
+                    ) : user ? (
+                      <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-center text-xs text-neutral-600">
+                        Booking requires an attendee account.
+                      </p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <Button className="w-full bg-gradient-to-r from-rose-600 to-orange-500" disabled={!canRegister} onClick={handleRegister}>
+                          Book my place
+                        </Button>
+                        <Link to="/register" state={{ from: location }} className="block text-center text-[10px] text-neutral-500 hover:text-neutral-800">
+                          Create an attendee account
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                )}
+                <p className="mt-2 text-center text-[9px] text-neutral-500">Free cancellation until the event starts</p>
+              </>
             )}
           </section>
         </aside>
       </div>
-    </PageWrapper>
+
+      {confirmation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6"
+          onMouseDown={event => { if (event.target === event.currentTarget) setConfirmation(null); }}
+        >
+          <section role="dialog" aria-modal="true" aria-labelledby="booking-confirmed-title" className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="relative h-16 bg-gradient-to-r from-rose-600 via-orange-500 to-amber-400">
+              <div className="absolute -left-5 -top-8 h-24 w-24 rounded-full bg-white/25" />
+              <div className="absolute -right-4 -top-8 h-24 w-24 rounded-full bg-black/15" />
+            </div>
+            <span className="absolute left-1/2 top-10 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-xl font-bold text-white" aria-hidden="true">✓</span>
+            <button type="button" onClick={() => setConfirmation(null)} aria-label="Close booking confirmation" className="absolute right-3 top-3 rounded-full bg-black/10 px-2 py-1 text-sm text-white hover:bg-black/20">×</button>
+            <div className="px-5 pb-5 pt-8 text-center sm:px-6">
+              <h2 id="booking-confirmed-title" className="text-lg font-extrabold text-neutral-950">
+                You&apos;re going, {user?.firstname || 'attendee'}!
+              </h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                {user?.email ? `Your ticket is ready for ${user.email}.` : 'Your booking is confirmed.'}
+              </p>
+              <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-neutral-50 p-3 text-left">
+                <div>
+                  <p className="text-[9px] text-neutral-500">Ticket</p>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-neutral-900">{confirmation.tickets[0]?.type ?? selectedTicket?.name ?? 'Ticket'}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-neutral-500">When</p>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-neutral-900">
+                    {start.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                    {' · '}
+                    {start.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-neutral-500">Reference</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] font-bold text-neutral-900">{confirmation.tickets[0]?.referenceNumber ?? confirmation.reference}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-neutral-500">Booking {confirmation.reference} · {formatPrice(confirmation.amount)}</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {confirmation.tickets[0] ? (
+                  <Link
+                    to={`/attendee/tickets/${confirmation.tickets[0].id}`}
+                    className="rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-xs font-bold text-white"
+                  >
+                    View ticket
+                  </Link>
+                ) : (
+                  <Link to="/attendee/bookings" className="rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-xs font-bold text-white">
+                    View booking
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={() => downloadCalendarEvent(event.title, event.venue, start, end)}
+                  className="rounded-lg border border-neutral-300 px-3 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                >
+                  Add to calendar
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </AttendeeLayout>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function DateTile({ date }: { date: Date }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 text-lg leading-none">{icon}</span>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">{label}</p>
-        <p className="mt-0.5 whitespace-pre-line text-sm font-medium text-neutral-700">{value}</p>
-      </div>
-    </div>
+    <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border border-neutral-200 bg-white text-center">
+      <span className="text-[8px] font-bold uppercase text-rose-600">{date.toLocaleDateString('en-ZA', { month: 'short' })}</span>
+      <span className="text-sm font-extrabold leading-tight">{date.toLocaleDateString('en-ZA', { day: 'numeric' })}</span>
+    </span>
   );
+}
+
+function formatPrice(amount: number): string {
+  return amount === 0 ? 'Free' : `R${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
+
+function downloadCalendarEvent(title: string, venue: string, start: Date, end: Date) {
+  const escapeIcs = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
+  const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const content = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//EventMS//Attendee Booking//EN',
+    'BEGIN:VEVENT',
+    `UID:${crypto.randomUUID()}@eventms`,
+    `DTSTAMP:${formatDate(new Date())}`,
+    `DTSTART:${formatDate(start)}`,
+    `DTEND:${formatDate(end)}`,
+    `SUMMARY:${escapeIcs(title)}`,
+    `LOCATION:${escapeIcs(venue)}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/calendar;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'event'}.ics`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function VendorEventLayout({ children, eventTitle }: { children: ReactNode; eventTitle?: string }) {

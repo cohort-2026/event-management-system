@@ -4,7 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { register } from '@/services/authService';
 import Input from '@/components/legacy/Input';
 import Button from '@/components/legacy/Button';
-import type { UserRole } from '@/types/user';
+import type { RegistrationRole } from '@/types/user';
 import axios from 'axios';
 
 interface FieldErrors {
@@ -15,8 +15,6 @@ interface FieldErrors {
   confirmPassword?: string;
   role?: string;
 }
-
-type RegistrationRole = Extract<UserRole, 'ATTENDEE' | 'VENDOR' | 'ORGANIZER'>;
 
 const ROLES: { value: RegistrationRole; label: string; desc: string }[] = [
   { value: 'ATTENDEE',  label: 'Attendee',  desc: 'Book events and get QR tickets. Ready after you verify your email.' },
@@ -40,7 +38,7 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: '' as UserRole | '',
+    role: '' as RegistrationRole | '',
   });
   const [errors, setErrors]           = useState<FieldErrors>({});
   const [serverError, setServerError] = useState('');
@@ -105,7 +103,7 @@ export default function Register() {
         lastname: form.lastname,
         email: form.email,
         password: form.password,
-        role: form.role as UserRole,
+        role,
       });
       navigate('/verify-email', { replace: true, state: { email: form.email } });
     } catch (err) {

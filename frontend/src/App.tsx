@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -38,6 +39,9 @@ import CheckIn from '@/pages/organizer/CheckIn';
 
 // Attendee
 import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
+import AttendeeBookings from '@/pages/attendee/AttendeeBookings';
+import AttendeeTicket from '@/pages/attendee/AttendeeTicket';
+import PaymentResult from '@/pages/attendee/PaymentResult';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
@@ -90,8 +94,11 @@ export default function App() {
           {/* ── Attendee ── */}
           <Route element={<ProtectedRoute roles={['ATTENDEE']} />}> 
             <Route path="/attendee" element={<AttendeeDashboard />} />
-            <Route path="/attendee/bookings" element={<AttendeeDashboard />} />
-            <Route path="/attendee/tickets" element={<AttendeeDashboard />} />
+            <Route path="/attendee/bookings" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets/:ticketId" element={<AttendeeTicket />} />
+            <Route path="/attendee/payment/return" element={<PaymentResult />} />
+            <Route path="/attendee/payment/cancel" element={<PaymentResult />} />
           </Route>
 
           {/* ── Organizer ── */}
@@ -148,8 +155,10 @@ export default function App() {
 
 function NavbarVisibility() {
   const { pathname } = useLocation();
+  const { user, loading } = useAuth();
   const navbarPages = ['/landing', '/upcoming', '/for/attendees', '/for/organisers', '/for/vendors'];
   const isEventBrowsePage = pathname === '/events' || pathname.startsWith('/events/');
+  if (isEventBrowsePage && (loading || user?.role === 'ATTENDEE')) return null;
   if (!navbarPages.includes(pathname) && !isEventBrowsePage) return null;
   return <Navbar />;
 }

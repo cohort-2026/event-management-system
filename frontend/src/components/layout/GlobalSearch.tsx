@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getEvents, getEventRegistrations, getMyEvents, type EventRegistration } from '@/services/eventService';
 import { getUsers } from '@/services/userService';
 import type { Event } from '@/types/event';
@@ -43,7 +43,7 @@ export default function GlobalSearch() {
       let userResults: SearchResult[] = [];
       if (user?.role === 'ADMIN') {
         const usersResponse = await getUsers();
-        userResults = usersResponse.data
+        userResults = usersResponse.data.data
           .filter((item: User) => `${item.firstname} ${item.lastname} ${item.email}`.toLowerCase().includes(normalizedQuery))
           .slice(0, 5)
           .map((item: User) => ({

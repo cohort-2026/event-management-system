@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getEvents } from '@/services/eventService';
 import { getMyStaffMembers } from '@/services/vendorService';
 import type { Event } from '@/types/event';

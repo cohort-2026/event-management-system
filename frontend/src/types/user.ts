@@ -23,7 +23,7 @@ export interface CreateUserDto {
   lastname: string;
   email: string;
   password: string;
-  role: UserRole;
+  role: RegistrationRole;
 }
 
 export interface LoginDto {

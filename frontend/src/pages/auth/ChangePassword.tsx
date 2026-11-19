@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthCard from '@/components/auth/AuthCard';
 import Input from '@/components/legacy/Input';
 import Button from '@/components/legacy/Button';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { changePassword } from '@/services/authService';
 import { LockKeyhole } from 'lucide-react';
 

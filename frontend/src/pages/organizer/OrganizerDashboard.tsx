@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
@@ -241,6 +241,8 @@ export default function OrganizerDashboard() {
   const eventSearch = searchParams.get('search') ?? '';
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellationEventId, setCancellationEventId] = useState<string | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
   const [completingId, setCompletingId] = useState<string | null>(null);
 
   const setEventSearch = (value: string) => {
@@ -370,14 +372,21 @@ export default function OrganizerDashboard() {
   };
 
   const cancel = async (event: Event) => {
-    if (!window.confirm(`Cancel "${event.title}"? Registered attendees and approved vendors will be notified.`)) return;
+    const reason = cancellationReason.trim();
+    if (!reason) {
+      setError('Enter a reason before cancelling the event.');
+      return;
+    }
+
     setError('');
     setNotice('');
     setCancellingId(event.id);
     try {
-      const response = await cancelEvent(event.id);
+      const response = await cancelEvent(event.id, reason);
       setNotice(response.data.message ?? 'Event cancelled.');
       await refreshEvents();
+      setCancellationEventId(null);
+      setCancellationReason('');
     } catch (cancelError) {
       setError(axios.isAxiosError(cancelError)
         ? (cancelError.response?.data?.message ?? 'Event could not be cancelled.')
@@ -990,7 +999,7 @@ export default function OrganizerDashboard() {
                                         <Button variant="secondary" size="sm">Edit</Button>
                                       </Link>
                                       {past && <Button size="sm" loading={completingId === event.id} onClick={() => void complete(event)}>Complete</Button>}
-                                      <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => void cancel(event)}>Cancel</Button>
+                                      <Button variant="danger" size="sm" loading={cancellingId === event.id} onClick={() => { setCancellationEventId(event.id); setCancellationReason(''); }}>Cancel</Button>
                                     </>
                                   ) : (
                                     <Link to={`/events/${event.id}`}>
@@ -1006,6 +1015,30 @@ export default function OrganizerDashboard() {
                                     </Link>
                                   </div>
                                 </div>
+                                {cancellationEventId === event.id && (
+                                  <form className="mt-4 rounded-lg border border-rose-200 bg-rose-50/50 p-4" onSubmit={submitEvent => { submitEvent.preventDefault(); void cancel(event); }}>
+                                    <label htmlFor={`cancellation-reason-${event.id}`} className="block text-sm font-semibold text-neutral-900">Reason for cancellation</label>
+                                    <p id={`cancellation-reason-help-${event.id}`} className="mt-1 text-xs text-neutral-600">This reason will be included in the cancellation email to registered attendees and approved vendors.</p>
+                                    <textarea
+                                      id={`cancellation-reason-${event.id}`}
+                                      aria-describedby={`cancellation-reason-help-${event.id}`}
+                                      required
+                                      maxLength={500}
+                                      rows={3}
+                                      value={cancellationReason}
+                                      onChange={changeEvent => setCancellationReason(changeEvent.target.value)}
+                                      placeholder="Explain why this event is being cancelled"
+                                      className="mt-3 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                                    />
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                      <span className="text-xs text-neutral-500">{cancellationReason.length}/500</span>
+                                      <div className="flex gap-2">
+                                        <Button type="button" variant="secondary" size="sm" onClick={() => { setCancellationEventId(null); setCancellationReason(''); }}>Keep event</Button>
+                                        <Button type="submit" variant="danger" size="sm" loading={cancellingId === event.id} disabled={!cancellationReason.trim()}>Confirm cancellation</Button>
+                                      </div>
+                                    </div>
+                                  </form>
+                                )}
                               </td>
                             </tr>
                           );

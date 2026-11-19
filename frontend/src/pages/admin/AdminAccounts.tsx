@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import axios from 'axios';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import Button from '@/components/legacy/Button';
 import Input from '@/components/legacy/Input';

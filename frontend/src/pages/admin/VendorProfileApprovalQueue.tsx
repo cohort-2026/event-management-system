@@ -20,6 +20,8 @@ const demoVendorProfileId = 'frontend-demo-pending-vendor';
 const demoVendorProfile: PendingVendorProfile = {
   id: demoVendorProfileId,
   businessName: 'Moya Handmade Market',
+  businessType: 'Handcrafted goods',
+  businessAddress: '',
   businessDescription: 'Frontend-only example vendor profile for reviewing the pending approval workflow.',
   businessRegistrationNumber: '2025/000001/07',
   contactPerson: 'Nandi Mokoena',

@@ -31,7 +31,7 @@ Event ──< Booking
 Event ──< Ticket
 Event ──< VendorApplication
 
-Booking ──── Ticket     (one-to-one)
+Booking ──< Ticket      (one booking → multiple tickets)
 Booking ──── Payment    (one-to-one)
 
 VendorApplication ──< VendorStaffMember
@@ -89,12 +89,24 @@ Records an attendee's registration for an event.
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PRIMARY KEY | — |
+| `reference` | TEXT | NOT NULL, UNIQUE | Public booking reference |
 | `ticket_type` | TicketTypes (enum) | NOT NULL, DEFAULT `GENERAL` | GENERAL, VIP, STAFF |
+| `quantity` | INTEGER | NOT NULL, DEFAULT `1` | Number of tickets in the booking |
+| `total_amount` | DECIMAL(10,2) | NOT NULL, DEFAULT `0` | Calculated from the selected ticket type |
 | `status` | BookingStatus (enum) | NOT NULL, DEFAULT `PENDING` | — |
 | `payment_status` | PaymentStatus (enum) | NOT NULL, DEFAULT `NOT_REQUIRED` | — |
+| `event_ticket_type_id` | UUID | NULLABLE, FK → event ticket types | Selected ticket type |
 | `event_id` | UUID | NOT NULL, FK → events | — |
 | `attendee_id` | UUID | NOT NULL, FK → users | — |
 | `created_at` | TIMESTAMPTZ | NOT NULL | — |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Auto-updated by Prisma |
+
+Free bookings are confirmed in a transaction that atomically decrements both event
+and ticket-type capacity by the requested quantity. Paid bookings are created as
+pending with a pending payment record, but do not reserve capacity or receive
+tickets. Payment processing must recheck and atomically claim capacity before
+confirming payment and issuing tickets; there is no timed reservation to expire.
+An individual booking is limited to 100 tickets to bound request and ticket-creation work.
 
 ---
 
@@ -106,12 +118,14 @@ Issued after a booking is confirmed.
 |---|---|---|---|
 | `id` | UUID | PRIMARY KEY | — |
 | `reference_number` | TEXT | NOT NULL, UNIQUE | Human-readable ticket ref |
+| `qr_payload` | TEXT | NOT NULL, UNIQUE | Opaque payload for ticket verification |
 | `type_of_ticket` | TypeOfTickets (enum) | NOT NULL, DEFAULT `FREE` | PAID or FREE |
 | `status` | TicketStatus (enum) | NOT NULL, DEFAULT `ACTIVE` | — |
-| `booking_id` | UUID | NOT NULL, UNIQUE, FK → bookings | One ticket per booking |
+| `booking_id` | UUID | NOT NULL, FK → bookings | Multiple tickets may belong to a booking |
 | `event_id` | UUID | NOT NULL, FK → events | — |
 | `holder_id` | UUID | NOT NULL, FK → users | — |
 | `issued_at` | TIMESTAMPTZ | NOT NULL | — |
+| `checked_in_at` | TIMESTAMPTZ | NULLABLE | Set when checked in |
 
 ---
 
@@ -125,10 +139,22 @@ Tracks payment for a paid booking.
 | `amount` | DECIMAL(10,2) | NOT NULL | — |
 | `currency` | TEXT | NOT NULL, DEFAULT `ZAR` | — |
 | `status` | PaymentStatus (enum) | NOT NULL, DEFAULT `PENDING` | — |
-| `provider` | TEXT | NOT NULL | e.g. PayFast, Stripe |
-| `provider_reference` | TEXT | NULLABLE | External payment ID |
+| `provider` | TEXT | NOT NULL | `SIMULATED` for BE-04 test payments |
+| `provider_reference` | TEXT | NULLABLE | Explicitly marked simulated result; never a real transaction ID |
 | `booking_id` | UUID | NOT NULL, UNIQUE, FK → bookings | One payment per booking |
 | `created_at` | TIMESTAMPTZ | NOT NULL | — |
+
+BE-04 accepts only a simulated `SUCCESS` or `FAILED` outcome and rejects any
+additional request fields, including card or banking credentials. A success
+rechecks and atomically claims event and ticket-type capacity before confirming
+the booking and issuing paid tickets. A failed or capacity-blocked outcome
+creates no tickets. Repeated requests return the existing terminal result.
+`POST /api/payments/:bookingId/process` processes the owner's simulated outcome;
+`GET /api/payments/:bookingId` and `GET /api/payments/me` return owner-scoped
+payment status without provider references.
+Pending and abandoned payments do not expire automatically; a pending payment
+is closed as failed if its booking is cancelled. Cancelling a paid booking
+preserves the successful simulated payment history and does not issue a refund.
 
 ---
 

@@ -1,5 +1,5 @@
-import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/useAuth';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { DashboardNavigationProvider } from '@/components/layout/DashboardNavigationContext';
 
@@ -12,13 +12,9 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
   const { pathname } = useLocation();
   const { user } = useAuth();
   const showAdminBackButton = pathname.startsWith('/admin/') && pathname !== '/admin/';
-  const isVendorRoute = pathname === '/vendor' || pathname.startsWith('/vendor/');
   const isEventDetailPage = pathname.startsWith('/events/');
-  const isVendorEventDetail = isEventDetailPage && user?.role === 'VENDOR';
-  const isVendorEventsPage = pathname === '/events' || pathname === '/vendor/events' || isVendorEventDetail;
   const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
-  const useDashboardLayout = isDashboardRoute || isVendorEventsPage;
   const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
   const lightDashboard = appearance === 'light' && isDashboardRoute;
 

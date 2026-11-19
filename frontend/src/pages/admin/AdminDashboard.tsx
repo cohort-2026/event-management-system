@@ -51,7 +51,7 @@ export default function AdminDashboard() {
     let active = true;
     Promise.allSettled([getAdminAuditHistory(), getUsers()]).then(([auditResult, usersResult]) => {
       if (!active || auditResult.status !== 'fulfilled') return;
-      const users = usersResult.status === 'fulfilled' ? usersResult.value.data : [];
+      const users = usersResult.status === 'fulfilled' ? usersResult.value.data.data : [];
       const userNames = new Map(users.map(user => [user.id, `${user.firstname} ${user.lastname}`]));
       setRecentActivity(auditResult.value.data.data.slice(0, 4).map(activity => ({
         ...activity,
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
         .filter((event: Event) => event.title.toLowerCase().includes(query))
         .slice(0, 5)
         .map((event: Event) => ({ id: event.id, title: event.title, detail: 'Event', kind: 'Event', to: `/events/${event.id}` }));
-      const userResults: SearchResult[] = usersResponse.data
+      const userResults: SearchResult[] = usersResponse.data.data
         .filter((user: User) => `${user.firstname} ${user.lastname} ${user.email}`.toLowerCase().includes(query))
         .slice(0, 5)
         .map((user: User) => ({

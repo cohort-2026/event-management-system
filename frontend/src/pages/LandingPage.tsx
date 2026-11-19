@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import axios from "axios";
 import { ArrowRight, CalendarDays, MapPin, Ticket } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import { getEvents } from "@/services/eventService";
 import type { Event } from "@/types/event";
 

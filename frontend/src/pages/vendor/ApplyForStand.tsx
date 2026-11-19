@@ -57,6 +57,19 @@ export default function ApplyForStand() {
         setStandDescription(previousApplication?.standDescription ?? '');
         setSupportingInformation(previousApplication?.supportingInformation ?? '');
         setStaffMembers(previousApplication?.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        const latestRejected = applicationsResponse.data.data
+          .filter(application => application.eventId === eventId && application.status === 'REJECTED')
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
+        const hasActiveApplication = applicationsResponse.data.data.some(application =>
+          application.eventId === eventId && application.status !== 'REJECTED',
+        );
+        if (!hasActiveApplication && latestRejected) {
+          setRequestedStandType(latestRejected.requestedStandType);
+          setRequestedStandSize(latestRejected.requestedStandSize);
+          setStandDescription(latestRejected.standDescription);
+          setSupportingInformation(latestRejected.supportingInformation ?? '');
+          setStaffMembers(latestRejected.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        }
       })
       .catch(() => {
         if (active) setError('Unable to load this event and your business profile. Please try again.');

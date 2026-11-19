@@ -1,8 +1,7 @@
 import bcrypt from 'bcryptjs';
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { config } from '../config/index';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function provisionInitialAdmin(): Promise<void> {

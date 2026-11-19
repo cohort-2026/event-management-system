@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
 import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';

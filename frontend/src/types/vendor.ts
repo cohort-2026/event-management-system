@@ -3,6 +3,8 @@ export type VendorApplicationStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
 export interface VendorProfile {
   id: string;
   businessName: string;
+  businessType: string;
+  businessAddress: string;
   businessDescription: string;
   businessRegistrationNumber: string;
   contactPerson: string;
@@ -13,6 +15,9 @@ export interface VendorProfile {
   status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
   rejectionReason?: string | null;
   reviewedAt?: string | null;
+  profileCompletionStatus?: 'COMPLETE' | 'INCOMPLETE';
+  completionPercentage?: number;
+  documentSubmissionStatus?: 'NOT_SUBMITTED' | 'ACTION_REQUIRED' | 'PENDING_REVIEW' | 'VERIFIED';
   createdAt: string;
   updatedAt: string;
 }
@@ -29,7 +34,11 @@ export interface PendingVendorProfile extends VendorProfile {
   };
 }
 
-export type UpdateVendorProfileDto = Omit<VendorProfile, 'id' | 'status' | 'rejectionReason' | 'reviewedAt' | 'createdAt' | 'updatedAt'>;
+export type UpdateVendorProfileDto = Omit<
+  VendorProfile,
+  'id' | 'status' | 'rejectionReason' | 'reviewedAt' | 'createdAt' | 'updatedAt'
+  | 'profileCompletionStatus' | 'completionPercentage' | 'documentSubmissionStatus'
+>;
 
 export interface VendorApplication {
   id: string;
@@ -62,6 +71,8 @@ export interface VendorApplication {
     isActive?: boolean;
     vendorProfile?: {
       businessName: string;
+      businessType: string;
+      businessAddress: string;
       businessDescription: string;
       businessRegistrationNumber: string;
       contactPerson: string;
@@ -81,6 +92,9 @@ export interface VendorApplication {
     title: string;
     date: string;
     venue: string;
+    startTime?: string;
+    endTime?: string;
+    status?: string;
   };
 }
 
@@ -118,7 +132,21 @@ export interface VendorDocument {
   id: string;
   originalName: string;
   sizeBytes: number;
+  status?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
   createdAt: string;
+  vendor?: {
+    id: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+  };
+  reviewedBy?: {
+    id: string;
+    firstname: string;
+    lastname: string;
+  } | null;
 }
 
 export type CreateVendorApplicationDto = Pick<

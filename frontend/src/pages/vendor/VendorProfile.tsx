@@ -7,7 +7,7 @@ import Button from '@/components/legacy/Button';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import {
   deleteVendorDocument,
   downloadVendorDocument,
@@ -27,6 +27,8 @@ const phoneCountries = getCountries()
 
 const emptyProfile: UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason' | 'reviewedAt'> = {
   businessName: '',
+  businessType: '',
+  businessAddress: '',
   businessDescription: '',
   businessRegistrationNumber: '',
   contactPerson: '',
@@ -196,6 +198,8 @@ export default function VendorProfilePage() {
     if (profile.businessRegistrationNumber && !businessRegistrationRegex.test(profile.businessRegistrationNumber)) {
       errors.businessRegistrationNumber = 'Use the format 2020/123456/07.';
     }
+    if (submitForReview && profile.businessType.trim().length < 2) errors.businessType = 'Enter a business type or category.';
+    if (submitForReview && profile.businessAddress.trim().length < 5) errors.businessAddress = 'Enter a business address.';
     const parsedPhone = parsePhoneNumberFromString(phoneNumber, phoneCountry);
     const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : '';
     if (!normalizedPhone) errors.contactPhone = `Enter a valid phone number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`;
