@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import axios from 'axios';
 import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
-import { getMyApplications, getMyStaffMembers } from '@/services/vendorService';
+import { addStaffMember, getMyApplications, getMyStaffMembers } from '@/services/vendorService';
 import type { VendorApplication, VendorStaffWithEvent } from '@/types/vendor';
 
 export default function StaffManagement() {
@@ -14,6 +15,7 @@ export default function StaffManagement() {
   const [staffMembers, setStaffMembers] = useState<VendorStaffWithEvent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -33,6 +35,30 @@ export default function StaffManagement() {
 
     return () => { active = false; };
   }, []);
+
+  const refreshPasses = async () => {
+    setRefreshing(true);
+    setError('');
+    try {
+      const [applicationsResponse, staffResponse] = await Promise.all([getMyApplications(), getMyStaffMembers()]);
+      setApplications(applicationsResponse.data.data);
+      setStaffMembers(staffResponse.data.data);
+    } catch {
+      setError('Unable to refresh your staff passes. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const refreshStaff = async () => {
+    try {
+      const response = await getMyStaffMembers();
+      setStaffMembers(response.data.data);
+      setError('');
+    } catch {
+      setError('Staff member was added, but passes could not be refreshed. Please refresh payment status.');
+    }
+  };
 
   const approvedApplications = useMemo(
     () => applications.filter(application => application.status === 'APPROVED'),
@@ -72,7 +98,7 @@ export default function StaffManagement() {
           <VendorSidebar />
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-1 text-[11px] text-[#555]">
                 <VendorMenuButton />
                 <Link to="/vendor/staff" className="shrink-0 hover:text-[#171717]">Staff passes</Link>
@@ -123,11 +149,11 @@ export default function StaffManagement() {
                         </div>
                         <button
                           type="button"
-                          disabled
-                          title="Adding staff after submitting an application is not supported yet."
+                          disabled={refreshing}
+                          onClick={() => void refreshPasses()}
                           className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-[#171717] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed"
                         >
-                          <span aria-hidden="true">+</span> Add staff member
+                          {refreshing ? 'Refreshing…' : 'Refresh payment status'}
                         </button>
                       </div>
 
@@ -139,21 +165,7 @@ export default function StaffManagement() {
                             <StaffPassCard key={member.id} member={member} application={selectedApplication} />
                           ))}
                           {!query && (
-                            <div className="flex min-h-[142px] flex-col items-center justify-center rounded-lg border border-dashed border-[#d9d9d9] bg-white/50 px-3 py-3 text-center">
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[12px] text-[#888]" aria-hidden="true">+</span>
-                              <p className="mt-1 text-[11px] font-bold text-[#444]">Add staff member</p>
-                              <p className="mt-0.5 max-w-[110px] text-[10px] leading-relaxed text-[#888]">
-                                Add staff during your next stand application.
-                              </p>
-                              <button
-                                type="button"
-                                disabled
-                                title="Adding staff after submitting an application is not supported yet."
-                                className="mt-1.5 rounded border border-[#dedede] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#777]"
-                              >
-                                Add staff
-                              </button>
-                            </div>
+                            <AddStaffForm key={selectedApplication.id} applicationId={selectedApplication.id} onAdded={refreshStaff} />
                           )}
                         </div>
                       ) : (
@@ -183,12 +195,70 @@ export default function StaffManagement() {
   );
 }
 
+function AddStaffForm({ applicationId, onAdded }: { applicationId: string; onAdded: () => Promise<void> }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    setError('');
+    setMessage('');
+    if (trimmedName.length < 2) {
+      setError('Enter a staff name of at least 2 characters.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Enter a valid staff email address.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await addStaffMember(applicationId, { name: trimmedName, email: trimmedEmail });
+      setName('');
+      setEmail('');
+      setMessage('Staff member added.');
+      await onAdded();
+    } catch (saveError) {
+      setError(axios.isAxiosError<{ message?: string }>(saveError)
+        ? saveError.response?.data.message ?? 'Unable to add this staff member. Please try again.'
+        : 'Unable to add this staff member. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} noValidate className="space-y-2 rounded-lg border border-[#e5e5e5] bg-white p-3">
+      <h2 className="text-[12px] font-bold text-[#222]">Add staff member</h2>
+      <label className="block text-[12px] font-semibold text-[#444]">
+        Name
+        <input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 w-full rounded border border-[#d8d8d8] px-2 py-1 text-[12px]" />
+      </label>
+      <label className="block text-[12px] font-semibold text-[#444]">
+        Email
+        <input required type="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} className="mt-1 w-full rounded border border-[#d8d8d8] px-2 py-1 text-[12px]" />
+      </label>
+      {error && <p role="alert" className="text-[12px] text-rose-700">{error}</p>}
+      {message && <p role="status" className="text-[12px] text-emerald-700">{message}</p>}
+      <button type="submit" disabled={saving} className="rounded-md bg-[#171717] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50">
+        {saving ? 'Adding…' : 'Add staff'}
+      </button>
+    </form>
+  );
+}
+
 function InvoiceSummary({ application, staffCount }: { application: VendorApplication; staffCount: number }) {
   const paid = application.invoice?.status === 'PAID';
 
   return (
     <section className={`flex min-h-[24px] flex-wrap items-center justify-between gap-2 rounded-lg border px-2 py-1 ${
-      paid ? 'border-[#e5e5e5] bg-white' : 'border-[#f2dfb6] bg-[#fffaf0]'
+      paid ? 'border-[#e5e5e5] bg-white' : 'border-[#f2dfb6] bg-white'
     }`}>
       <div className="flex min-w-0 items-center gap-1.5">
         <span className={`shrink-0 rounded-full border px-1 py-0.5 text-[10px] font-bold leading-none ${
@@ -266,7 +336,7 @@ function OtherApplication({ application }: { application: VendorApplication }) {
   const paid = application.invoice?.status === 'PAID';
 
   return (
-    <section className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#ededed] bg-[#f6f6f6] px-2 py-1.5">
+    <section className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#ededed] bg-white px-2 py-1.5">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="flex h-6 w-[18px] shrink-0 items-center justify-center rounded-full bg-white text-[#888]" aria-hidden="true">
           <LockIcon />
@@ -284,10 +354,10 @@ function OtherApplication({ application }: { application: VendorApplication }) {
         </div>
       </div>
       <Link
-        to="/vendor/applications"
+        to={paid ? `/vendor/applications/${application.id}/staff` : '/vendor/applications'}
         className="shrink-0 rounded border border-[#d8d8d8] bg-white px-1.5 py-1 text-[10px] font-medium text-[#444] hover:bg-slate-50"
       >
-        View invoice
+        {paid ? 'View passes' : 'View invoice'}
       </Link>
     </section>
   );

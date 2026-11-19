@@ -619,7 +619,7 @@ function VendorEventLayout({ children, eventTitle }: { children: ReactNode; even
         <div className="flex min-h-screen">
           <VendorSidebar />
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-1 text-[8px] font-semibold text-[#333]">
                 <VendorMenuButton />
                 <Link to="/vendor/events" className="shrink-0 hover:text-[#171717]">Find events</Link>

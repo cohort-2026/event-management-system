@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
@@ -6,7 +6,8 @@ import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import Badge, { type BadgeVariant } from '@/components/legacy/Badge';
 import Button from '@/components/legacy/Button';
-import { approveApplication, getEventApplications, rejectApplication } from '@/services/vendorService';
+import { approveApplication, getEventApplications, markVendorInvoicePaid, rejectApplication } from '@/services/vendorService';
+import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import { getMyEvents } from '@/services/eventService';
 import type { VendorApplication } from '@/types/vendor';
 
@@ -74,18 +75,13 @@ export default function VendorApplications() {
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [activeStatus, setActiveStatus] = useState<'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'INACTIVE'>('APPROVED');
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
-  const latestApplicationsByVendor = new Map<string, VendorApplication>();
-  [...applications]
-    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-    .forEach(application => {
-      if (!latestApplicationsByVendor.has(application.vendorId)) latestApplicationsByVendor.set(application.vendorId, application);
-    });
-  const vendorDirectory = [...latestApplicationsByVendor.values()];
+  const vendorDirectory = applications;
   const statusTabs = [
     { id: 'PENDING_REVIEW' as const, label: 'Pending', count: vendorDirectory.filter(application => application.status === 'PENDING_REVIEW' && application.vendor?.isActive !== false).length },
     { id: 'APPROVED' as const, label: 'Approved', count: vendorDirectory.filter(application => application.status === 'APPROVED' && application.vendor?.isActive !== false).length },
@@ -97,7 +93,7 @@ export default function VendorApplications() {
     : vendorDirectory.filter(application => application.status === activeStatus && application.vendor?.isActive !== false);
   const selectedApplication = visibleApplications.find(application => application.id === selectedApplicationId) ?? visibleApplications[0];
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setError('');
     try {
       if (eventId) {
@@ -127,21 +123,27 @@ export default function VendorApplications() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
   useEffect(() => {
-    let active = true;
-    const request = eventId
-      ? getEventApplications(eventId)
-      : Promise.reject(new Error('A valid event is required.'));
-    request
-      .then(response => { if (active) setApplications(response.data.data); })
-      .catch(loadError => {
-        if (active) setError(eventId ? responseMessage(loadError, 'Stand requests could not be loaded.') : 'A valid event is required.');
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [eventId]);
+    void refresh();
+  }, [refresh]);
+
+  const markPaid = async (application: VendorApplication) => {
+    if (!application.invoice || !window.confirm(`Confirm that invoice ${application.invoice.invoiceNumber} has been paid?`)) return;
+    setError('');
+    setNotice('');
+    setPayingId(application.id);
+    try {
+      await markVendorInvoicePaid(application.id);
+      setNotice('Invoice marked paid. The vendor can now access staff passes.');
+      await refresh();
+    } catch (paymentError) {
+      setError(responseMessage(paymentError, 'Invoice could not be marked paid.'));
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   const approve = async (event: FormEvent<HTMLFormElement>, applicationId: string) => {
     event.preventDefault();
@@ -154,6 +156,8 @@ export default function VendorApplications() {
       setNotice(response.data.invoiceEmailSent === false
         ? 'Stand approved and invoice issued. Email delivery failed; the vendor can view it in My Applications.'
         : 'Stand approved, assigned, and invoiced.');
+      setActiveStatus('APPROVED');
+      setSelectedApplicationId(applicationId);
       await refresh();
     } catch (decisionError) {
       setError(responseMessage(decisionError, 'Stand request could not be approved.'));
@@ -235,7 +239,7 @@ export default function VendorApplications() {
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-400 text-sm font-bold text-white">{initials}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block break-words font-bold text-slate-900">{vendorName}</span>
-                          <span className="mt-1 block truncate text-sm text-slate-500">{application.vendor?.vendorProfile?.productsServices?.[0] || 'Vendor'} · {application.vendor?.vendorProfile?.supportingDocumentUrls?.length ?? 0} documents</span>
+                          <span className="mt-1 block truncate text-sm text-slate-500">{application.event?.title || application.vendor?.vendorProfile?.productsServices?.[0] || 'Vendor'} · {application.vendor?.vendorProfile?.supportingDocumentUrls?.length ?? 0} documents</span>
                         </span>
                         <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{formatRelativeTime(application.createdAt)}</span>
                       </button>
@@ -331,6 +335,19 @@ export default function VendorApplications() {
                         </p>
                         {application.assignedStand && <p className="mt-1 font-medium text-emerald-800">Assigned stand: {application.assignedStand}</p>}
                         {application.rejectionReason && <p className="mt-1 whitespace-pre-line text-rose-700">Reason: {application.rejectionReason}</p>}
+                        {application.status === 'APPROVED' && application.invoice && (
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <p className="font-medium text-neutral-700">Invoice {application.invoice.invoiceNumber}: {application.invoice.status === 'ISSUED' ? 'Unpaid' : application.invoice.status === 'PAID' ? 'Paid' : 'Void'}</p>
+                            <Button type="button" size="sm" variant="secondary" onClick={() => downloadInvoicePdf(application)}>
+                              Download invoice
+                            </Button>
+                            {application.invoice.status === 'ISSUED' && (
+                              <Button type="button" size="sm" loading={payingId === application.id} disabled={Boolean(payingId)} onClick={() => void markPaid(application)}>
+                                Mark invoice paid
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </article>

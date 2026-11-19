@@ -50,6 +50,7 @@ export default function VendorProfilePage() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [saveFailed, setSaveFailed] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serviceDraft, setServiceDraft] = useState('');
   const [serviceError, setServiceError] = useState('');
@@ -60,6 +61,8 @@ export default function VendorProfilePage() {
   const isApproved = profile.status === 'APPROVED';
   const isDraft = profile.status === 'DRAFT';
   const isRejected = profile.status === 'REJECTED';
+  const isPending = profile.status === 'PENDING_REVIEW';
+  const isEditable = !isApproved && !isPending;
 
   useEffect(() => {
     let active = true;
@@ -92,6 +95,7 @@ export default function VendorProfilePage() {
     setProfile(current => ({ ...current, [key]: value }));
     setFieldErrors(current => ({ ...current, [key]: '' }));
     setSaveMessage('');
+    setSaveFailed(false);
   };
 
   const addProductOrService = () => {
@@ -172,7 +176,7 @@ export default function VendorProfilePage() {
   };
 
   const removeDocument = async (document: VendorDocument) => {
-    if (isApproved || !window.confirm(`Remove ${document.originalName}?`)) return;
+    if (!isEditable || !window.confirm(`Remove ${document.originalName}?`)) return;
     setDocumentError('');
     setDocumentMessage('');
 
@@ -190,22 +194,26 @@ export default function VendorProfilePage() {
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const submitForReview = submitter instanceof HTMLButtonElement && submitter.value === 'submit-review';
     setSaveMessage('');
+    setSaveFailed(false);
 
     const errors: Record<string, string> = {};
-    if (profile.businessName.trim() === '') errors.businessName = 'Business name is required.';
-    if (profile.contactPerson.trim() === '') errors.contactPerson = 'Contact person is required.';
-    if (profile.contactEmail.trim() === '') errors.contactEmail = 'Contact email is required.';
-    if (profile.businessRegistrationNumber && !businessRegistrationRegex.test(profile.businessRegistrationNumber)) {
+    if (profile.businessName.trim().length < 2) errors.businessName = 'Enter a business name of at least 2 characters.';
+    if (profile.contactPerson.trim().length < 2) errors.contactPerson = 'Enter a contact person of at least 2 characters.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.contactEmail.trim())) errors.contactEmail = 'Enter a valid email address.';
+    const registrationNumber = profile.businessRegistrationNumber.trim();
+    if (registrationNumber && !businessRegistrationRegex.test(registrationNumber)) {
       errors.businessRegistrationNumber = 'Use the format 2020/123456/07.';
     }
     if (submitForReview && profile.businessType.trim().length < 2) errors.businessType = 'Enter a business type or category.';
     if (submitForReview && profile.businessAddress.trim().length < 5) errors.businessAddress = 'Enter a business address.';
+    if (submitForReview && profile.businessDescription.trim().length < 20) errors.businessDescription = 'Enter a business description of at least 20 characters.';
     const parsedPhone = parsePhoneNumberFromString(phoneNumber, phoneCountry);
     const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : '';
     if (!normalizedPhone) errors.contactPhone = `Enter a valid phone number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`;
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setSaveMessage('Please check the highlighted fields.');
+      setSaveFailed(true);
       return;
     }
 
@@ -217,11 +225,14 @@ export default function VendorProfilePage() {
       if (user?.role === 'VENDOR') setUser({ ...user, vendorProfileStatus: response.data.data.status });
       setSaveMessage(response.data.message ?? 'Business profile saved.');
     } catch (error) {
-      if (axios.isAxiosError<ApiError>(error) && error.response?.status === 400) {
+      if (axios.isAxiosError<{ message: string; errors?: Record<string, string | string[]> }>(error) && error.response?.status === 400) {
         setFieldErrors(Object.fromEntries(
-          Object.entries(error.response.data.errors ?? {}).map(([field, messages]) => [field, messages[0] ?? ''])
+          Object.entries(error.response.data.errors ?? {}).map(([field, messages]) => [
+            field, typeof messages === 'string' ? messages : messages[0] ?? '',
+          ])
         ));
       }
+      setSaveFailed(true);
       setSaveMessage(
         axios.isAxiosError<ApiError>(error)
           ? error.response?.data.message ?? 'Unable to save your profile. Please try again.'
@@ -239,7 +250,7 @@ export default function VendorProfilePage() {
           <VendorSidebar accountSubtitle={profile.businessName || user?.email} />
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <VendorMenuButton />
                 <span className="truncate text-[12px] font-semibold text-[#333]">Business profile</span>
@@ -289,13 +300,13 @@ export default function VendorProfilePage() {
                   <p className="mt-1">
                     {isDraft
                       ? 'Complete your business details and submit your profile for approval.'
-                      : 'Your profile is being reviewed. You can update the saved details below.'}
+                      : 'Your profile is being reviewed. You can update it if it is returned for changes.'}
                   </p>
                 </div>
               )}
 
-              <form onSubmit={saveProfile} className="space-y-0">
-                <fieldset disabled={isApproved} className="space-y-0 disabled:opacity-80">
+              <form onSubmit={saveProfile} noValidate className="space-y-0">
+                <fieldset disabled={!isEditable} className="space-y-0 disabled:opacity-80">
                   <ProfileSection title="Business" description="How organisers will see you.">
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Field label="Trading name" error={fieldErrors.businessName}>
@@ -308,7 +319,7 @@ export default function VendorProfilePage() {
                         />
                       </Field>
                       {isApproved ? (
-                        <Field label="Products/services">
+                        <Field label="Products/services" error={fieldErrors.productsServices}>
                           <input value={profile.productsServices.join(', ')} readOnly className={fieldClassName} />
                         </Field>
                       ) : (
@@ -337,6 +348,14 @@ export default function VendorProfilePage() {
                           {serviceError && <span role="alert" className="mt-1 block text-[12px] font-normal text-rose-700">{serviceError}</span>}
                         </Field>
                       )}
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <Field label="Business type or category" error={fieldErrors.businessType}>
+                        <input maxLength={100} value={profile.businessType} onChange={event => updateField('businessType', event.target.value)} className={fieldClassName} />
+                      </Field>
+                      <Field label="Business address" error={fieldErrors.businessAddress}>
+                        <input maxLength={500} value={profile.businessAddress} onChange={event => updateField('businessAddress', event.target.value)} className={fieldClassName} />
+                      </Field>
                     </div>
                     <div className="mt-2">
                       <Field label="What you offer" error={fieldErrors.businessDescription}>
@@ -376,14 +395,20 @@ export default function VendorProfilePage() {
                         <div className="flex gap-2">
                           <select
                             value={phoneCountry}
-                            onChange={event => setPhoneCountry(event.target.value as CountryCode)}
+                            onChange={event => {
+                              setPhoneCountry(event.target.value as CountryCode);
+                              setFieldErrors(current => ({ ...current, contactPhone: '' }));
+                            }}
                             className="h-[20px] max-w-[46%] rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 focus:border-[#d15d2d] focus:outline-none"
                           >
                             {phoneCountries.map(country => (
                               <option key={country.country} value={country.country}>{country.name} (+{country.callingCode})</option>
                             ))}
                           </select>
-                          <input value={phoneNumber} onChange={event => setPhoneNumber(event.target.value)} className={`${fieldClassName} min-w-0`} />
+                          <input type="tel" value={phoneNumber} onChange={event => {
+                            setPhoneNumber(event.target.value);
+                            setFieldErrors(current => ({ ...current, contactPhone: '' }));
+                          }} className={`${fieldClassName} min-w-0`} />
                         </div>
                       </Field>
                     </div>
@@ -408,7 +433,7 @@ export default function VendorProfilePage() {
                           </div>
                           <div className="flex shrink-0 gap-1.5">
                             <button type="button" onClick={() => viewDocument(document)} className="h-6 rounded border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">View</button>
-                            {!isApproved && (
+                            {isEditable && (
                               <button type="button" onClick={() => removeDocument(document)} className="h-6 rounded border border-rose-200 bg-white px-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Remove</button>
                             )}
                           </div>
@@ -418,14 +443,14 @@ export default function VendorProfilePage() {
                   ) : (
                     <p className="rounded border border-dashed border-slate-300 bg-white px-2 py-3 text-center text-[12px] text-slate-500">No documents uploaded yet.</p>
                   )}
-                  <label className="mt-1.5 flex h-[30px] cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-transparent text-[12px] text-slate-500 hover:bg-white">
+                  {isEditable && <label className="mt-1.5 flex h-[30px] cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-transparent text-[12px] text-slate-500 hover:bg-white">
                     {uploading ? 'Uploading…' : <>Drop PDFs here or <span className="ml-1 font-semibold text-rose-600">browse</span> · max 10 files, 10 MB each</>}
                     <input type="file" accept="application/pdf" className="hidden" onChange={uploadDocument} disabled={uploading} />
-                  </label>
+                  </label>}
                 </ProfileSection>
 
-                {saveMessage && <p role="status" className="py-3 text-sm font-medium text-slate-700">{saveMessage}</p>}
-                {!isApproved && (
+                {saveMessage && <p role={saveFailed ? 'alert' : 'status'} className={`py-3 text-sm font-medium ${saveFailed ? 'text-rose-700' : 'text-slate-700'}`}>{saveMessage}</p>}
+                {isEditable && (
                   <div className="flex flex-wrap justify-end gap-3 pt-5">
                     <Link to="/vendor" className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</Link>
                     <Button type="submit" loading={saving}>Save profile</Button>
@@ -466,7 +491,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <label className="block text-[12px] font-semibold leading-4 text-slate-700">
       {label}
       <span className="mt-1 block">{children}</span>
-      {error && <span className="mt-1 block text-[12px] font-normal text-rose-600">{error}</span>}
+      {error && <span role="alert" className="mt-1 block text-[12px] font-normal text-rose-600">{error}</span>}
     </label>
   );
 }

@@ -163,7 +163,7 @@ export default function ApplyForStand() {
           <VendorSidebar />
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-11 items-center justify-between gap-2 border-b border-[#e7e7e7] bg-white px-4">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between gap-2 border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-1">
               <VendorMenuButton />
               <nav className="flex min-w-0 items-center gap-1 text-[8px] font-semibold" aria-label="Breadcrumb">

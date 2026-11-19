@@ -24,7 +24,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
   };
 
   return (
-    <div className="w-full shrink-0 bg-white min-[1024px]:sticky min-[1024px]:top-0 min-[1024px]:h-screen min-[1024px]:w-[220px] min-[1024px]:self-start">
+    <div className="vendor-sidebar w-full shrink-0 bg-white min-[1024px]:sticky min-[1024px]:top-0 min-[1024px]:h-screen min-[1024px]:w-[220px] min-[1024px]:self-start">
       <aside className="hidden h-full flex-col border-r border-[#e7e7e7] bg-white px-3 py-4 min-[1024px]:flex">
         <Brand />
         <p className="mb-3 px-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#888]">Vendor</p>

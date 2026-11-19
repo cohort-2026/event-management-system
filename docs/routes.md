@@ -74,7 +74,7 @@ Required role: `VENDOR`
 | `/vendor` | `pages/vendor/VendorDashboard.tsx` | Overview of own applications and stands |
 | `/vendor/events/:id/apply` | `pages/vendor/ApplyForStand.tsx` | Submit or revise a stand request for an event |
 | `/vendor/applications` | `pages/vendor/MyApplications.tsx` | View requests, decisions, assigned stands, and rejection feedback |
-| `/vendor/applications/:id/staff` | `pages/vendor/StaffManagement.tsx` | Add/manage staff members for an approved stand |
+| `/vendor/applications/:id/staff` | `pages/vendor/StaffManagement.tsx` | View staff passes and add staff when the stand invoice is paid |
 
 Stand requests are submitted through `POST /api/vendors/apply` with the requested
 stand type, size, setup details, and optional supporting information. Organizers
@@ -84,6 +84,13 @@ assigned stand identifier or `PATCH /api/vendors/:id/reject` with a required
 reason. Approved stand identifiers are unique per event; decisions and vendor
 notifications are recorded together. Rejected requests can be corrected and
 resubmitted from the vendor's applications list.
+
+Approving a stand creates an invoice and sends its details to the vendor.
+Organizers and vendors can download the invoice from their application views.
+After receiving payment, the event organizer can mark the invoice paid using
+`PATCH /api/vendors/:id/invoice/paid`. This notifies the vendor and unlocks
+staff passes in the vendor dashboard; use the refresh button if it is already open.
+Vendors may add up to 20 staff members to an approved stand before the event starts.
 
 ---
 

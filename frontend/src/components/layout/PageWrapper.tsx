@@ -16,6 +16,7 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
   const isDashboardRoute = ['/organizer', '/vendor', '/admin', '/attendee']
     .some(path => pathname === path || pathname.startsWith(`${path}/`));
   const isOrganizerRoute = pathname === '/organizer' || pathname.startsWith('/organizer/');
+  const isVendorRoute = pathname === '/vendor' || pathname.startsWith('/vendor/');
   const lightDashboard = appearance === 'light' && isDashboardRoute;
 
   return (
@@ -34,7 +35,7 @@ export default function PageWrapper({ children, appearance = 'default' }: PageWr
                 Back to admin dashboard
               </Link>
             )}
-            <div className={`dashboard-content ${lightDashboard ? 'dashboard-content-light' : ''}`}>{children}</div>
+            <div className={`dashboard-content ${lightDashboard ? 'dashboard-content-light' : ''} ${isVendorRoute ? 'vendor-dashboard-content' : ''}`}>{children}</div>
           </DashboardNavigationProvider>
         ) : (
           <>

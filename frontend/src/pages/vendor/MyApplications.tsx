@@ -5,6 +5,7 @@ import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSideb
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { getMyApplications } from '@/services/vendorService';
+import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication } from '@/types/vendor';
 
 type ApplicationTab = 'active' | 'past' | 'rejected';
@@ -70,7 +71,7 @@ export default function MyApplications() {
           <VendorSidebar />
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <VendorMenuButton />
                 <span className="truncate text-[12px] font-semibold text-[#333]">My applications</span>
@@ -587,76 +588,6 @@ function formatDateTime(value: string) {
 
 function formatCurrency(value: number | string, currency = 'ZAR') {
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(value));
-}
-
-function downloadInvoicePdf(application: VendorApplication) {
-  const invoice = application.invoice;
-  if (!invoice) return;
-
-  const amount = Number(invoice.amount);
-  const dateLabel = (value: string) => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-ZA');
-  };
-  const sourceLines = [
-    `Invoice number: ${invoice.invoiceNumber}`,
-    `Vendor: ${application.companyName}`,
-    `Event: ${application.event?.title ?? 'Event'}`,
-    `Venue: ${application.event?.venue ?? 'Not specified'}`,
-    `Assigned stand: ${application.assignedStand ?? 'Pending'}`,
-    `Issued: ${dateLabel(invoice.issuedAt)}`,
-    `Due: ${dateLabel(invoice.dueAt)}`,
-    '',
-    'Description: Vendor stand reservation',
-    `Total due: ${invoice.currency} ${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`,
-    `Status: ${invoice.status}`,
-  ];
-  const pdfText = (value: string) => value
-    .replace(/[^\x20-\x7E]/g, '?')
-    .replace(/([\\()])/g, '\\$1');
-  const lines = sourceLines.flatMap(line => {
-    const safeLine = line.replace(/[^\x20-\x7E]/g, '?');
-    if (!safeLine) return [''];
-    const wrapped: string[] = [];
-    for (let offset = 0; offset < safeLine.length; offset += 82) wrapped.push(safeLine.slice(offset, offset + 82));
-    return wrapped;
-  });
-  const drawingCommands = [
-    'BT',
-    '/F1 20 Tf',
-    '50 760 Td',
-    '(INVOICE) Tj',
-    '/F1 11 Tf',
-    ...lines.map((line, index) => `${index === 0 ? '0 -30 Td' : '0 -18 Td'} (${pdfText(line)}) Tj`),
-    'ET',
-  ].join('\n');
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    `<< /Length ${drawingCommands.length} >>\nstream\n${drawingCommands}\nendstream`,
-  ];
-  let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n`; });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  const blob = new Blob([pdf], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${invoice.invoiceNumber.replace(/[^a-z0-9-_]/gi, '-')}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function getStatusLabel(application: VendorApplication, paid: boolean) {

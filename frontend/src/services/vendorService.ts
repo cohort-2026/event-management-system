@@ -54,6 +54,7 @@ export const getVendorInvoice   = (id: string)                                  
 export const getMyStaffMembers  = ()                                               => api.get<ApiResponse<VendorStaffWithEvent[]>>('/vendors/staff');
 export const getEventApplications = (eventId: string)                             => api.get<ApiResponse<VendorApplication[]>>(`/events/${eventId}/vendors`);
 export const approveApplication = (id: string, assignedStand: string)             => api.patch<{ success: boolean; message: string; invoiceEmailSent?: boolean }>(`/vendors/${id}/approve`, { assignedStand });
+export const markVendorInvoicePaid = (applicationId: string) => api.patch<ApiResponse<null>>(`/vendors/${encodeURIComponent(applicationId)}/invoice/paid`);
 export const rejectApplication  = (id: string, reason: string)                    => api.patch(`/vendors/${id}/reject`, { reason });
 export const addStaffMember     = (applicationId: string, data: AddStaffMemberDto) =>
 	api.post<ApiResponse<VendorStaffMember>>(`/vendors/${encodeURIComponent(applicationId)}/staff`, data);

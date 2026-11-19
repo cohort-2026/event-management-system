@@ -423,7 +423,33 @@ if (!testDatabaseUrl) {
     });
     assert.ok(organizerAudit, 'organizer approval audit records identify the Admin actor');
 
+    const invalidVendorProfile = await request('/api/vendors/profile', {
+      method: 'PUT',
+      cookie: accounts.vendor.cookie,
+      body: {
+        businessName: 'Business vendor',
+        businessType: 'Food services',
+        businessAddress: '123 Test Street',
+        businessDescription: 'A complete test business description.',
+        businessRegistrationNumber: 'incorrect',
+        contactPerson: 'Vendor Test',
+        contactEmail: 'not-an-email',
+        contactPhone: '123',
+        productsServices: [],
+        supportingDocumentUrls: [],
+        submitForReview: true,
+      },
+    });
+    assert.equal(invalidVendorProfile.response.status, 400);
+    for (const field of ['businessRegistrationNumber', 'contactEmail', 'contactPhone']) {
+      assert.ok(invalidVendorProfile.data.errors[field], `${field} reports a validation error`);
+    }
+
     const vendorProfileId = await submitVendorProfile(accounts.vendor.cookie, 'vendor');
+    const pendingVendorProfiles = await request('/api/vendors/admin/profiles/pending', { cookie: adminCookie });
+    assert.equal(pendingVendorProfiles.response.status, 200);
+    assert.ok(pendingVendorProfiles.data.data.some(profile => profile.id === vendorProfileId),
+      'submitted vendor profile appears in the admin approval queue');
     const rejectedVendorProfileId = await submitVendorProfile(accounts.rejectedVendor.cookie, 'rejectedVendor');
     const otherVendorProfileId = await submitVendorProfile(accounts.otherVendor.cookie, 'otherVendor');
     assert.equal((await request('/api/vendors/me', { cookie: accounts.vendor.cookie })).response.status, 200,
@@ -642,6 +668,26 @@ if (!testDatabaseUrl) {
     assert.equal((await request(`/api/vendors/invoices/${vendorInvoices.data.data[0].id}`, {
       cookie: accounts.otherVendor.cookie,
     })).response.status, 404, 'vendors cannot view another vendor invoice');
+    assert.equal((await request(`/api/vendors/${vendorApplicationId}/invoice/paid`, {
+      method: 'PATCH',
+      cookie: accounts.otherOrganizer.cookie,
+    })).response.status, 404, 'other organizers cannot mark the invoice paid');
+    assert.equal((await request(`/api/vendors/${vendorApplicationId}/invoice/paid`, {
+      method: 'PATCH',
+      cookie: accounts.vendor.cookie,
+    })).response.status, 403, 'vendors cannot mark their own invoice paid');
+    assert.equal((await request(`/api/vendors/${vendorApplicationId}/invoice/paid`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 200, 'the event organizer can mark the invoice paid');
+    const paidApplications = await request('/api/vendors/applications/me', { cookie: accounts.vendor.cookie });
+    assert.equal(paidApplications.data.data.find(application => application.id === vendorApplicationId).invoice.status, 'PAID');
+    const staffPasses = await request('/api/vendors/staff', { cookie: accounts.vendor.cookie });
+    assert.ok(staffPasses.data.data.some(member => member.application.id === vendorApplicationId && member.entryPassId));
+    assert.equal((await request(`/api/vendors/${vendorApplicationId}/invoice/paid`, {
+      method: 'PATCH',
+      cookie: accounts.organizer.cookie,
+    })).response.status, 409, 'an invoice cannot be marked paid twice');
     const newStaff = await request(`/api/vendors/${vendorApplicationId}/staff`, {
       method: 'POST',
       cookie: accounts.vendor.cookie,

@@ -421,78 +421,91 @@ main.dashboard-shell {
   background: linear-gradient(125deg, #e84fba, #8758ee);
 }
 
-.dashboard-content .dashboard-panel,
-.dashboard-content .bg-white,
-.dashboard-content .bg-neutral-50 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .dashboard-panel,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-white,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-neutral-50 {
   background-color: #191f32 !important;
   border-color: #282f45;
   color: #e2e8f0;
 }
 
-.dashboard-content .text-neutral-900,
-.dashboard-content .text-neutral-800,
-.dashboard-content .text-neutral-700 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-900,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-800,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-700 {
   color: #edf2fb !important;
 }
 
-.dashboard-content .text-neutral-600,
-.dashboard-content .text-neutral-500 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-600,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-500 {
   color: #a7b0c5 !important;
 }
 
-.dashboard-content .text-neutral-400 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-neutral-400 {
   color: #78849f !important;
 }
 
-.dashboard-content .text-brand-600,
-.dashboard-content .text-brand-700 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-brand-600,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-brand-700 {
   color: #58b8ff !important;
 }
 
-.dashboard-content .border-neutral-100,
-.dashboard-content .border-neutral-200 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .border-neutral-100,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .border-neutral-200 {
   border-color: #2a3045 !important;
 }
 
-.dashboard-content .bg-neutral-100 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-neutral-100 {
   background-color: #252c42 !important;
 }
 
-.dashboard-content .text-slate-700,
-.dashboard-content .text-slate-600 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-slate-700,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .text-slate-600 {
   color: #b7c1d5 !important;
 }
 
-.dashboard-content .bg-brand-50 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-brand-50 {
   background-color: #24203b !important;
 }
 
-.dashboard-content .bg-emerald-50,
-.dashboard-content .bg-sky-50,
-.dashboard-content .bg-amber-50,
-.dashboard-content .bg-purple-50 {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-emerald-50,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-sky-50,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-amber-50,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .bg-purple-50 {
   filter: brightness(0.82) saturate(1.1);
 }
 
-.dashboard-content .divide-neutral-50 > :not([hidden]) ~ :not([hidden]),
-.dashboard-content .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .divide-neutral-50 > :not([hidden]) ~ :not([hidden]),
+.dashboard-content:where(:not(.vendor-dashboard-content)) .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) {
   border-color: #292f44 !important;
 }
 
-.dashboard-content input,
-.dashboard-content select,
-.dashboard-content textarea {
+.dashboard-content:where(:not(.vendor-dashboard-content)) input,
+.dashboard-content:where(:not(.vendor-dashboard-content)) select,
+.dashboard-content:where(:not(.vendor-dashboard-content)) textarea {
   border-color: #343c55 !important;
   background-color: #111729 !important;
   color: #e2e8f0 !important;
 }
 
-.dashboard-content input::placeholder,
-.dashboard-content textarea::placeholder {
+.dashboard-content:where(:not(.vendor-dashboard-content)) input::placeholder,
+.dashboard-content:where(:not(.vendor-dashboard-content)) textarea::placeholder {
   color: #78849f;
 }
 
-.dashboard-content table thead {
+.dashboard-content.vendor-dashboard-content input:not([type="radio"]):not([type="checkbox"]),
+.dashboard-content.vendor-dashboard-content select,
+.dashboard-content.vendor-dashboard-content textarea {
+  border-color: #d1d5db !important;
+  background-color: #fff !important;
+  color: #1f2937 !important;
+}
+
+.dashboard-content.vendor-dashboard-content input::placeholder,
+.dashboard-content.vendor-dashboard-content textarea::placeholder {
+  color: #6b7280;
+}
+
+.dashboard-content:where(:not(.vendor-dashboard-content)) table thead {
   background: #111729 !important;
   color: #aeb8cd;
 }
@@ -501,16 +514,16 @@ main.dashboard-shell {
   transition: background-color 150ms ease;
 }
 
-.dashboard-content table tbody tr:hover {
+.dashboard-content:where(:not(.vendor-dashboard-content)) table tbody tr:hover {
   background-color: #222940 !important;
 }
 
-.dashboard-content .dashboard-panel:hover {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .dashboard-panel:hover {
   box-shadow: 0 16px 34px rgb(0 0 0 / 0.25);
 }
 
-.dashboard-content .hover\:bg-neutral-50:hover,
-.dashboard-content .hover\:bg-neutral-100:hover {
+.dashboard-content:where(:not(.vendor-dashboard-content)) .hover\:bg-neutral-50:hover,
+.dashboard-content:where(:not(.vendor-dashboard-content)) .hover\:bg-neutral-100:hover {
   background-color: #242b41 !important;
 }
 
