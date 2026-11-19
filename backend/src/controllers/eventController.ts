@@ -1153,8 +1153,8 @@ export const getEventAttendance = async (req: Request, res: Response, next: Next
     const where: Prisma.TicketWhereInput = {
       eventId,
       OR: [
-        { status: TicketStatus.ACTIVE, checkedInAt: null },
-        { status: TicketStatus.USED, checkedInAt: { not: null } },
+        { status: TicketStatus.ACTIVE },
+        { status: TicketStatus.USED },
       ],
       event: { is: { status: { not: EventStatus.CANCELLED } } },
       booking: {

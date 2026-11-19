@@ -18,27 +18,6 @@ const statuses: Array<{ status: EventStatus; label: string; color: string }> = [
 
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
 
-function getMonthlyBookings(registrations: EventRegistration[]) {
-  const now = new Date();
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return {
-      key: monthKey(date),
-      label: date.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }),
-      count: 0,
-    };
-  });
-  const monthLookup = new Map(months.map(month => [month.key, month]));
-  for (const registration of registrations) {
-    if (registration.status === 'CANCELLED') continue;
-    const createdAt = new Date(registration.createdAt);
-    if (!Number.isFinite(createdAt.getTime()) || createdAt > now) continue;
-    const month = monthLookup.get(monthKey(createdAt));
-    if (month) month.count += 1;
-  }
-  return months;
-}
-
 function getMonthlyEventSummary(events: Event[]) {
   const now = new Date();
   const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -217,116 +196,6 @@ function BookingHeatmapCalendar({
           </div>
         </>
       )}
-    </section>
-  );
-}
-
-function BookingChart({ registrations }: { registrations: EventRegistration[] }) {
-  const months = getMonthlyBookings(registrations);
-  const maximum = Math.max(1, ...months.map(month => month.count));
-  const step = Math.max(1, Math.ceil(maximum / 4));
-  const tickCount = Math.ceil(maximum / step);
-  const scaleMaximum = tickCount * step;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
-  const left = Math.max(55, String(scaleMaximum).length * 7 + 12);
-  const right = 570;
-  const top = 30;
-  const bottom = 170;
-  const points = months.map((month, index) => ({
-    x: left + index * (right - left) / (months.length - 1),
-    y: bottom - month.count / scaleMaximum * (bottom - top),
-  }));
-
-  return (
-    <section className="min-w-0" aria-labelledby="report-bookings">
-      <h2 id="report-bookings" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking trend</h2>
-      <p className="mt-1 text-sm text-neutral-500">Currently non-cancelled registrations, grouped by booking month over the last six months.</p>
-      <div className="mt-5 overflow-x-auto">
-        <svg aria-hidden="true" viewBox="0 0 600 220" className="block w-full min-w-[600px]">
-          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
-          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
-          {ticks.map(tick => {
-            const y = bottom - tick / scaleMaximum * (bottom - top);
-            return (
-              <g key={tick}>
-                <line x1={left - 4} y1={y} x2={left} y2={y} stroke="#a3a3a3" />
-                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
-              </g>
-            );
-          })}
-          {points.map((point, index) => (
-            <g key={months[index].key}>
-              <line x1={point.x} y1={bottom} x2={point.x} y2={bottom + 4} stroke="#a3a3a3" />
-              <text x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{months[index].label}</text>
-            </g>
-          ))}
-          <polyline points={points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="#111111" strokeWidth="3" strokeLinejoin="round" />
-          {points.map((point, index) => <circle key={months[index].key} cx={point.x} cy={point.y} r="5.5" fill="#111111" />)}
-        </svg>
-      </div>
-      <div className="mt-3 overflow-x-auto">
-        <ul className="grid min-w-[600px] grid-cols-6 gap-3">
-          {months.map(month => <li key={month.key} className="text-xs text-neutral-600"><span className="block">{month.label}</span><span className="mt-1 block font-bold text-neutral-900">{month.count} {month.count === 1 ? 'booking' : 'bookings'}</span></li>)}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-function BookingScatterChart({ registrations }: { registrations: EventRegistration[] }) {
-  const months = getMonthlyBookings(registrations);
-  const maximum = Math.max(1, ...months.map(month => month.count));
-  const step = Math.max(1, Math.ceil(maximum / 4));
-  const tickCount = Math.ceil(maximum / step);
-  const scaleMaximum = tickCount * step;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index * step);
-  const left = 56;
-  const right = 570;
-  const top = 24;
-  const bottom = 180;
-  const points = months.map((month, index) => ({
-    ...month,
-    x: left + index * (right - left) / (months.length - 1),
-    y: bottom - month.count / scaleMaximum * (bottom - top),
-  }));
-  const average = months.reduce((sum, month) => sum + month.count, 0) / months.length;
-  const meanIndex = (months.length - 1) / 2;
-  const slope = months.reduce((sum, month, index) => sum + (index - meanIndex) * (month.count - average), 0)
-    / months.reduce((sum, _month, index) => sum + (index - meanIndex) ** 2, 0);
-  const trend = [0, months.length - 1].map(index => ({
-    x: points[index].x,
-    y: bottom - Math.max(0, Math.min(scaleMaximum, average + slope * (index - meanIndex))) / scaleMaximum * (bottom - top),
-  }));
-
-  return (
-    <section className="min-w-0" aria-labelledby="report-booking-volume">
-      <h2 id="report-booking-volume" className="font-bold text-neutral-900" style={{ fontSize: '0.875rem', lineHeight: 1.25 }}>Booking volume</h2>
-      <p className="mt-1 text-sm text-neutral-500">Monthly booking counts shown as individual points with a trend line.</p>
-      <div className="mt-5 overflow-x-auto">
-        <svg viewBox="0 0 600 220" className="block w-full min-w-[600px]" role="img" aria-label="Scatter plot of monthly booking volume for the last six months">
-          <text x={left} y="14" fontSize="11" fill="#64748b">Bookings</text>
-          <path d={`M ${left} ${top} V ${bottom} H ${right}`} fill="none" stroke="#a3a3a3" />
-          {ticks.map(tick => {
-            const y = bottom - tick / scaleMaximum * (bottom - top);
-            return (
-              <g key={tick}>
-                <line x1={left} y1={y} x2={right} y2={y} stroke="#e5e7eb" />
-                <text x={left - 8} y={y} textAnchor="end" dominantBaseline="middle" fontSize="11" fill="#64748b">{tick}</text>
-              </g>
-            );
-          })}
-          {points.map(point => (
-            <text key={point.key} x={point.x} y={bottom + 18} textAnchor="middle" fontSize="11" fill="#64748b">{point.label}</text>
-          ))}
-          <line x1={trend[0].x} y1={trend[0].y} x2={trend[1].x} y2={trend[1].y} stroke="#cf7968" strokeWidth="2" />
-          {points.map(point => (
-            <g key={point.key}>
-              <title>{`${point.label}: ${point.count} ${point.count === 1 ? 'booking' : 'bookings'}`}</title>
-              <rect x={point.x - 4} y={point.y - 4} width="8" height="8" fill={point.count >= average ? '#b42318' : '#82939d'} stroke="#ffffff" strokeWidth="1" />
-            </g>
-          ))}
-        </svg>
-      </div>
     </section>
   );
 }
@@ -684,24 +553,11 @@ export default function OrganizerReports() {
                     unavailable={Boolean(bookingError)}
                   />
                 </div>
-                <div className="mt-4 grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
-                  {bookingError ? (
-                    <div role="alert" className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-rose-800 xl:col-span-2">
-                      <p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>
-                    </div>
-                  ) : registrations ? (
-                    <>
-                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3">
-                        <BookingChart registrations={registrations} />
-                      </div>
-                      <div className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white p-3">
-                        <BookingScatterChart registrations={registrations} />
-                      </div>
-                    </>
-                  ) : (
-                    <div role="status" className="flex min-h-40 items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-neutral-700 xl:col-span-2"><Spinner /> Loading booking trend…</div>
-                  )}
-                </div>
+                {bookingError && (
+                  <div role="alert" className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-rose-800">
+                    <p>{bookingError}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>
+                  </div>
+                )}
               </div>
             </section>
           )}
