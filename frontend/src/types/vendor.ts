@@ -68,6 +68,7 @@ export interface VendorApplication {
     firstname: string;
     lastname: string;
     email: string;
+    isActive?: boolean;
     vendorProfile?: {
       businessName: string;
       businessType: string;

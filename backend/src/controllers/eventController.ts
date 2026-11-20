@@ -248,9 +248,13 @@ const eventInclude = {
   },
 };
 
+type EventAudienceNotification =
+  | { kind: 'changed' }
+  | { kind: 'cancelled'; reason: string };
+
 const notifyEventAudience = async (
   eventId: string,
-  kind: 'changed' | 'cancelled',
+  notification: EventAudienceNotification,
 ): Promise<boolean> => {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -272,15 +276,15 @@ const notifyEventAudience = async (
     ...event.bookings.map(booking => booking.attendee.email),
     ...event.vendorApplications.map(application => application.vendor.email),
   ]);
-  const sendNotification = kind === 'changed'
-    ? sendEventChangeNotification
-    : sendEventCancellationNotification;
+  const sendNotification: (email: string, eventTitle: string) => Promise<void> = notification.kind === 'changed'
+    ? (email, eventTitle) => sendEventChangeNotification(email, eventTitle)
+    : (email, eventTitle) => sendEventCancellationNotification(email, eventTitle, notification.reason);
   const results = await Promise.allSettled(
     [...emails].map(email => sendNotification(email, event.title)),
   );
   const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
   for (const failure of failures) {
-    console.error(`Event ${kind} notification failed:`, failure.reason);
+    console.error(`Event ${notification.kind} notification failed:`, failure.reason);
   }
   return failures.length === 0;
 };
@@ -501,7 +505,7 @@ const sendEventUpdateResponse = async (
   let notificationSent = true;
   if (result.notifyAudience) {
     try {
-      notificationSent = await notifyEventAudience(eventId, 'changed');
+      notificationSent = await notifyEventAudience(eventId, { kind: 'changed' });
     } catch (error) {
       console.error('Event change notification failed:', error);
       notificationSent = false;
@@ -747,7 +751,7 @@ export const publishEvent = async (req: Request, res: Response, next: NextFuncti
     }
 
     const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: eventInclude });
-    res.json({ success: true, data: serializeEvent(event), message: 'Event published and is now available to attendees.' });
+    res.json({ success: true, data: serializeEvent(event), message: 'Event published and is now available.' });
   } catch (err) {
     next(err);
   }
@@ -913,7 +917,7 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
       return;
     }
 
-    const pagination = getPagination(req) ?? { page: 1, limit: 20, skip: 0, take: 20 };
+    const pagination = getPagination(req);
     const where = { eventId };
     const [applications, total] = await Promise.all([
       prisma.vendorApplication.findMany({
@@ -921,12 +925,14 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
         include: {
           staffMembers: true,
           invoice: true,
+          event: { select: { id: true, title: true, date: true, venue: true } },
           vendor: {
             select: {
               id: true,
               firstname: true,
               lastname: true,
               email: true,
+              isActive: true,
               vendorProfile: {
                 select: {
                   businessName: true,
@@ -947,13 +953,16 @@ export const listVendorApplicationsForEvent = async (req: Request, res: Response
           decidedBy: { select: { firstname: true, lastname: true } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        skip: pagination.skip,
-        take: pagination.take,
+        ...(pagination ? { skip: pagination.skip, take: pagination.take } : {}),
       }),
-      prisma.vendorApplication.count({ where }),
+      pagination ? prisma.vendorApplication.count({ where }) : Promise.resolve(0),
     ]);
 
-    res.json({ success: true, data: applications, pagination: paginationMeta(pagination, total) });
+    res.json({
+      success: true,
+      data: applications,
+      ...(pagination ? { pagination: paginationMeta(pagination, total) } : {}),
+    });
   } catch (err) {
     next(err);
   }
@@ -997,6 +1006,12 @@ export const cancelEvent = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length > 500) {
+      res.status(400).json({ success: false, message: 'A cancellation reason of up to 500 characters is required' });
+      return;
+    }
+
     const updated = await prisma.event.updateMany({
       where: {
         id: eventId,
@@ -1020,7 +1035,7 @@ export const cancelEvent = async (req: Request, res: Response, next: NextFunctio
 
     let notificationSent = true;
     try {
-      notificationSent = await notifyEventAudience(eventId, 'cancelled');
+      notificationSent = await notifyEventAudience(eventId, { kind: 'cancelled', reason });
     } catch (error) {
       console.error('Event cancellation notification failed:', error);
       notificationSent = false;
@@ -1139,8 +1154,8 @@ export const getEventAttendance = async (req: Request, res: Response, next: Next
     const where: Prisma.TicketWhereInput = {
       eventId,
       OR: [
-        { status: TicketStatus.ACTIVE, checkedInAt: null },
-        { status: TicketStatus.USED, checkedInAt: { not: null } },
+        { status: TicketStatus.ACTIVE },
+        { status: TicketStatus.USED },
       ],
       event: { is: { status: { not: EventStatus.CANCELLED } } },
       booking: {

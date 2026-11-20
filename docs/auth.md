@@ -45,7 +45,7 @@ Organizer profiles start in `PENDING_APPROVAL`. Editing an approved profile retu
 | `lastname`               | string | Yes      | 1–80 characters |
 | `email`                  | string | Yes      | Valid email, at most 254 characters |
 | `role`                   | string | Yes      | `ATTENDEE`, `VENDOR`, or `ORGANIZER` only |
-| `password`               | string | Yes      | 8–72 UTF-8 bytes; uppercase, lowercase, number, and special character |
+| `password`               | string | Yes      | At least 8 characters; uppercase, lowercase, number, and special character |
 | `organizationName`       | string | Organizer | 2–120 characters |
 | `phone`                  | string | No       | If supplied for an Organizer, valid phone number with at least 7 digits |
 | `organizationDescription`| string | No       | Organizer description, at most 500 characters |
@@ -342,7 +342,7 @@ only as a bcrypt hash. A cryptographically generated temporary password is
 emailed over TLS; it is never returned by the API or logged. Organizers must
 sign in with this temporary password and establish a permanent password before
 accessing authenticated account functionality. When a password change is
-required, the new password must be 8-72 UTF-8 bytes and include uppercase,
+required, the new password must be at least 8 characters and include uppercase,
 lowercase, numeric, and special characters. Delivery failures are reported and
 the unclaimed account is removed so an administrator can retry.
 

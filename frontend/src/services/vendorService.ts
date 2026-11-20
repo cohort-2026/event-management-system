@@ -47,13 +47,15 @@ export const downloadVendorReviewDocument = (id: string) =>
 export const applyForStand      = (data: CreateVendorApplicationDto)              => api.post<ApiResponse<VendorApplication>>('/vendors/apply', data);
 export const getVendorEvents    = (params?: { search?: string; category?: string; location?: string; page?: number; limit?: number }) =>
 	api.get<ApiResponse<VendorEvent[]>>('/vendors/events', { params });
-export const getMyApplications  = (params?: { page?: number; limit?: number })   => api.get<ApiResponse<VendorApplication[]>>('/vendors/applications/me', { params });
+export const getMyApplications  = (params?: { page?: number; limit?: number })   =>
+	api.get<ApiResponse<VendorApplication[]> & { pagination: { page: number; limit: number; total: number; totalPages: number } }>('/vendors/applications/me', { params });
 export const getVendorApplication = (id: string)                                 => api.get<ApiResponse<VendorApplication>>(`/vendors/applications/${encodeURIComponent(id)}`);
 export const getVendorInvoices  = (params?: { page?: number; limit?: number })   => api.get<ApiResponse<VendorInvoice[]>>('/vendors/invoices', { params });
 export const getVendorInvoice   = (id: string)                                   => api.get<ApiResponse<VendorInvoice>>(`/vendors/invoices/${encodeURIComponent(id)}`);
 export const getMyStaffMembers  = ()                                               => api.get<ApiResponse<VendorStaffWithEvent[]>>('/vendors/staff');
 export const getEventApplications = (eventId: string)                             => api.get<ApiResponse<VendorApplication[]>>(`/events/${eventId}/vendors`);
 export const approveApplication = (id: string, assignedStand: string)             => api.patch<{ success: boolean; message: string; invoiceEmailSent?: boolean }>(`/vendors/${id}/approve`, { assignedStand });
+export const markVendorInvoicePaid = (applicationId: string) => api.patch<ApiResponse<null>>(`/vendors/${encodeURIComponent(applicationId)}/invoice/paid`);
 export const rejectApplication  = (id: string, reason: string)                    => api.patch(`/vendors/${id}/reject`, { reason });
 export const addStaffMember     = (applicationId: string, data: AddStaffMemberDto) =>
 	api.post<ApiResponse<VendorStaffMember>>(`/vendors/${encodeURIComponent(applicationId)}/staff`, data);

@@ -80,6 +80,7 @@ Every protected API endpoint is guarded by two middleware functions defined in
 | GET | `/api/vendors/me` | Yes | `VENDOR` |
 | POST | `/api/vendors/:id/staff` | Yes | `VENDOR` + ownership |
 | PATCH | `/api/vendors/:id/approve` | Yes | `ORGANIZER` + ownership of the event |
+| PATCH | `/api/vendors/:id/invoice/paid` | Yes | `ORGANIZER` + ownership of the event |
 | PATCH | `/api/vendors/:id/reject` | Yes | `ORGANIZER` + ownership of the event |
 
 ---
@@ -140,6 +141,7 @@ Apply the same pattern to:
 - `PATCH /api/tickets/:id/checkin` — `ticket.event.organizerId`
 - `POST /api/vendors/:id/staff` — `vendorApplication.vendorId`
 - `PATCH /api/vendors/:id/approve` — `vendorApplication.event.organizerId`
+- `PATCH /api/vendors/:id/invoice/paid` — `vendorApplication.event.organizerId`
 - `PATCH /api/vendors/:id/reject` — `vendorApplication.event.organizerId`
 
 ---

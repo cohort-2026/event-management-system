@@ -1,111 +1,255 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import NotificationBell from '@/components/layout/NotificationBell';
 import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import StatCard from '@/components/ui/StatCard';
-import Badge from '@/components/ui/Badge';
-import type { BadgeVariant } from '@/components/ui/Badge';
+import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
+import VendorSearchField from '@/components/layout/VendorSearchField';
+import { useAuth } from '@/context/useAuth';
+import { getMyApplications, getVendorEvents, getVendorProfile, type VendorEvent } from '@/services/vendorService';
+import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
+import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
-const statusVariant: Record<string, BadgeVariant> = {
-  APPROVED: 'success', PENDING_REVIEW: 'warning', REJECTED: 'danger',
-};
+interface DashboardData {
+  profile: VendorProfile;
+  applications: VendorApplication[];
+  events: VendorEvent[];
+  loadedAt: number;
+}
 
-const applications = [
-  { id: 'a1', event: 'Annual Tech Summit 2025',      date: '15 Sep 2025', company: 'TechGear SA',    status: 'APPROVED',       staff: 3 },
-  { id: 'a2', event: 'Startup Networking Evening',   date: '08 Aug 2025', company: 'TechGear SA',    status: 'PENDING_REVIEW', staff: 0 },
-  { id: 'a3', event: 'Digital Marketing Masterclass',date: '03 Sep 2025', company: 'TechGear SA',    status: 'REJECTED',       staff: 0 },
-];
+async function loadApplications(): Promise<VendorApplication[]> {
+  const first = await getMyApplications({ page: 1, limit: 100 });
+  const applications = [...first.data.data];
+  for (let page = 2; page <= first.data.pagination.totalPages; page += 1) {
+    const response = await getMyApplications({ page, limit: 100 });
+    applications.push(...response.data.data);
+  }
+  return applications;
+}
 
 export default function VendorDashboard() {
+  const { user } = useAuth();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getVendorProfile(), loadApplications(), getVendorEvents({ limit: 2 })])
+      .then(([profile, applications, events]) => {
+        if (active) setData({ profile: profile.data.data, applications, events: events.data.data, loadedAt: Date.now() });
+      })
+      .catch(() => {
+        if (active) setError('Unable to load your vendor dashboard. Please try again.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [attempt]);
+
+  const upcomingStands = data?.applications
+    .filter(application => application.status === 'APPROVED' && application.event &&
+      new Date(application.event.endTime ?? application.event.date).getTime() > data.loadedAt)
+    .sort((first, second) =>
+      new Date(first.event?.startTime ?? first.event?.date ?? '').getTime() -
+      new Date(second.event?.startTime ?? second.event?.date ?? '').getTime()) ?? [];
+  const underReview = data?.applications.filter(application => application.status === 'PENDING_REVIEW') ?? [];
+  const outstanding = data?.applications.filter(application =>
+    application.status === 'APPROVED' && application.invoice?.status === 'ISSUED') ?? [];
+  const totals = new Map<string, number>();
+  outstanding.forEach(application => {
+    const invoice = application.invoice;
+    if (invoice) totals.set(invoice.currency, (totals.get(invoice.currency) ?? 0) + Number(invoice.amount));
+  });
+  const totalDue = [...totals].map(([currency, amount]) => formatCurrency(amount, currency)).join(' / ') || formatCurrency(0);
+  const nextDue = outstanding
+    .map(application => application.invoice?.dueAt)
+    .filter((date): date is string => Boolean(date))
+    .sort()[0];
+  const staffCount = data?.applications.reduce((count, application) =>
+    count + (application.status === 'APPROVED' && application.invoice?.status === 'PAID'
+      ? application.staffMembers?.length ?? 0
+      : 0), 0) ?? 0;
+
+  const downloadInvoice = (application: VendorApplication) => {
+    setActionError('');
+    try {
+      downloadInvoicePdf(application);
+    } catch {
+      setActionError('Unable to download this invoice. Please try again.');
+    }
+  };
 
   return (
     <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-6">
-        <DashboardSidebar
-          title="Vendor"
-          subtitle="Operations"
-          appearance="analytics"
-          items={[
-            { label: 'Overview', to: '/vendor', icon: <DocIcon /> },
-            { label: 'Business profile', to: '/vendor/profile', icon: <UsersIcon /> },
-            { label: 'Browse events', to: '/vendor/events', icon: <PlusIcon /> },
-            { label: 'My applications', to: '/vendor/applications', icon: <DocIcon /> },
-            { label: 'Staff management', to: '/vendor/staff', icon: <UsersIcon /> },
-          ]}
-        />
+      <div className="vendor-dashboard-page min-h-screen bg-[#fafafa] text-[#171717]">
+        <div className="flex min-h-screen">
+          <VendorSidebar accountSubtitle={data?.profile.businessName || user?.email} />
+          <div className="min-w-0 flex-1">
+            <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <VendorMenuButton />
+                <span className="truncate text-[12px] font-semibold text-[#333]">Overview</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <VendorSearchField />
+                <NotificationBell appearance="header" />
+              </div>
+            </header>
 
-        <section className="flex-1">
-          <DashboardHeader
-            title="Vendor Dashboard"
-            subtitle="Overview of your event stand activity"
-            breadcrumbs={[{ label: 'Dashboard', to: '/vendor' }]}
-            appearance="analytics"
-          />
+            <main className="px-4 pb-8 pt-5 sm:px-6 lg:px-8">
+              {loading ? (
+                <p role="status" className="py-10 text-sm text-neutral-500">Loading your dashboard...</p>
+              ) : error || !data ? (
+                <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                  <p>{error || 'Unable to load your vendor dashboard.'}</p>
+                  <button type="button" onClick={() => {
+                    setLoading(true);
+                    setError('');
+                    setAttempt(current => current + 1);
+                  }} className="mt-3 rounded-md border border-rose-200 bg-white px-3 py-2 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">Try again</button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h1 className="break-words text-3xl font-extrabold tracking-tight text-[#151515] sm:text-4xl">{data.profile.businessName || 'Business profile'}</h1>
+                      <p className="mt-1 text-sm text-[#777]">
+                        {data.profile.status === 'APPROVED' ? 'Approved vendor' : data.profile.status === 'PENDING_REVIEW' ? 'Profile under review' : data.profile.status === 'REJECTED' ? 'Profile needs attention' : 'Draft profile'}
+                        {user && ` - ${user.firstname} ${user.lastname}`}
+                      </p>
+                    </div>
+                    <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center gap-2 rounded-md bg-gradient-to-r from-[#171717] via-[#4d0019] to-[#800020] px-4 text-sm font-bold text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">
+                      <SearchIcon /> Find events
+                    </Link>
+                  </div>
 
-          {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900">Vendor Dashboard</h1>
-              <p className="text-neutral-500 mt-1">Welcome back, {user?.firstname}. Manage your stand applications.</p>
-            </div>
-            <Link to="/events">
-              <Button>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Apply for a stand
-              </Button>
-            </Link>
-          </div> */}
+                  <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                    <StatTile label="Upcoming stands" value={String(upcomingStands.length)} />
+                    <StatTile label="Under review" value={String(underReview.length)} />
+                    <StatTile label="To pay" value={totalDue} note={nextDue ? `Due ${formatDate(nextDue)}` : undefined} />
+                    <StatTile label="Staff passes" value={String(staffCount)} />
+                  </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <StatCard label="Total applications" value={3}  icon={<DocIcon />}   color="brand" appearance="analytics" />
-            <StatCard label="Approved"           value={1}  icon={<CheckIcon />} color="emerald" appearance="analytics" />
-            <StatCard label="Pending review"     value={1}  icon={<ClockIcon />} color="amber" appearance="analytics" />
+                  {actionError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{actionError}</p>}
+                  <section aria-labelledby="vendor-stands-heading">
+                    <h2 id="vendor-stands-heading" className="mb-2 text-lg font-extrabold">Your stands</h2>
+                    {upcomingStands.length ? (
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {upcomingStands.map(application => (
+                          <StandCard key={application.id} application={application} onDownload={() => downloadInvoice(application)} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-[#e5e5e5] bg-white p-4 text-sm text-[#777]">
+                        No upcoming approved stands. <Link to="/vendor/applications" className="font-semibold text-rose-700 underline">View applications</Link>
+                      </div>
+                    )}
+                  </section>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <section className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+                      <h2 className="mb-3 text-lg font-extrabold">Under review</h2>
+                      {underReview.length ? underReview.slice(0, 3).map(application => (
+                        <Link key={application.id} to="/vendor/applications" className="flex items-center gap-3 rounded-md py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#800020]">
+                          <span className="h-10 w-10 shrink-0 rounded-md bg-gradient-to-br from-[#ac3cff] via-[#d64aa3] to-[#6b57db]" aria-hidden="true" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold">{application.event?.title ?? 'Event'}</span>
+                            <span className="block text-sm text-[#777]">{application.requestedStandSize} - {formatCurrency(Number(application.quotedAmount))} quote</span>
+                          </span>
+                          <span className="shrink-0 rounded-full border border-[#ffc66d] px-2 py-1 text-xs font-semibold text-[#bf6a00]">Applied</span>
+                        </Link>
+                      )) : <p className="text-sm text-[#777]">No applications under review.</p>}
+                    </section>
+
+                    <section className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+                      <h2 className="mb-3 text-lg font-extrabold">Looking for vendors</h2>
+                      {data.events.length ? data.events.map(event => (
+                        <Link key={event.id} to={`/events/${event.id}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#800020]">
+                          <span className="min-w-0 break-words">{event.title} - {formatDate(event.startTime)}</span>
+                          <span className="shrink-0 font-bold text-[#138a61]">{event.availableVendorStands} stands left</span>
+                        </Link>
+                      )) : <p className="text-sm text-[#777]">No events with available stands right now.</p>}
+                    </section>
+                  </div>
+                </>
+              )}
+            </main>
           </div>
-
-          <div className="dashboard-panel overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-              <h2 className="font-semibold text-neutral-900">My Applications</h2>
-              <Link to="/vendor/applications" className="text-sm text-brand-600 hover:text-brand-700">View all →</Link>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-neutral-100 text-sm">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    {['Event', 'Date', 'Status', 'Staff', 'Actions'].map(h => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-50">
-                  {applications.map(a => (
-                    <tr key={a.id} className="hover:bg-neutral-50 transition-colors">
-                      <td className="px-5 py-3 font-medium text-neutral-900">{a.event}</td>
-                      <td className="px-5 py-3 text-neutral-500 whitespace-nowrap">{a.date}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={statusVariant[a.status] ?? 'default'}>{a.status.replace('_', ' ')}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-neutral-700">{a.status === 'APPROVED' ? a.staff : '—'}</td>
-                      <td className="px-5 py-3">
-                        {a.status === 'APPROVED' && (
-                          <Link to={`/vendor/applications/${a.id}/staff`} className="text-xs text-brand-600 hover:text-brand-700 font-medium">
-                            Manage staff
-                          </Link>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
     </PageWrapper>
   );
 }
 
-const DocIcon   = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-const CheckIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const ClockIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const PlusIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>;
-const UsersIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[#e5e5e5] bg-white p-4">
+      <p className="text-sm font-medium text-[#555]">{label}</p>
+      <p className="mt-1 break-words text-2xl font-extrabold leading-tight">{value}</p>
+      {note && <p className="mt-1 text-xs font-semibold text-[#c54821]">{note}</p>}
+    </div>
+  );
+}
+
+function StandCard({ application, onDownload }: { application: VendorApplication; onDownload: () => void }) {
+  const paid = application.invoice?.status === 'PAID';
+  const stages = ['Applied', 'Allocated', paid ? 'Paid' : application.invoice?.status === 'VOID' ? 'Invoice void' : 'Pay invoice', 'Staff passes'];
+  return (
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
+      <div className="relative flex min-h-16 items-center justify-between gap-3 overflow-hidden bg-gradient-to-r from-[#171717] via-[#4d0019] to-[#800020] px-4 py-3 text-white">
+        <span className="absolute -right-4 -top-10 h-24 w-24 rounded-full bg-white/20" aria-hidden="true" />
+        <h3 className="relative min-w-0 break-words text-base font-extrabold text-white">{application.event?.title ?? 'Event'}</h3>
+        {application.assignedStand && <span className="relative shrink-0 rounded bg-white px-2 py-1 text-sm font-extrabold text-[#252525]">{application.assignedStand}</span>}
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <p className="text-sm text-[#777]">{application.event ? `${formatDate(application.event.startTime ?? application.event.date)} - ${application.event.venue}` : 'Event details unavailable'}</p>
+        <div className="grid grid-cols-4 gap-1">
+          {stages.map((stage, index) => {
+            const completed = index < 2 || (paid && index >= 2);
+            return (
+              <div key={stage} className="flex min-w-0 flex-col items-center gap-1 text-center">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${completed ? (index === 3 ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-[#222] bg-[#222] text-white') : index === 2 ? 'border-orange-500 text-orange-600' : 'border-neutral-300 text-neutral-400'}`}>
+                  {completed ? '✓' : index + 1}
+                </span>
+                <span className={`text-xs ${!completed && index === 2 ? 'font-bold text-orange-700' : 'text-neutral-500'}`}>{stage}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className={`mt-auto flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${paid ? 'border-[#c6f2de] bg-[#edfff7]' : 'border-[#ffe3a2] bg-[#fffaf0]'}`}>
+          <span className="min-w-0 break-words font-semibold">
+            {application.invoice
+              ? `${application.invoice.invoiceNumber} - ${paid ? 'Paid' : application.invoice.status === 'VOID' ? 'Void' : `${formatCurrency(Number(application.invoice.amount), application.invoice.currency)} - due ${formatDate(application.invoice.dueAt)}`}`
+              : 'Invoice not available'}
+          </span>
+          {paid ? (
+            <Link to={`/vendor/applications/${application.id}/staff`} className="vendor-button rounded border border-[#d8d8d8] bg-white px-3 py-1.5 font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">Manage staff</Link>
+          ) : application.invoice && (
+            <button type="button" onClick={onDownload} className="rounded border border-[#d8d8d8] bg-white px-3 py-1.5 font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">Download PDF</button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+}
+
+function formatCurrency(value: number, currency = 'ZAR') {
+  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency }).format(value);
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="6" />
+      <path strokeLinecap="round" d="m16 16 4 4" />
+    </svg>
+  );
+}

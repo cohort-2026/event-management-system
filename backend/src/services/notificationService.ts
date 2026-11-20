@@ -27,3 +27,54 @@ export const notifyAdmins = async (
     })),
   });
 };
+
+export const notifyAttendeeBookingConfirmed = async (
+  transaction: Prisma.TransactionClient,
+  attendeeId: string,
+  eventTitle: string,
+  bookingReference: string,
+): Promise<void> => {
+  await transaction.notification.create({
+    data: {
+      recipientId: attendeeId,
+      title: 'Booking confirmed',
+      message: `Your booking for ${eventTitle} is confirmed. Booking reference: ${bookingReference}.`,
+      link: '/attendee/bookings',
+    },
+  });
+};
+
+export const notifyOrganizerBookingCancelled = async (
+  transaction: Prisma.TransactionClient,
+  organizerId: string,
+  eventId: string,
+  eventTitle: string,
+  bookingReference: string,
+  reason: string,
+): Promise<void> => {
+  await transaction.notification.create({
+    data: {
+      recipientId: organizerId,
+      title: 'Attendee cancelled a booking',
+      message: `Booking ${bookingReference} for ${eventTitle} was cancelled. Reason: ${reason}`,
+      link: `/organizer/events/${eventId}/registrations`,
+    },
+  });
+};
+
+export const notifyAttendeePaymentNeedsReview = async (
+  transaction: Prisma.TransactionClient,
+  attendeeId: string,
+  eventTitle: string,
+  bookingReference: string,
+  reason: string,
+): Promise<void> => {
+  await transaction.notification.create({
+    data: {
+      recipientId: attendeeId,
+      title: 'Payment received; booking needs attention',
+      message: `Payment for ${eventTitle} (booking ${bookingReference}) was received, but tickets could not be confirmed because ${reason}. Please contact the event organizer.`,
+      link: '/attendee/bookings',
+    },
+  });
+};

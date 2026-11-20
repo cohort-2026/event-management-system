@@ -1,1 +1,23 @@
 /* App-level styles — component styles live in index.css via Tailwind */
+
+/* Keep vendor portal text readable at the compact layouts used on these screens. */
+.vendor-dashboard-page [class*="text-[6px]"],
+.vendor-events-page [class*="text-[6px]"],
+.vendor-profile-page [class*="text-[6px]"],
+.vendor-apply-page [class*="text-[6px]"] { font-size: 12px !important; line-height: 1.4 !important; }
+.vendor-dashboard-page [class*="text-[7px]"],
+.vendor-events-page [class*="text-[7px]"],
+.vendor-profile-page [class*="text-[7px]"],
+.vendor-apply-page [class*="text-[7px]"] { font-size: 13px !important; line-height: 1.4 !important; }
+.vendor-dashboard-page [class*="text-[8px]"],
+.vendor-events-page [class*="text-[8px]"],
+.vendor-profile-page [class*="text-[8px]"],
+.vendor-apply-page [class*="text-[8px]"] { font-size: 14px !important; line-height: 1.4 !important; }
+.vendor-dashboard-page [class*="text-[9px]"],
+.vendor-events-page [class*="text-[9px]"],
+.vendor-profile-page [class*="text-[9px]"],
+.vendor-apply-page [class*="text-[9px]"] { font-size: 15px !important; line-height: 1.4 !important; }
+.vendor-dashboard-page [class*="text-[10px]"],
+.vendor-events-page [class*="text-[10px]"],
+.vendor-profile-page [class*="text-[10px]"],
+.vendor-apply-page [class*="text-[10px]"] { font-size: 16px !important; line-height: 1.4 !important; }

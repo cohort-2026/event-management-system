@@ -68,13 +68,10 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       return;
     }
 
-    if (
-      Buffer.byteLength(password, 'utf8') > 72 ||
-      !STRONG_PASSWORD_REGEX.test(password)
-    ) {
+    if (!STRONG_PASSWORD_REGEX.test(password)) {
       res.status(400).json({
         success: false,
-        message: 'Password must be 8–72 UTF-8 bytes and include uppercase, lowercase, a number, and a special character',
+        message: 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character',
       });
       return;
     }
@@ -477,8 +474,8 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 export const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
-      res.status(400).json({ success: false, message: 'Current password and a new password of 8-72 UTF-8 bytes are required' });
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'Current password and a new password of at least 8 characters are required' });
       return;
     }
 
@@ -541,12 +538,11 @@ export const completeOrganizerPasswordSetup = async (req: Request, res: Response
     if (
       !isValidEmail(email) ||
       typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
-      typeof password !== 'string' || !STRONG_PASSWORD_REGEX.test(password) ||
-      Buffer.byteLength(password, 'utf8') > 72
+      typeof password !== 'string' || !STRONG_PASSWORD_REGEX.test(password)
     ) {
       res.status(400).json({
         success: false,
-        message: 'A valid setup link and a password of 8-72 bytes with uppercase, lowercase, number and special characters are required',
+        message: 'A valid setup link and a password of at least 8 characters with uppercase, lowercase, number and special characters are required',
       });
       return;
     }

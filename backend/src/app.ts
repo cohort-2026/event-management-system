@@ -13,6 +13,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(cors({ origin: new URL(config.clientUrl).origin, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '32kb' }));
 app.use(validateBodyShape);
 app.use(cookieParser());
 app.use(protectCookieRequests);

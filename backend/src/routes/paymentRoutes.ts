@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   getMyPayment,
   listMyPayments,
+  createPayFastCheckout,
   processSimulatedPayment,
+  receivePayFastItn,
 } from '../controllers/paymentController';
 import { requireAuth, requireRole } from '../middleware/auth';
 import {
@@ -14,9 +16,11 @@ import {
 const router = Router();
 router.param('bookingId', validateUuidParam);
 
+router.post('/payfast/itn', receivePayFastItn);
 router.get('/', requireAuth, requireRole('ATTENDEE'), validatePaginationQuery, listMyPayments);
 router.get('/me', requireAuth, requireRole('ATTENDEE'), validatePaginationQuery, listMyPayments);
 router.get('/:bookingId', requireAuth, requireRole('ATTENDEE'), getMyPayment);
+router.post('/:bookingId/payfast-checkout', requireAuth, requireRole('ATTENDEE'), createPayFastCheckout);
 router.post(
   '/:bookingId/process',
   requireAuth,

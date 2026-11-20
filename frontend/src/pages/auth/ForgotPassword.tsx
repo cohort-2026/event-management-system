@@ -1,22 +1,24 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import { requestPasswordReset } from '@/services/authService';
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { CalendarDays } from "lucide-react";
+import { requestPasswordReset } from "@/services/authService";
+import { Button } from "@/components/ui/primitives/button";
+import { Input } from "@/components/ui/primitives/input";
+import { Label } from "@/components/ui/label";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError('');
+    setError("");
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Enter a valid email address.');
+      setError("Enter a valid email address.");
       return;
     }
 
@@ -29,9 +31,9 @@ export default function ForgotPassword() {
       });
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message ?? 'The reset code could not be sent. Please try again.');
+        setError(err.response?.data?.message ?? "The reset code could not be sent. Please try again.");
       } else {
-        setError('The reset code could not be sent. Please try again.');
+        setError("The reset code could not be sent. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -39,81 +41,44 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-[45%] bg-neutral-800 flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-500 rounded-full opacity-8 blur-3xl" />
-        <Link to="/" className="relative flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </span>
-          <span className="font-extrabold text-white text-lg tracking-tight">EventMS</span>
+    <main className="min-h-screen bg-white lg:grid lg:grid-cols-2">
+      <aside className="relative hidden min-h-screen overflow-hidden bg-gradient-to-br from-rose-600 via-red-500 to-orange-500 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <div aria-hidden="true" className="absolute inset-0 opacity-80 [background-image:radial-gradient(circle_at_82%_16%,rgba(255,255,255,.32)_0_10%,transparent_10.2%),radial-gradient(circle_at_14%_82%,rgba(255,183,117,.9)_0_19%,transparent_19.2%),radial-gradient(ellipse_at_58%_116%,rgba(150,47,24,.75)_0_28%,transparent_28.2%)]" />
+        <Link to="/" className="relative flex items-center gap-2.5 !text-white" aria-label="EventMS home">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-white/20"><CalendarDays aria-hidden="true" className="size-4" /></span>
+          <span className="text-sm font-extrabold tracking-tight">EventMS</span>
         </Link>
-        <div className="relative">
-          <h2 className="text-3xl font-black text-white leading-tight tracking-tight">
-            Get back to planning great events.
+        <div className="relative max-w-md pb-8">
+          <h2 className="text-4xl font-black leading-tight tracking-tight xl:text-5xl">
+            Your seat at your next event is one step away.
           </h2>
-          <p className="text-neutral-300 mt-4 leading-relaxed text-sm">
-            Enter the email address linked to your account and we’ll send you a password reset code.
-          </p>
-          <div className="mt-8 flex flex-col gap-3">
-            {['Secure account recovery', 'A one-time reset code', 'Quick access back to EventMS'].map(item => (
-              <div key={item} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                </span>
-                <span className="text-sm text-neutral-300">{item}</span>
-              </div>
-            ))}
-          </div>
         </div>
-        <p className="relative text-xs text-neutral-600">© {new Date().getFullYear()} EventMS</p>
-      </div>
+        <p className="relative text-xs text-white/65">© {new Date().getFullYear()} EventMS</p>
+      </aside>
 
-      <div className="flex-1 flex items-center justify-center bg-neutral-200 px-6 py-12">
-        <div className="w-full max-w-sm">
-          <Link to="/" className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </span>
-            <span className="font-extrabold text-neutral-900 tracking-tight">EventMS</span>
+      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[360px]">
+          <Link to="/" className="mb-8 flex items-center justify-center gap-2 lg:hidden" aria-label="EventMS home">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white"><CalendarDays aria-hidden="true" className="size-4" /></span>
+            <span className="text-sm font-extrabold text-neutral-950">EventMS</span>
           </Link>
+          <h1 className="text-2xl font-extrabold tracking-tight text-neutral-950">Forgot your password?</h1>
+          <p className="mt-1 text-sm text-neutral-600">We’ll email you a 6-digit reset code.</p>
 
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Forgot your password?</h1>
-          <p className="text-sm text-neutral-500 mt-1 mb-7">
-            Enter your account email and we’ll send you a password reset code.
-          </p>
+          {error && <div role="alert" className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">{error}</div>}
 
-          {error && (
-            <div role="alert" className="mb-5 rounded-lg bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
-              {error}
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="forgot-email" className="text-xs font-medium text-neutral-900">Email</Label>
+              <Input id="forgot-email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} aria-invalid={Boolean(error && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))} placeholder="you@example.com" className="h-10 border-neutral-300 bg-white text-sm focus-visible:border-neutral-500 focus-visible:ring-neutral-900/10" />
             </div>
-          )}
-          <form onSubmit={handleSubmit} noValidate className="form-stack">
-            <Input
-              label="Email address"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-            />
-            <Button type="submit" loading={loading} className="w-full" size="lg">
-              Send OTP code
+            <Button type="submit" size="lg" disabled={loading} className="h-10 w-full !bg-neutral-950 px-4 text-sm font-semibold !text-white shadow-none hover:!bg-neutral-800">
+              {loading ? "Sending reset code..." : "Send reset code"}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-neutral-500">
-            Remember your password?{' '}
-            <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Sign in</Link>
-          </p>
+          <p className="mt-5 text-center text-xs text-neutral-600">Remember your password? <Link to="/login" className="font-semibold !text-rose-600 hover:underline">Sign in</Link></p>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

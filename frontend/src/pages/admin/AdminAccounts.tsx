@@ -1,12 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/context/useAuth';
-import PageWrapper from '@/components/layout/PageWrapper';
-import DashboardSidebar, { DashboardHeader } from '@/components/layout/DashboardSidebar';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import Button from '@/components/legacy/Button';
+import Input from '@/components/legacy/Input';
+import Badge from '@/components/legacy/Badge';
+import Spinner from '@/components/legacy/Spinner';
 import { createManagedAdmin, getManagedAdmins, updateManagedAdminStatus, type ManagedAdmin } from '@/services/adminService';
 
 export default function AdminAccounts() {
@@ -64,18 +63,9 @@ export default function AdminAccounts() {
   };
 
   return (
-    <PageWrapper>
-      <div className="flex flex-col lg:flex-row gap-8">
-        <DashboardSidebar
-          title="Admin"
-          subtitle="Administration"
-          items={[
-            { label: 'Overview', to: '/admin', icon: <DashboardIcon /> },
-            { label: 'Administrator accounts', to: '/admin/accounts', icon: <UsersIcon /> },
-            { label: 'Audit history', to: '/admin/audit', icon: <KeyIcon /> },
-          ]}
-        />
-        <section className="flex-1 min-w-0">
+    <>
+      <div>
+        <section className="min-w-0">
           <DashboardHeader
             title="Administrator accounts"
             subtitle="Create and manage administrator access."
@@ -94,9 +84,9 @@ export default function AdminAccounts() {
               </div>
               <form onSubmit={handleCreateAdmin}>
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="First name" autoComplete="given-name" value={admin.firstname} onChange={event => setAdmin({ ...admin, firstname: event.target.value })} required />
-                  <Input label="Last name" autoComplete="family-name" value={admin.lastname} onChange={event => setAdmin({ ...admin, lastname: event.target.value })} required />
-                  <Input label="Email address" type="email" autoComplete="email" value={admin.email} onChange={event => setAdmin({ ...admin, email: event.target.value })} required />
+                  <Input label="First name" autoComplete="given-name" value={admin.firstname} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, firstname: event.target.value })} required />
+                  <Input label="Last name" autoComplete="family-name" value={admin.lastname} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, lastname: event.target.value })} required />
+                  <Input label="Email address" type="email" autoComplete="email" value={admin.email} onChange={(event: ChangeEvent<HTMLInputElement>) => setAdmin({ ...admin, email: event.target.value })} required />
                 </div>
                 <p className="mt-3 text-xs text-neutral-500">A temporary password will be emailed. The new administrator must replace it at first sign-in.</p>
                 <div className="mt-5 flex justify-end">
@@ -144,10 +134,7 @@ export default function AdminAccounts() {
           </div>
         </section>
       </div>
-    </PageWrapper>
+    </>
   );
 }
 
-const DashboardIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h10a2 2 0 002-2V10" /></svg>;
-const UsersIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const KeyIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a4 4 0 000 8h1.5m0 0l3 3M16.5 11H21" /></svg>;

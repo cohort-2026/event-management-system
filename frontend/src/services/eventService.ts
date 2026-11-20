@@ -35,7 +35,7 @@ export const createEvent     = (data: CreateEventDto)                => api.post
 export const updateEvent     = (id: string, data: UpdateEventDto)    => api.put<ApiResponse<Event>>(`/events/${id}`, data);
 export const deleteEvent     = (id: string)                          => api.delete(`/events/${id}`);
 export const publishEvent      = (id: string)                        => api.patch<ApiResponse<Event>>(`/events/${id}/publish`);
-export const cancelEvent     = (id: string)                          => api.patch<ApiActionResponse>(`/events/${id}/cancel`);
+export const cancelEvent     = (id: string, reason: string)           => api.patch<ApiActionResponse>(`/events/${id}/cancel`, { reason });
 export const completeEvent   = (id: string)                          => api.patch<ApiResponse<Event>>(`/events/${id}/complete`);
 export const getEventRegistrations = (id: string)                    => api.get<ApiResponse<EventRegistration[]>>(`/events/${id}/bookings`);
 

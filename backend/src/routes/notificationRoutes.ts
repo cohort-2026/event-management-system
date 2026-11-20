@@ -32,9 +32,6 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 router.patch('/read-all', requireAuth, async (req, res) => {
-  if (Object.keys(req.body as Record<string, unknown>).length > 0) {
-    return res.status(400).json({ success: false, message: 'This operation does not accept a request body' });
-  }
   await prisma.notification.updateMany({
     where: { recipientId: req.user!.id, readAt: null },
     data: { readAt: new Date() },

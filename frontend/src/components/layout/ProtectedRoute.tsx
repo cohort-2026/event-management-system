@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
 import type { UserRole } from '@/types/user';
-import Spinner from '@/components/ui/Spinner';
+import Spinner from '@/components/legacy/Spinner';
 
 interface Props {
   roles?: UserRole[];
@@ -29,7 +29,7 @@ export default function ProtectedRoute({ roles, redirectGuest = '/login' }: Prop
   }
 
   // Not logged in → send to login (or custom redirectGuest)
-  if (!user) return <Navigate to={redirectGuest} replace />;
+  if (!user) return <Navigate to={redirectGuest} state={{ from: location }} replace />;
   if (user.mustChangePassword && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }

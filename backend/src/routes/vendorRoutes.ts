@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { Prisma, VendorDocumentStatus, VendorProfileStatus } from '@prisma/client';
+import { Prisma, VendorDocumentStatus, VendorInvoiceStatus, VendorProfileStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
@@ -112,6 +112,7 @@ function validateProfile(body: unknown, requireComplete = false): { data?: Vendo
 	const errors: Record<string, string> = {};
 	const input = body && typeof body === 'object' ? body as Record<string, unknown> : {};
 	const readText = (key: string, maxLength: number): string => {
+		if (input[key] !== undefined && typeof input[key] !== 'string') errors[key] = 'Enter text in the correct format';
 		const value = typeof input[key] === 'string' ? input[key].trim() : '';
 		if (value.length > maxLength) errors[key] = `Must be ${maxLength} characters or fewer`;
 		return value;
@@ -1033,6 +1034,7 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 			select: {
 				id: true,
 				title: true,
+				organizerId: true,
 				status: true,
 				startTime: true,
 				vendorStandsAvailable: true,
@@ -1669,6 +1671,56 @@ const decideVendorApplication = async (
 		throw error;
 	}
 };
+
+router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
+	const applicationId = routeId(req.params.id);
+	const organizerId = req.user!.id;
+	const result = await prisma.$transaction(async transaction => {
+		const application = await transaction.vendorApplication.findFirst({
+			where: { id: applicationId, event: { is: { organizerId } } },
+			select: {
+				id: true,
+				vendorId: true,
+				status: true,
+				invoice: { select: { id: true, invoiceNumber: true } },
+				event: { select: { title: true } },
+			},
+		});
+		if (!application) return 'not_found' as const;
+		if (application.status !== 'APPROVED' || !application.invoice) return 'not_issued' as const;
+
+		const updated = await transaction.vendorInvoice.updateMany({
+			where: {
+				id: application.invoice.id,
+				status: VendorInvoiceStatus.ISSUED,
+				application: { is: { id: applicationId, status: 'APPROVED', event: { is: { organizerId } } } },
+			},
+			data: { status: VendorInvoiceStatus.PAID },
+		});
+		if (updated.count !== 1) return 'not_issued' as const;
+		await transaction.auditLog.create({
+			data: {
+				actorId: organizerId,
+				affectedUserId: application.vendorId,
+				action: 'VENDOR_INVOICE_MARKED_PAID',
+				outcome: application.invoice.invoiceNumber,
+			},
+		});
+		await transaction.notification.create({
+			data: {
+				recipientId: application.vendorId,
+				title: 'Vendor invoice marked paid',
+				message: `Invoice ${application.invoice.invoiceNumber} for ${application.event.title} was marked paid. Your staff passes are available.`,
+				link: `/vendor/applications/${applicationId}/staff`,
+			},
+		});
+		return 'paid' as const;
+	});
+
+	if (result === 'not_found') return res.status(404).json({ success: false, message: 'Stand request not found' });
+	if (result === 'not_issued') return res.status(409).json({ success: false, message: 'Only an issued invoice for an approved stand can be marked paid' });
+	return res.json({ success: true, message: 'Invoice marked paid. Staff passes are available to the vendor.' });
+});
 
 router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
 	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';

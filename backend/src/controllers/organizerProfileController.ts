@@ -54,8 +54,8 @@ function validateProfile(body: unknown): { data?: OrganizerProfileInput; errors:
   if (organizationName.length < 2 || organizationName.length > 120) {
     errors.organizationName = 'Enter an organization name between 2 and 120 characters';
   }
-  if (!/^\d{9}$/.test(organizationRegistrationNumber)) {
-    errors.organizationRegistrationNumber = 'Enter exactly 9 digits';
+  if (!/^\d{4}\/\d{6}\/\d{2}$/.test(organizationRegistrationNumber)) {
+    errors.organizationRegistrationNumber = 'Use the format 2020/123456/07';
   }
   if (
     phone.length < 7 ||

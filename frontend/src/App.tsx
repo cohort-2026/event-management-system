@@ -1,9 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { useAuth } from '@/context/useAuth';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import GuestRoute from '@/components/layout/GuestRoute';
-import Spinner from '@/components/ui/Spinner';
+import AdminLayout from '@/components/layout/AdminLayout';
+import Spinner from '@/components/legacy/Spinner';
+import Navbar from '@/components/layout/Navbar';
+import { Toaster } from '@/components/ui/sonner';
 import type { UserRole } from '@/types/user';
 
 // Auth
@@ -17,13 +20,17 @@ import SetupPassword from '@/pages/auth/SetupPassword';
 
 // Public
 import LandingPage from '@/pages/LandingPage';
+import AudiencePage from '@/pages/AudiencePage';
+import UpcomingPage from '@/pages/UpcomingPage';
 import EventList from '@/pages/events/EventList';
 import EventDetail from '@/pages/events/EventDetail';
 import NotFound from '@/pages/NotFound';
 
 // Organizer
 import OrganizerDashboard from '@/pages/organizer/OrganizerDashboard';
+import OrganizerEventHub from '@/pages/organizer/OrganizerEventHub';
 import OrganizerProfile from '@/pages/organizer/OrganizerProfile';
+import OrganizerReports from '@/pages/organizer/OrganizerReports';
 import CreateEvent from '@/pages/organizer/CreateEvent';
 import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
@@ -32,6 +39,9 @@ import CheckIn from '@/pages/organizer/CheckIn';
 
 // Attendee
 import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
+import AttendeeBookings from '@/pages/attendee/AttendeeBookings';
+import AttendeeTicket from '@/pages/attendee/AttendeeTicket';
+import PaymentResult from '@/pages/attendee/PaymentResult';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
@@ -42,16 +52,20 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
+import EventApprovals from '@/pages/admin/EventApprovals';
 import UserManagement from '@/pages/admin/UserManagement';
 import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
 import AdminAccounts from '@/pages/admin/AdminAccounts';
 import AdminAuditHistory from '@/pages/admin/AdminAuditHistory';
+import AdminReports from '@/pages/admin/AdminReports';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <NavbarVisibility />
+        <Toaster />
         <Routes>
 
           {/* ── Root: landing entry for guests, dashboard for signed-in users ── */}
@@ -72,20 +86,29 @@ export default function App() {
 
           {/* ── Public (accessible to everyone) ── */}
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/for/:audience" element={<AudiencePage />} />
+          <Route path="/upcoming" element={<UpcomingPage />} />
           <Route path="/events"     element={<EventList />} />
           <Route path="/events/:id" element={<EventDetail />} />
 
           {/* ── Attendee ── */}
           <Route element={<ProtectedRoute roles={['ATTENDEE']} />}> 
             <Route path="/attendee" element={<AttendeeDashboard />} />
-            <Route path="/attendee/bookings" element={<AttendeeDashboard />} />
-            <Route path="/attendee/tickets" element={<AttendeeDashboard />} />
+            <Route path="/attendee/bookings" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets/:ticketId" element={<AttendeeTicket />} />
+            <Route path="/attendee/payment/return" element={<PaymentResult />} />
+            <Route path="/attendee/payment/cancel" element={<PaymentResult />} />
           </Route>
 
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/vendors"                     element={<VendorApplications />} />
+            <Route path="/organizer/reports"                     element={<OrganizerReports />} />
+            <Route path="/organizer/notifications"               element={<OrganizerDashboard />} />
+            <Route path="/organizer/events/:id"                  element={<OrganizerEventHub />} />
             <Route path="/organizer/profile"                      element={<OrganizerProfile />} />
             <Route path="/organizer/events/new"                   element={<CreateEvent />} />
             <Route path="/organizer/events/:id/edit"              element={<EditEvent />} />
@@ -107,16 +130,20 @@ export default function App() {
 
           {/* ── Admin ── */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
-            <Route path="/admin"            element={<AdminDashboard />} />
-            <Route path="/admin/vendors"    element={<VendorProfileApprovalQueue />} />
-            <Route path="/admin/users"      element={<Navigate to="/admin/users/organizers/pending" replace />} />
-            <Route path="/admin/users/organizers" element={<UserManagement profileStatus="APPROVED" />} />
-            <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
-            <Route path="/admin/users/organizers/pending" element={<UserManagement profileStatus="PENDING_APPROVAL" />} />
-            <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
-            <Route path="/admin/user-accounts" element={<UserAccounts />} />
-            <Route path="/admin/accounts" element={<AdminAccounts />} />
-            <Route path="/admin/audit" element={<AdminAuditHistory />} />
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/approvals" element={<EventApprovals />} />
+              <Route path="/admin/vendors" element={<Navigate to="/admin/users/vendors/pending" replace />} />
+              <Route path="/admin/users" element={<Navigate to="/admin/users/organizers/pending" replace />} />
+              <Route path="/admin/users/organizers" element={<UserManagement key="organizers-approved" profileStatus="APPROVED" />} />
+              <Route path="/admin/users/vendors" element={<VendorProfileApprovalQueue status="APPROVED" />} />
+              <Route path="/admin/users/organizers/pending" element={<UserManagement key="organizers-pending" profileStatus="PENDING_APPROVAL" />} />
+              <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
+              <Route path="/admin/user-accounts" element={<UserAccounts />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/accounts" element={<AdminAccounts />} />
+              <Route path="/admin/audit" element={<AdminAuditHistory />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFound />} />
@@ -124,6 +151,17 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+function NavbarVisibility() {
+  const { pathname } = useLocation();
+  const { user, loading } = useAuth();
+  const navbarPages = ['/landing', '/upcoming', '/for/attendees', '/for/organisers', '/for/vendors'];
+  const isEventBrowsePage = pathname === '/events' || pathname.startsWith('/events/');
+  if (isEventBrowsePage && (loading || user?.role === 'ATTENDEE')) return null;
+  if (pathname.startsWith('/events/') && user?.role === 'VENDOR') return null;
+  if (!navbarPages.includes(pathname) && !isEventBrowsePage) return null;
+  return <Navbar />;
 }
 
 /* Root route: guests land on public landing page, signed-in users go to their dashboard. */
