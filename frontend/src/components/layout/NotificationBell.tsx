@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
+import { OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT } from '@/components/layout/dashboardNavigationState';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -12,13 +13,16 @@ import {
 export default function NotificationBell({
   appearance = 'default',
   compact = false,
+  openRequest = 0,
 }: {
   appearance?: 'default' | 'sidebar' | 'header';
   compact?: boolean;
+  openRequest?: number;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -26,22 +30,22 @@ export default function NotificationBell({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    const loadNotifications = async () => {
-      try {
-        const response = await getNotifications();
-        if (!active) return;
-        setNotifications(response.data.data);
-        setUnreadCount(response.data.unreadCount);
-        setError('');
-      } catch {
-        if (active) setError('Notifications could not be loaded.');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await getNotifications();
+      if (!activeRef.current) return;
+      setNotifications(response.data.data);
+      setUnreadCount(response.data.unreadCount);
+      setError('');
+    } catch {
+      if (activeRef.current) setError('Notifications could not be loaded.');
+    } finally {
+      if (activeRef.current) setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
+    activeRef.current = true;
     void loadNotifications();
     const intervalId = window.setInterval(() => void loadNotifications(), 30_000);
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -58,12 +62,18 @@ export default function NotificationBell({
     document.addEventListener('mousedown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      active = false;
+      activeRef.current = false;
       window.clearInterval(intervalId);
       document.removeEventListener('mousedown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, []);
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (appearance !== 'sidebar' || openRequest === 0) return;
+    setOpen(true);
+    void loadNotifications();
+  }, [appearance, loadNotifications, openRequest]);
 
   const openNotification = async (notification: AppNotification) => {
     if (!notification.readAt) {
@@ -80,6 +90,10 @@ export default function NotificationBell({
     }
 
     setOpen(false);
+    if (appearance === 'header' && user?.role === 'VENDOR') {
+      window.dispatchEvent(new Event(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT));
+      return;
+    }
     navigate(notification.link);
   };
 

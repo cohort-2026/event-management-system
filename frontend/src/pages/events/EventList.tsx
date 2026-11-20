@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { SlidersHorizontal } from 'lucide-react';
 import AttendeeLayout from '@/components/attendee/AttendeeLayout';
 import EventCard from '@/components/app/EventCard';
 import Input from '@/components/legacy/Input';
@@ -99,15 +98,16 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
 
   const content = (
     <>
-      <div className="mb-8 rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-100 via-orange-50 to-amber-100 p-5 sm:p-7">
-        <h1 className="mt-4 text-3xl font-bold text-neutral-900">{standsOnly ? 'Events with available vendor stands' : user?.role === 'VENDOR' ? 'Find Events' : upcomingOnly ? 'Upcoming Events' : 'Published Events'}</h1>
-        <p className="mt-1 text-neutral-500">{standsOnly ? 'Browse published events with open vendor stands.' : user?.role === 'VENDOR' ? 'Explore published events and check vendor application availability.' : upcomingOnly ? 'Browse published events that are still upcoming or in progress.' : 'Browse approved events and event details.'}</p>
-      </div>
+      {user?.role !== 'VENDOR' && (
+        <div className="mb-8 rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-100 via-orange-50 to-amber-100 p-5 sm:p-7">
+          <h1 className="mt-4 text-3xl font-bold text-neutral-900">{standsOnly ? 'Events with available vendor stands' : upcomingOnly ? 'Upcoming Events' : 'Published Events'}</h1>
+          <p className="mt-1 text-neutral-500">{standsOnly ? 'Browse published events with open vendor stands.' : upcomingOnly ? 'Browse published events that are still upcoming or in progress.' : 'Browse approved events and event details.'}</p>
+        </div>
+      )}
 
       <section aria-label="Search and filter events" className="mb-5 rounded-2xl border border-rose-100 bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><SlidersHorizontal aria-hidden="true" className="size-4" /></span>
             <div><h2 className="text-sm font-bold text-neutral-900">Find an event</h2><p className="text-xs text-neutral-500">Search and narrow the list</p></div>
           </div>
           <button type="button" onClick={clearFilters} className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">Clear filters</button>

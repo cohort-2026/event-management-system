@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 
+export const OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT = 'vendor:open-sidebar-notifications';
+
 export interface DashboardNavigationState {
   collapsed: boolean;
   mobileOpen: boolean;

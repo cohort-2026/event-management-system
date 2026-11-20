@@ -121,7 +121,7 @@ export default function VendorDashboard() {
                         {user && ` - ${user.firstname} ${user.lastname}`}
                       </p>
                     </div>
-                    <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center gap-2 rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-4 text-sm font-bold text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">
+                    <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center gap-2 rounded-md bg-gradient-to-r from-[#171717] via-[#4d0019] to-[#800020] px-4 text-sm font-bold text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">
                       <SearchIcon /> Find events
                     </Link>
                   </div>
@@ -138,8 +138,8 @@ export default function VendorDashboard() {
                     <h2 id="vendor-stands-heading" className="mb-2 text-lg font-extrabold">Your stands</h2>
                     {upcomingStands.length ? (
                       <div className="grid gap-4 lg:grid-cols-2">
-                        {upcomingStands.map((application, index) => (
-                          <StandCard key={application.id} application={application} index={index} onDownload={() => downloadInvoice(application)} />
+                        {upcomingStands.map(application => (
+                          <StandCard key={application.id} application={application} onDownload={() => downloadInvoice(application)} />
                         ))}
                       </div>
                     ) : (
@@ -194,14 +194,14 @@ function StatTile({ label, value, note }: { label: string; value: string; note?:
   );
 }
 
-function StandCard({ application, index, onDownload }: { application: VendorApplication; index: number; onDownload: () => void }) {
+function StandCard({ application, onDownload }: { application: VendorApplication; onDownload: () => void }) {
   const paid = application.invoice?.status === 'PAID';
   const stages = ['Applied', 'Allocated', paid ? 'Paid' : application.invoice?.status === 'VOID' ? 'Invoice void' : 'Pay invoice', 'Staff passes'];
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
-      <div className={`relative flex min-h-16 items-center justify-between gap-3 overflow-hidden px-4 py-3 text-white ${index % 2 === 0 ? 'bg-gradient-to-r from-[#ff8c63] via-[#f44636] to-[#a72512]' : 'bg-gradient-to-r from-[#171717] via-[#ed4b23] to-[#ff9915]'}`}>
+      <div className="relative flex min-h-16 items-center justify-between gap-3 overflow-hidden bg-gradient-to-r from-[#171717] via-[#4d0019] to-[#800020] px-4 py-3 text-white">
         <span className="absolute -right-4 -top-10 h-24 w-24 rounded-full bg-white/20" aria-hidden="true" />
-        <h3 className="relative min-w-0 break-words text-base font-extrabold">{application.event?.title ?? 'Event'}</h3>
+        <h3 className="relative min-w-0 break-words text-base font-extrabold text-white">{application.event?.title ?? 'Event'}</h3>
         {application.assignedStand && <span className="relative shrink-0 rounded bg-white px-2 py-1 text-sm font-extrabold text-[#252525]">{application.assignedStand}</span>}
       </div>
       <div className="flex flex-1 flex-col gap-4 p-4">
