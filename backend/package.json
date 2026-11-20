@@ -15,7 +15,7 @@
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
     "db:studio": "prisma studio",
     "pretest:phase1": "npm run build",
-    "test:phase1": "node --test ../tests/phase-1-workflows.test.cjs ../tests/phase-1-api.test.cjs ../tests/backend-foundation.test.cjs ../tests/payfast-service.test.cjs",
+    "test:phase1": "node --test ../tests/phase-1-workflows.test.cjs ../tests/phase-1-api.test.cjs ../tests/backend-foundation.test.cjs ../tests/payment-workflow.test.cjs",
     "test:phase1:api": "node --test ../tests/phase-1-api.test.cjs"
   },
   "prisma": {

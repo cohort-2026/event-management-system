@@ -7,7 +7,7 @@ import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import Button from '@/components/legacy/Button';
 import { getEventById } from '@/services/eventService';
-import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
+import { applyForStand, getAllMyApplications, getVendorProfile } from '@/services/vendorService';
 import type { Event } from '@/types/event';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
@@ -42,10 +42,9 @@ export default function ApplyForStand() {
     let active = true;
     if (!eventId) return;
 
-    Promise.all([getVendorProfile(), getMyApplications(), getEventById(eventId)])
-      .then(([profileResponse, applicationsResponse, eventResponse]) => {
+    Promise.all([getVendorProfile(), getAllMyApplications(), getEventById(eventId)])
+      .then(([profileResponse, loadedApplications, eventResponse]) => {
         if (!active) return;
-        const loadedApplications = applicationsResponse.data.data;
         setProfile(profileResponse.data.data);
         setApplications(loadedApplications);
         setEvent(eventResponse.data.data);
@@ -57,10 +56,10 @@ export default function ApplyForStand() {
         setStandDescription(previousApplication?.standDescription ?? '');
         setSupportingInformation(previousApplication?.supportingInformation ?? '');
         setStaffMembers(previousApplication?.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
-        const latestRejected = applicationsResponse.data.data
+        const latestRejected = loadedApplications
           .filter(application => application.eventId === eventId && application.status === 'REJECTED')
           .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
-        const hasActiveApplication = applicationsResponse.data.data.some(application =>
+        const hasActiveApplication = loadedApplications.some(application =>
           application.eventId === eventId && application.status !== 'REJECTED',
         );
         if (!hasActiveApplication && latestRejected) {

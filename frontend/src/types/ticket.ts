@@ -14,6 +14,12 @@ export interface Ticket {
   checkedInAt?: string | null;
   checkedIn?: boolean;
   bookingReference?: string;
+  booking?: {
+    reference: string;
+    status: 'CONFIRMED' | 'PENDING' | 'CANCELLED';
+    paymentStatus: 'NOT_REQUIRED' | 'PENDING' | 'PAID' | 'FAILED';
+    eventTicketType: { name: string } | null;
+  };
   bookingStatus?: 'CONFIRMED' | 'PENDING' | 'CANCELLED';
   paymentStatus?: 'NOT_REQUIRED' | 'PENDING' | 'PAID' | 'FAILED';
   event?: {
@@ -23,5 +29,6 @@ export interface Ticket {
     startTime: string;
     endTime: string;
     venue: string;
+    bannerImageUrl?: string | null;
   };
 }

@@ -51,12 +51,21 @@ const organizerController = read('backend', 'src', 'controllers', 'organizerCont
 const reportRoutes = read('backend', 'src', 'routes', 'reportRoutes.ts');
 const reportController = read('backend', 'src', 'controllers', 'reportController.ts');
 const notificationRoutes = read('backend', 'src', 'routes', 'notificationRoutes.ts');
-const platformAdminController = read('backend', 'src', 'controllers', 'platformAdminController.ts');
 const vendorRoutes = read('backend', 'src', 'routes', 'vendorRoutes.ts');
 const frontendRoles = read('frontend', 'src', 'types', 'user.ts');
 const frontendRegistration = read('frontend', 'src', 'pages', 'auth', 'Register.tsx');
 const frontendApp = read('frontend', 'src', 'App.tsx');
+const adminDashboard = read('frontend', 'src', 'pages', 'admin', 'AdminDashboard.tsx');
+const adminUserAccounts = read('frontend', 'src', 'pages', 'admin', 'UserAccounts.tsx');
+const adminLayout = read('frontend', 'src', 'components', 'layout', 'AdminLayout.tsx');
+const adminUserService = read('frontend', 'src', 'services', 'userService.ts');
+const adminVendorQueue = read('frontend', 'src', 'pages', 'admin', 'VendorProfileApprovalQueue.tsx');
 const protectedRoute = read('frontend', 'src', 'components', 'layout', 'ProtectedRoute.tsx');
+const organizerCheckInPage = read('frontend', 'src', 'pages', 'organizer', 'CheckIn.tsx');
+const frontendTicketService = read('frontend', 'src', 'services', 'ticketService.ts');
+const attendeeTicketsPage = read('frontend', 'src', 'pages', 'attendee', 'AttendeeTickets.tsx');
+const attendeeTicketPage = read('frontend', 'src', 'pages', 'attendee', 'AttendeeTicket.tsx');
+const frontendEventService = read('frontend', 'src', 'services', 'eventService.ts');
 
 function enumValues(source, name) {
   const match = source.match(new RegExp(`enum ${name}\\s*\\{([^}]*)\\}`));
@@ -179,7 +188,6 @@ test('admin user management protects active administrator access and preserves u
   );
   assert.match(softDelete, /data: \{ isActive: false \}/);
   assert.doesNotMatch(softDelete, /transaction\.(?:user|booking|ticket|payment|event)\.delete/);
-  assert.match(platformAdminController, /last_admin/);
 });
 
 test('reports aggregate simulated payment, attendance and booking data behind Admin authorization', () => {
@@ -238,11 +246,20 @@ test('public event list and detail queries expose published events only', () => 
 test('ticket access, QR check-in and attendance routes enforce ownership and booking validity', () => {
   assert.match(ticketRoutes, /router\.get\('\/me',\s*requireAuth,\s*requireRole\('ATTENDEE'\)/);
   assert.match(ticketRoutes, /router\.get\('\/:id',\s*requireAuth,\s*requireRole\('ATTENDEE',\s*'ORGANIZER'\)/);
-  assert.match(ticketRoutes, /router\.post\('\/scan',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*scanTicketQr\)/);
+  assert.match(ticketRoutes, /router\.post\('\/scan',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*validateBodyShape,\s*scanTicketQr\)/);
   assert.match(ticketRoutes, /router\.patch\('\/:id\/checkin',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*checkInTicket\)/);
   assert.match(ticketController, /where\s*=\s*\{\s*holderId:\s*req\.user!\.id\s*\}/);
   assert.match(ticketController, /ticket\?\.event\.organizerId\s*===\s*req\.user!\.id/);
   assert.match(ticketController, /isValidQrPayload/);
+  const ticketListHandler = ticketController.slice(
+    ticketController.indexOf('export const listMyTickets'),
+    ticketController.indexOf('export const getTicket'),
+  );
+  assert.doesNotMatch(ticketListHandler, /qrPayload/, 'ticket list does not expose QR payloads');
+  assert.match(attendeeTicketsPage, /getMyTickets\(requestedPage, PAGE_SIZE\)/);
+  assert.match(attendeeTicketsPage, /visibleTickets\.map\(ticket/);
+  assert.match(attendeeTicketsPage, /bookingStatus === 'CONFIRMED'/);
+  assert.match(attendeeTicketPage, /const canShowQr =/);
   assert.match(ticketCheckInService, /FOR UPDATE/);
   assert.match(ticketCheckInService, /BookingStatus\.CONFIRMED/);
   assert.match(ticketCheckInService, /PaymentStatus\.NOT_REQUIRED/);
@@ -251,6 +268,28 @@ test('ticket access, QR check-in and attendance routes enforce ownership and boo
   assert.match(eventRoutes, /router\.get\('\/:id\/attendance',\s*requireAuth,\s*requireRole\('ORGANIZER'\),\s*requireApprovedOrganizerProfile,\s*getEventAttendance\)/);
   assert.match(eventController, /totalConfirmedTickets[\s\S]*totalCheckedInTickets[\s\S]*totalNotYetCheckedInTickets/);
   assert.match(eventController, /payment:\s*\{\s*is:\s*\{\s*status:\s*PaymentStatus\.PAID\s*\}\s*\}/);
+});
+
+test('organizer QR scanner delegates validation and check-in to the backend', () => {
+  assert.match(frontendTicketService, /api\.post[\s\S]*'\/tickets\/scan',[\s\S]*qrPayload/);
+  assert.match(organizerCheckInPage, /scanTicketQr\(decodedText\)/);
+  assert.doesNotMatch(organizerCheckInPage, /registration\.ticket\?\.referenceNumber\.toLowerCase\(\)\s*===/);
+  assert.match(organizerCheckInPage, /checkInTicket\(ticket\.id\)/);
+  assert.match(organizerCheckInPage, /getEventAttendance/);
+  assert.match(frontendEventService, /\/attendance/);
+  assert.match(organizerCheckInPage, /Check-in successful/);
+  assert.match(organizerCheckInPage, /Already checked in/);
+  assert.match(organizerCheckInPage, /ticketsFor\(selected\)\.map/);
+});
+
+test('organizer booking screens display every ticket and support attendee and status filtering', () => {
+  const eventRegistrationPage = read('frontend', 'src', 'pages', 'organizer', 'EventRegistrations.tsx');
+  const eventService = read('frontend', 'src', 'services', 'eventService.ts');
+  assert.match(eventRegistrationPage, /filteredRegistrations\.map/);
+  assert.match(eventRegistrationPage, /registration\.tickets/);
+  assert.match(eventRegistrationPage, /Search bookings/);
+  assert.match(eventRegistrationPage, /All statuses/);
+  assert.match(eventService, /tickets: Array</);
 });
 
 test('admin, organizer, vendor and attendee frontend routes are role-protected', () => {
@@ -262,6 +301,27 @@ test('admin, organizer, vendor and attendee frontend routes are role-protected',
   for (const dashboard of ['AdminDashboard', 'OrganizerDashboard', 'VendorDashboard', 'AttendeeDashboard']) {
     assert.match(frontendApp, new RegExp(`import ${dashboard}`));
   }
+});
+
+test('admin dashboard uses live API data and has no event approval or sample records', () => {
+  assert.match(adminDashboard, /getAdminEventReportSummary/);
+  assert.match(adminDashboard, /getUsers\(\{ page: 1, limit: 1, role \}\)/);
+  assert.match(adminDashboard, /getOrganizers\(\)/);
+  assert.match(adminDashboard, /getPendingVendorProfiles\(\)/);
+  assert.match(adminDashboard, /getAdminAuditHistory\(\)/);
+  assert.doesNotMatch(adminDashboard, /Events to review|Good morning, Johan|value: '612'|value: '79%'/);
+  assert.match(adminUserAccounts, /getUsers\(\{/);
+  assert.match(adminUserAccounts, /getUserById\(id\)/);
+  assert.match(adminUserAccounts, /deactivateUser\(actionUser\.id\)/);
+  assert.match(adminUserAccounts, /activateUser\(actionUser\.id\)/);
+  assert.match(adminUserAccounts, /pagination\.totalPages/);
+  assert.match(adminUserService, /role\?: UserRole/);
+  assert.doesNotMatch(adminVendorQueue, /demoVendorProfile|Frontend demo|Moya Handmade Market/);
+  assert.match(adminVendorQueue, /getVendorProfilesByStatus\('REJECTED'\)/);
+  assert.doesNotMatch(frontendApp, /EventApprovals|\/admin\/approvals/);
+  assert.doesNotMatch(frontendApp, /AdminAccounts|\/admin\/accounts/);
+  assert.doesNotMatch(adminLayout, /Administrator accounts|\/admin\/accounts/);
+  assert.doesNotMatch(adminLayout, /count: [0-9]+/);
 });
 
 test('all route files have implemented handlers rather than 501 stubs', () => {

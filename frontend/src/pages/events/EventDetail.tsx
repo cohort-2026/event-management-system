@@ -12,7 +12,6 @@ import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/context/useAuth';
 import { getEventById } from '@/services/eventService';
 import { createBooking, getMyBookings } from '@/services/bookingService';
-import { startPayFastCheckout, submitPayFastCheckout } from '@/services/paymentService';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
 
@@ -36,8 +35,6 @@ export default function EventDetail() {
   const [selectedTicketId, setSelectedTicketId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [checkoutBooking, setCheckoutBooking] = useState<Booking | null>(null);
   const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
   const [bookingError, setBookingError] = useState('');
@@ -192,32 +189,12 @@ export default function EventDetail() {
           })),
         });
       } else {
-        setCheckoutBooking(booking);
-        try {
-          const checkout = await startPayFastCheckout(booking.id);
-          submitPayFastCheckout(checkout.data.data);
-        } catch (checkoutError) {
-          setBookingError(getErrorMessage(checkoutError, 'PayFast checkout could not be started.'));
-        }
+        navigate(`/attendee/payment/simulate?bookingId=${encodeURIComponent(booking.id)}`);
       }
     } catch (bookingRequestError) {
       setBookingError(getErrorMessage(bookingRequestError, 'Your booking could not be created.'));
     } finally {
       setBookingLoading(false);
-    }
-  };
-
-  const handlePayment = async () => {
-    if (!checkoutBooking) return;
-    setBookingError('');
-    setPaymentLoading(true);
-    try {
-      const checkout = await startPayFastCheckout(checkoutBooking.id);
-      submitPayFastCheckout(checkout.data.data);
-    } catch (paymentRequestError) {
-      setBookingError(getErrorMessage(paymentRequestError, 'PayFast checkout could not be started.'));
-    } finally {
-      setPaymentLoading(false);
     }
   };
 
@@ -374,10 +351,19 @@ export default function EventDetail() {
                   Booking reference <span className="font-mono font-semibold text-neutral-800">{eventBooking.reference}</span>
                 </p>
                 {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
-                {eventBooking.tickets[0] ? (
-                  <Link to={`/attendee/tickets/${eventBooking.tickets[0].id}`} className="mt-4 block rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white">
-                    View ticket
-                  </Link>
+                {eventBooking.tickets.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    {eventBooking.tickets.map((ticket, index) => (
+                      <Link key={ticket.id} to={`/attendee/tickets/${ticket.id}`} className="block rounded-md border border-neutral-200 px-3 py-2 text-center text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
+                        View ticket {index + 1} · {ticket.referenceNumber}
+                      </Link>
+                    ))}
+                    {eventBooking.tickets.length > 1 && (
+                      <Link to="/attendee/tickets" className="block text-center text-[10px] font-semibold text-rose-700 hover:text-rose-800">
+                        View all {eventBooking.tickets.length} tickets
+                      </Link>
+                    )}
+                  </div>
                 ) : eventBooking.paymentStatus === 'PENDING' ? (
                   <Link to="/attendee/bookings" className="mt-4 block rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white">
                     Complete payment
@@ -423,7 +409,7 @@ export default function EventDetail() {
                   ))}
                 </ul>
 
-                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && !checkoutBooking && (
+                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
                   <div className="mt-3 space-y-3">
                     <label className="block text-xs font-medium text-neutral-700">
                       Quantity
@@ -448,21 +434,7 @@ export default function EventDetail() {
                   </div>
                 )}
 
-                {checkoutBooking ? (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-semibold text-amber-950">Complete your payment with PayFast</p>
-                    <p className="mt-1 text-xs text-amber-900">
-                      {checkoutBooking.eventTicketType?.name} × {checkoutBooking.quantity} · {formatPrice(checkoutBooking.totalAmount)}
-                    </p>
-                    <p className="mt-2 text-[10px] leading-relaxed text-amber-900">
-                      Your booking is confirmed after PayFast verifies the payment.
-                    </p>
-                    {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
-                    <Button className="mt-3 w-full" loading={paymentLoading} onClick={handlePayment}>Continue to PayFast</Button>
-                    <Link to="/attendee/bookings" className="mt-2 block text-center text-[10px] font-semibold text-amber-950 underline">Manage this booking later</Link>
-                  </div>
-                ) : (
-                  <>
+                <>
                     {!canRegister && (
                       <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-center text-xs text-neutral-600">
                         {event.availableCapacity <= 0 || maxQuantity <= 0 ? 'Sold out' : 'Registration is closed.'}
@@ -493,7 +465,6 @@ export default function EventDetail() {
                       </div>
                     )}
                   </>
-                )}
                 <p className="mt-2 text-center text-[9px] text-neutral-500">Free cancellation until the event starts</p>
               </>
             )}
@@ -518,12 +489,16 @@ export default function EventDetail() {
                 You&apos;re going, {user?.firstname || 'attendee'}!
               </h2>
               <p className="mt-1 text-xs text-neutral-500">
-                {user?.email ? `Your ticket is ready for ${user.email}.` : 'Your booking is confirmed.'}
+                {`${confirmation.tickets.length} ${confirmation.tickets.length === 1 ? 'ticket is' : 'tickets are'} ready${user?.email ? ` for ${user.email}` : ''}.`}
               </p>
               <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-neutral-50 p-3 text-left">
                 <div>
                   <p className="text-[9px] text-neutral-500">Ticket</p>
-                  <p className="mt-0.5 truncate text-[10px] font-semibold text-neutral-900">{confirmation.tickets[0]?.type ?? selectedTicket?.name ?? 'Ticket'}</p>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-neutral-900">{selectedTicket?.name ?? confirmation.tickets[0]?.type ?? 'Ticket'}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-neutral-500">Quantity</p>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-neutral-900">{confirmation.tickets.length}</p>
                 </div>
                 <div>
                   <p className="text-[9px] text-neutral-500">When</p>
@@ -533,25 +508,25 @@ export default function EventDetail() {
                     {start.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <div>
-                  <p className="text-[9px] text-neutral-500">Reference</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] font-bold text-neutral-900">{confirmation.tickets[0]?.referenceNumber ?? confirmation.reference}</p>
-                </div>
               </div>
               <p className="mt-2 text-[10px] text-neutral-500">Booking {confirmation.reference} · {formatPrice(confirmation.amount)}</p>
+              {confirmation.tickets.length > 0 && (
+                <ul className="mt-3 max-h-36 space-y-1.5 overflow-y-auto text-left">
+                  {confirmation.tickets.map((ticket, index) => (
+                    <li key={ticket.id} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-semibold text-neutral-500">Ticket {index + 1} · {selectedTicket?.name ?? ticket.type ?? 'Ticket'}</p>
+                        <p className="truncate font-mono text-[10px] font-bold text-neutral-900">{ticket.referenceNumber}</p>
+                      </div>
+                      <Link to={`/attendee/tickets/${ticket.id}`} className="shrink-0 text-[10px] font-semibold text-rose-700 hover:text-rose-800">View ticket</Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="mt-4 grid grid-cols-2 gap-2">
-                {confirmation.tickets[0] ? (
-                  <Link
-                    to={`/attendee/tickets/${confirmation.tickets[0].id}`}
-                    className="rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-xs font-bold text-white"
-                  >
-                    View ticket
-                  </Link>
-                ) : (
-                  <Link to="/attendee/bookings" className="rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-xs font-bold text-white">
-                    View booking
-                  </Link>
-                )}
+                <Link to="/attendee/tickets" className="rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-xs font-bold text-white">
+                  View all tickets
+                </Link>
                 <button
                   type="button"
                   onClick={() => downloadCalendarEvent(event.title, event.venue, start, end)}

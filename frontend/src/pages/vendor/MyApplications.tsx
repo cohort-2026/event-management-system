@@ -4,7 +4,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
-import { getMyApplications } from '@/services/vendorService';
+import { getAllMyApplications } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication } from '@/types/vendor';
 
@@ -22,10 +22,9 @@ export default function MyApplications() {
 
   useEffect(() => {
     let active = true;
-    getMyApplications()
-      .then(response => {
+    getAllMyApplications()
+      .then(loadedApplications => {
         if (!active) return;
-        const loadedApplications = response.data.data;
         setApplications(loadedApplications);
         setExpandedApplicationId(loadedApplications.find(application => application.assignedStand)?.id ?? null);
       })

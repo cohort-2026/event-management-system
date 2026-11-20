@@ -24,7 +24,6 @@ const roleNav: Record<UserRole, { label: string; to: string; icon: React.ReactNo
     { label: 'Overview',         to: '/admin',            icon: <HomeIcon /> },
     { label: 'User management',  to: '/admin/users',      icon: <UsersIcon /> },
     { label: 'Approved profiles', to: '/admin/user-accounts', icon: <UsersIcon /> },
-    { label: 'Administrator accounts', to: '/admin/accounts', icon: <UsersIcon /> },
     { label: 'Audit history', to: '/admin/audit', icon: <DocIcon /> },
   ],
   ATTENDEE: [
