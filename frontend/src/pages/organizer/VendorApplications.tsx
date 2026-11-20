@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
-import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
+import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 import Badge, { type BadgeVariant } from '@/components/legacy/Badge';
 import Button from '@/components/legacy/Button';
 import { approveApplication, getEventApplications, markVendorInvoicePaid, rejectApplication } from '@/services/vendorService';
@@ -188,18 +188,17 @@ export default function VendorApplications() {
       <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
-          <DashboardHeader
-            title="Vendors"
-            organizerTitleSize="large"
-            breadcrumbs={eventId ? [{ label: 'My events', to: '/organizer/events' }, { label: 'Vendors' }] : [{ label: 'Vendors' }]}
-            actions={(
-              <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
-                Export
-              </Button>
-            )}
-          />
-          <p className="mb-2 text-sm font-bold tracking-wide text-slate-600">Organizer</p>
-          <div role="tablist" aria-label="Vendor application status" className="mb-6 flex min-h-[68px] items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-[#f3f4f5] p-1.5 sm:gap-3">
+          <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
+            <OrganizerTopBar title="Vendors" />
+          </div>
+          <h1 className="sr-only">Vendors</h1>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold tracking-wide text-slate-600">Organizer</p>
+            <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
+              Export
+            </Button>
+          </div>
+          <div role="tablist" aria-label="Vendor application status" className="mb-6 flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-[#f3f4f5] p-1.5">
             {statusTabs.map(tab => {
               const selected = activeStatus === tab.id;
               return (
@@ -209,10 +208,10 @@ export default function VendorApplications() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setActiveStatus(tab.id)}
-                  className={`inline-flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl px-4 text-base font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:px-5 sm:text-lg ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
+                  className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
                 >
                   {tab.label}
-                  {tab.id !== 'INACTIVE' && <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
+                  {tab.id !== 'INACTIVE' && <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
                 </button>
               );
             })}

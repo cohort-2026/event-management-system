@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/useAuth';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
@@ -22,15 +22,17 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
   const navigate = useNavigate();
   const navigation = useDashboardNavigation();
   const { count, error } = useVendorApplicationCount();
-  const [notificationOpenRequest, setNotificationOpenRequest] = useState(0);
+  const [notificationOpenTarget, setNotificationOpenTarget] = useState<'desktop' | 'mobile' | null>(null);
+  const closeNotifications = useCallback(() => setNotificationOpenTarget(null), []);
   const initials = `${user?.firstname?.[0] ?? ''}${user?.lastname?.[0] ?? ''}`.toUpperCase();
 
   useEffect(() => {
     const openSidebarNotifications = () => {
-      if (!window.matchMedia('(min-width: 768px)').matches && !navigation?.mobileOpen) {
+      const desktop = window.matchMedia('(min-width: 768px)').matches;
+      if (!desktop && !navigation?.mobileOpen) {
         navigation?.toggle();
       }
-      setNotificationOpenRequest(current => current + 1);
+      setNotificationOpenTarget(desktop ? 'desktop' : 'mobile');
     };
 
     window.addEventListener(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT, openSidebarNotifications);
@@ -68,7 +70,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
               )}
             </NavLink>
           ))}
-          {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" openRequest={notificationOpenRequest} />}
+          {user?.role === 'VENDOR' && <NotificationBell key={notificationOpenTarget === 'desktop' ? 'open' : 'closed'} appearance="sidebar" initiallyOpen={notificationOpenTarget === 'desktop'} onClose={closeNotifications} />}
         </nav>
         {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
         <div className="mt-auto space-y-2">
@@ -117,7 +119,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
                   )}
                 </NavLink>
               ))}
-              {user?.role === 'VENDOR' && <NotificationBell appearance="sidebar" openRequest={notificationOpenRequest} />}
+              {user?.role === 'VENDOR' && <NotificationBell key={notificationOpenTarget === 'mobile' ? 'open' : 'closed'} appearance="sidebar" initiallyOpen={notificationOpenTarget === 'mobile'} onClose={closeNotifications} />}
             </nav>
             {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
             <div className="mt-auto space-y-2 pt-4">

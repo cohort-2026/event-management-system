@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
@@ -13,39 +13,40 @@ import {
 export default function NotificationBell({
   appearance = 'default',
   compact = false,
-  openRequest = 0,
+  initiallyOpen = false,
+  onClose,
 }: {
   appearance?: 'default' | 'sidebar' | 'header';
   compact?: boolean;
-  openRequest?: number;
+  initiallyOpen?: boolean;
+  onClose?: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const response = await getNotifications();
-      if (!activeRef.current) return;
-      setNotifications(response.data.data);
-      setUnreadCount(response.data.unreadCount);
-      setError('');
-    } catch {
-      if (activeRef.current) setError('Notifications could not be loaded.');
-    } finally {
-      if (activeRef.current) setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    activeRef.current = true;
+    let active = true;
+    const loadNotifications = async () => {
+      try {
+        const response = await getNotifications();
+        if (!active) return;
+        setNotifications(response.data.data);
+        setUnreadCount(response.data.unreadCount);
+        setError('');
+      } catch {
+        if (active) setError('Notifications could not be loaded.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
     void loadNotifications();
     const intervalId = window.setInterval(() => void loadNotifications(), 30_000);
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -55,25 +56,23 @@ export default function NotificationBell({
         || (target instanceof Element && target.closest('[data-notification-panel]'))
       ) return;
       setOpen(false);
+      onClose?.();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        onClose?.();
+      }
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      activeRef.current = false;
+      active = false;
       window.clearInterval(intervalId);
       document.removeEventListener('mousedown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [loadNotifications]);
-
-  useEffect(() => {
-    if (appearance !== 'sidebar' || openRequest === 0) return;
-    setOpen(true);
-    void loadNotifications();
-  }, [appearance, loadNotifications, openRequest]);
+  }, [onClose]);
 
   const openNotification = async (notification: AppNotification) => {
     if (!notification.readAt) {
@@ -90,6 +89,7 @@ export default function NotificationBell({
     }
 
     setOpen(false);
+    onClose?.();
     if (appearance === 'header' && user?.role === 'VENDOR') {
       window.dispatchEvent(new Event(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT));
       return;
@@ -118,7 +118,10 @@ export default function NotificationBell({
         type="button"
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => {
+          if (open) onClose?.();
+          setOpen(current => !current);
+        }}
         className={appearance === 'sidebar'
           ? `relative flex shrink-0 items-center gap-1.5 rounded-md font-semibold transition hover:bg-slate-100 hover:text-slate-900 ${
             compact ? 'w-full px-2.5 py-2 text-[12px]' : 'w-full px-2.5 py-2.5 text-[12px]'
@@ -147,7 +150,10 @@ export default function NotificationBell({
           data-notification-panel
           className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4"
           onMouseDown={event => {
-            if (event.target === event.currentTarget) setOpen(false);
+            if (event.target === event.currentTarget) {
+              setOpen(false);
+              onClose?.();
+            }
           }}
         >
           <section
