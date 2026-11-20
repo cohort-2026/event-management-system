@@ -854,6 +854,13 @@ main.organizer-shell {
   outline-offset: 2px;
 }
 
+.organizer-shell .dashboard-content-light button.organizer-status-tab:not(:disabled):hover,
+.organizer-shell .dashboard-content-light button.organizer-status-tab:not(:disabled):focus-visible {
+  background-color: #fecdd3 !important;
+  background-image: none;
+  color: #171717 !important;
+}
+
 .dashboard-content-light .organizer-action-link:focus-visible,
 .organizer-shell .dashboard-content-light button:not(:disabled):focus-visible {
   outline: 2px solid #800020;

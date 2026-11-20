@@ -207,7 +207,7 @@ export default function VendorApplications() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setActiveStatus(tab.id)}
-                  className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-[#171717] to-[#800020] px-3 text-xs font-normal text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020] ${selected ? 'ring-2 ring-inset ring-rose-300' : ''}`}
+                  className={`organizer-status-tab inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-[#ffe4e6] px-3 text-xs font-normal text-neutral-900 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020] ${selected ? 'ring-2 ring-inset ring-[#800020]' : ''}`}
                 >
                   {tab.label}
                   {tab.id !== 'INACTIVE' && <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-normal text-neutral-900">{tab.count}</span>}
