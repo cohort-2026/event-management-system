@@ -314,6 +314,105 @@ function CategoryChart({ events }: { events: Event[] }) {
   );
 }
 
+function TicketTypeBubbleChart({ events }: { events: Event[] }) {
+  const tickets = events.flatMap(event => event.ticketTypes.map(ticket => ({
+    id: ticket.id,
+    event: event.title,
+    name: ticket.name,
+    capacity: ticket.quantity,
+    booked: ticket.quantity - ticket.availableQuantity,
+    price: ticket.price,
+  })));
+  const types = [...new Set(tickets.map(ticket => ticket.name))].sort((a, b) => a.localeCompare(b));
+  const colors = [
+    { light: '#b59aff', dark: '#4d17ab' },
+    { light: '#7de2c4', dark: '#087351' },
+    { light: '#ff9e86', dark: '#a93319' },
+    { light: '#ffd67d', dark: '#a96806' },
+    { light: '#8acfff', dark: '#1452a0' },
+    { light: '#f99fd0', dark: '#a71956' },
+  ];
+  const capacityStep = Math.max(1, Math.ceil(Math.max(0, ...tickets.map(ticket => ticket.capacity)) / 4));
+  const bookedStep = Math.max(1, Math.ceil(Math.max(0, ...tickets.map(ticket => ticket.booked)) / 4));
+  const maxPrice = Math.max(0, ...tickets.map(ticket => ticket.price));
+  const priceFormatter = new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' });
+
+  return (
+    <section aria-labelledby="report-ticket-types" className="min-w-0 rounded-lg bg-[#100b25] p-4 text-white">
+      <h2 id="report-ticket-types" className="text-sm font-bold">Ticket types</h2>
+      <p className="mt-1 text-sm text-slate-300">Capacity and booked tickets for each event and ticket type. Bubble size represents ticket price.</p>
+      {tickets.length === 0 ? (
+        <p className="mt-6 text-sm text-slate-300">No ticket types to report yet.</p>
+      ) : (
+        <>
+          <ul aria-label="Ticket type colors" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-200">
+            {types.map((type, index) => (
+              <li key={type} className="flex items-center gap-2">
+                <span aria-hidden="true" className="h-3 w-3 rounded-full" style={{ backgroundColor: colors[index % colors.length].light }} />
+                {type}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 overflow-x-auto">
+            <svg viewBox="0 0 960 470" className="block w-full min-w-[560px]" role="img" aria-label="Bubble chart of ticket capacity and booked tickets. Bubble size represents ticket price. Detailed values follow the chart.">
+              <defs>
+                {colors.map((color, index) => (
+                  <radialGradient key={color.dark} id={`ticket-bubble-${index}`} cx="30%" cy="25%" r="80%">
+                    <stop offset="0%" stopColor={color.light} />
+                    <stop offset="100%" stopColor={color.dark} />
+                  </radialGradient>
+                ))}
+              </defs>
+              {Array.from({ length: 5 }, (_, index) => {
+                const x = 95 + index * 205;
+                const y = 375 - index * 77.5;
+                return (
+                  <g key={index} stroke="#ffffff" strokeOpacity="0.08" fill="#cbd5e1" fontSize="14">
+                    <line x1={x} y1="65" x2={x} y2="375" />
+                    <line x1="95" y1={y} x2="915" y2={y} />
+                    <text x={x} y="400" textAnchor="middle" stroke="none">{index * capacityStep}</text>
+                    <text x="82" y={y + 5} textAnchor="end" stroke="none">{index * bookedStep}</text>
+                  </g>
+                );
+              })}
+              <path d="M95 65 V375 H915" fill="none" stroke="#94a3b8" strokeOpacity="0.7" />
+              {tickets.map(ticket => {
+                const colorIndex = types.indexOf(ticket.name) % colors.length;
+                const radius = maxPrice > 0 ? 6 + 30 * Math.sqrt(ticket.price / maxPrice) : 6;
+                const x = 95 + (ticket.capacity / (capacityStep * 4)) * 820;
+                const y = 375 - (ticket.booked / (bookedStep * 4)) * 310;
+                return (
+                  <circle key={ticket.id} cx={x} cy={y} r={radius} fill={`url(#ticket-bubble-${colorIndex})`} stroke={colors[colorIndex].light} strokeOpacity="0.7">
+                    <title>{`${ticket.event} - ${ticket.name}: ${ticket.booked} booked / ${ticket.capacity} capacity; ${priceFormatter.format(ticket.price)}`}</title>
+                  </circle>
+                );
+              })}
+              <text x="505" y="441" textAnchor="middle" fill="#cbd5e1" fontSize="15">Ticket capacity</text>
+              <text transform="translate(22 220) rotate(-90)" textAnchor="middle" fill="#cbd5e1" fontSize="15">Booked tickets</text>
+            </svg>
+          </div>
+          <p className="mt-2 text-xs text-slate-300">Booked includes reserved places awaiting payment. All event statuses are included; free tickets use a minimum marker size.</p>
+          <details className="mt-3 text-sm text-slate-200">
+            <summary className="cursor-pointer font-semibold">View ticket type data</summary>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left">
+                <thead><tr className="border-b border-slate-600"><th className="p-2">Event</th><th className="p-2">Ticket type</th><th className="p-2">Capacity</th><th className="p-2">Booked</th><th className="p-2">Price</th></tr></thead>
+                <tbody>
+                  {tickets.map(ticket => (
+                    <tr key={ticket.id} className="border-b border-slate-700">
+                      <td className="p-2">{ticket.event}</td><td className="p-2">{ticket.name}</td><td className="p-2">{ticket.capacity}</td><td className="p-2">{ticket.booked}</td><td className="p-2">{priceFormatter.format(ticket.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
 function areaPath(points: Array<{ x: number; y: number }>, baseline: number) {
   const first = points[0];
   const last = points[points.length - 1];
@@ -552,6 +651,9 @@ export default function OrganizerReports() {
                     loading={!registrations && !bookingError}
                     unavailable={Boolean(bookingError)}
                   />
+                </div>
+                <div className="mt-4">
+                  <TicketTypeBubbleChart events={events} />
                 </div>
                 {bookingError && (
                   <div role="alert" className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-rose-800">

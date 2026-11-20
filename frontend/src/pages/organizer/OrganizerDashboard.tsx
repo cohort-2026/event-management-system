@@ -482,7 +482,7 @@ export default function OrganizerDashboard() {
             />
           ) : (
             <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
-              <OrganizerTopBar title="Overview" onSearch={() => setEventFilter('ALL')} />
+              <OrganizerTopBar title="Overview" showTitle={false} heading="Overview" compactHeading onSearch={() => setEventFilter('ALL')} />
               <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-700">Organizer</p>

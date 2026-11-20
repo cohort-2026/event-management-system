@@ -5,10 +5,10 @@ import organizerLogo from '@/assets/organizer-logo.png';
 
 const items = [
   { label: 'Overview', to: '/organizer', path: 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7' },
+  { label: 'Create event', to: '/organizer/events/new', path: 'M12 5v14M5 12h14' },
   { label: 'My events', to: '/organizer/events', path: 'M7 3v4m10-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1z' },
   { label: 'Check-in', to: '/organizer/check-in', path: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2m2 0h2m-6 3h2m2 0h2m-6 3h6' },
   { label: 'Vendors', to: '/organizer/vendors', path: 'M3 8h18l-2 12H5L3 8zm4 0 2-5h6l2 5M9 12v4m6-4v4' },
-  { label: 'Create event', to: '/organizer/events/new', path: 'M12 5v14M5 12h14' },
   { label: 'Reports', to: '/organizer/reports', path: 'M4 20h16M6 17v-5h3v5m3 0V7h3v10m3 0V4h3v13' },
   { label: 'Notifications', to: '/organizer/notifications', path: 'M18 8a6 6 0 0 0-12 0v5l-2 3h16l-2-3V8ZM10 19a2 2 0 0 0 4 0' },
   { label: 'Profile Organization', to: '/organizer/profile', path: 'M4 5h16v15H4zM4 9h16M8 13h8m-8 3h5' },
