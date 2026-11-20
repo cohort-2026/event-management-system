@@ -49,30 +49,6 @@ if (!/^(?:[1-9]\d*)(?:ms|s|m|h|d|w|y)?$/.test(jwtExpiresIn)) {
   throw new Error("JWT_EXPIRES_IN must be a positive duration such as 15m or 1d");
 }
 
-const payfastMerchantId = optional("PAYFAST_MERCHANT_ID");
-const payfastMerchantKey = optional("PAYFAST_MERCHANT_KEY");
-if (Boolean(payfastMerchantId) !== Boolean(payfastMerchantKey)) {
-  throw new Error("PAYFAST_MERCHANT_ID and PAYFAST_MERCHANT_KEY must be configured together");
-}
-if (payfastMerchantId && !/^\d{1,8}$/.test(payfastMerchantId)) {
-  throw new Error("PAYFAST_MERCHANT_ID must contain 1 to 8 digits");
-}
-
-const payfastSandboxValue = optional("PAYFAST_SANDBOX")?.toLowerCase();
-if (payfastSandboxValue && !["true", "false"].includes(payfastSandboxValue)) {
-  throw new Error("PAYFAST_SANDBOX must be true or false");
-}
-
-const payfastNotifyUrl = optional("PAYFAST_NOTIFY_URL");
-if (payfastNotifyUrl) {
-  try {
-    const parsedNotifyUrl = new URL(payfastNotifyUrl);
-    if (parsedNotifyUrl.protocol !== "https:") throw new Error();
-  } catch {
-    throw new Error("PAYFAST_NOTIFY_URL must be an absolute HTTPS URL");
-  }
-}
-
 export const config = {
   port: port("PORT", required("PORT")),
   nodeEnv,
@@ -91,11 +67,4 @@ export const config = {
   vendorDocumentsDir: process.env.VENDOR_DOCUMENTS_DIR || path.resolve(__dirname, '../../private_uploads/vendor-documents'),
   eventBannersDir: process.env.EVENT_BANNERS_DIR || path.resolve(__dirname, '../../public_uploads/event-banners'),
   baseUrl: process.env.BASE_URL || '',
-  payfast: {
-    merchantId: payfastMerchantId,
-    merchantKey: payfastMerchantKey,
-    passphrase: optional("PAYFAST_PASSPHRASE"),
-    notifyUrl: payfastNotifyUrl,
-    sandbox: payfastSandboxValue !== "false",
-  },
 };

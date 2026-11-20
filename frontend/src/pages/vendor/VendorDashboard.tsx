@@ -5,7 +5,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { useAuth } from '@/context/useAuth';
-import { getMyApplications, getVendorEvents, getVendorProfile, type VendorEvent } from '@/services/vendorService';
+import { getAllMyApplications, getVendorEvents, getVendorProfile, type VendorEvent } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
@@ -14,16 +14,6 @@ interface DashboardData {
   applications: VendorApplication[];
   events: VendorEvent[];
   loadedAt: number;
-}
-
-async function loadApplications(): Promise<VendorApplication[]> {
-  const first = await getMyApplications({ page: 1, limit: 100 });
-  const applications = [...first.data.data];
-  for (let page = 2; page <= first.data.pagination.totalPages; page += 1) {
-    const response = await getMyApplications({ page, limit: 100 });
-    applications.push(...response.data.data);
-  }
-  return applications;
 }
 
 export default function VendorDashboard() {
@@ -36,7 +26,7 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getVendorProfile(), loadApplications(), getVendorEvents({ limit: 2 })])
+    Promise.all([getVendorProfile(), getAllMyApplications(), getVendorEvents({ limit: 2 })])
       .then(([profile, applications, events]) => {
         if (active) setData({ profile: profile.data.data, applications, events: events.data.data, loadedAt: Date.now() });
       })

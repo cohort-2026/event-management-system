@@ -358,7 +358,10 @@ if (!testDatabaseUrl) {
     assert.equal(unauthenticated.response.status, 401, 'protected endpoints reject unauthenticated requests');
     assert.equal((await request('/api/users/organizers', { cookie: accounts.attendee.cookie })).response.status, 403);
     assert.equal((await request('/api/events/mine', { cookie: accounts.vendor.cookie })).response.status, 403);
-    assert.equal((await request('/api/platform-admin/admins', { cookie: accounts.organizer.cookie })).response.status, 403);
+    assert.equal((await request('/api/platform-admin/admins', { cookie: accounts.organizer.cookie })).response.status, 404,
+      'administrator directory endpoint has been removed');
+    assert.equal((await request('/api/platform-admin/admins', { cookie: adminCookie })).response.status, 404,
+      'administrator account management endpoints are not exposed to Admin');
 
     const organizerEventInput = eventInput('Pending organizer event');
     assert.equal((await request('/api/events', {
@@ -720,7 +723,10 @@ if (!testDatabaseUrl) {
     assert.equal(booking.data.data.totalAmount, 0);
     assert.equal(booking.data.data.payment, null, 'free booking does not create a fake payment');
     assert.equal(booking.data.data.tickets.length, 2, 'free booking creates one ticket per quantity');
-    assert.ok(booking.data.data.tickets.every(ticket => ticket.qrPayload));
+    assert.equal(new Set(booking.data.data.tickets.map(ticket => ticket.referenceNumber)).size, 2,
+      'each ticket has an individual reference');
+    assert.ok(booking.data.data.tickets.every(ticket => !Object.hasOwn(ticket, 'qrPayload')),
+      'booking responses do not expose ticket QR payloads');
     assert.equal(booking.data.data.ticket.id, booking.data.data.tickets[0].id, 'legacy singular ticket response is preserved');
     const ticketId = booking.data.data.ticket.id;
     assert.equal((await request(`/api/payments/${booking.data.data.id}/process`, {
@@ -769,6 +775,12 @@ if (!testDatabaseUrl) {
     assert.equal(ownerBookings.response.status, 200);
     assert.equal(ownerBookings.data.data.length, 1);
     assert.equal(ownerBookings.data.pagination.total, 1);
+    assert.equal(ownerBookings.data.data[0].tickets.length, 2,
+      'organizer booking records include every issued ticket');
+    assert.deepEqual(
+      ownerBookings.data.data[0].tickets.map(ticket => ticket.id).sort(),
+      booking.data.data.tickets.map(ticket => ticket.id).sort(),
+    );
     assert.equal((await request(`/api/events/${bookableEventId}/bookings`, {
       cookie: accounts.otherOrganizer.cookie,
     })).response.status, 404, 'organizers cannot view another organizer event bookings');
@@ -881,6 +893,13 @@ if (!testDatabaseUrl) {
     assert.ok(attendeeTicketPage.data.data[0].event.startTime);
     assert.ok(attendeeTicketPage.data.data[0].bookingReference);
     assert.ok(attendeeTicketPage.data.data[0].checkInStatus);
+    assert.equal(attendeeTicketPage.data.data[0].qrPayload, undefined,
+      'ticket list omits QR payloads until an individual ticket is opened');
+    const allAttendeeTickets = await request('/api/tickets/me?limit=20', {
+      cookie: accounts.attendee.cookie,
+    });
+    assert.equal(allAttendeeTickets.data.data.length, 2, 'attendee sees every ticket in a multi-ticket booking');
+    assert.equal(new Set(allAttendeeTickets.data.data.map(ticket => ticket.id)).size, 2);
     assert.equal((await request('/api/tickets/me', {
       cookie: accounts.otherAttendee.cookie,
     })).data.data.length, 0, 'attendees see only their own tickets');
@@ -891,7 +910,7 @@ if (!testDatabaseUrl) {
       cookie: accounts.attendee.cookie,
     });
     assert.equal(ownedTicket.response.status, 200);
-    assert.equal(ownedTicket.data.data.qrPayload, booking.data.data.ticket.qrPayload);
+    assert.ok(ownedTicket.data.data.qrPayload, 'authorized individual ticket detail includes its QR payload');
     assert.equal(ownedTicket.data.data.ticketType, 'General');
     assert.ok(ownedTicket.data.data.event.venue);
     assert.equal(ownedTicket.data.data.event.organizerId, undefined);
@@ -960,10 +979,15 @@ if (!testDatabaseUrl) {
       body: { eventId: checkInEventId, ticketTypeId: checkInTicketTypeId, quantity: 5 },
     });
     assert.equal(checkInBooking.response.status, 201);
-    const checkInTickets = checkInBooking.data.data.tickets;
-    assert.equal(checkInTickets.length, 5);
+    const checkInTicketSummaries = checkInBooking.data.data.tickets;
+    assert.equal(checkInTicketSummaries.length, 5);
+    const checkInTickets = await Promise.all(checkInTicketSummaries.map(async ticket => {
+      const detail = await request(`/api/tickets/${ticket.id}`, { cookie: accounts.attendee.cookie });
+      assert.equal(detail.response.status, 200);
+      return detail.data.data;
+    }));
     assert.equal(new Set(checkInTickets.map(ticket => ticket.qrPayload)).size, 5,
-      'every issued ticket has a unique QR payload');
+      'every individually loaded ticket has a unique QR payload');
     await prisma.event.update({
       where: { id: checkInEventId },
       data: {
@@ -1140,8 +1164,9 @@ if (!testDatabaseUrl) {
     assert.equal(processedPayment.data.data.booking.paymentStatus, 'PAID');
     assert.equal(processedPayment.data.data.payment.status, 'PAID');
     assert.equal(processedPayment.data.data.tickets.length, 2, 'successful payment issues the booked quantity');
-    assert.ok(processedPayment.data.data.tickets.every(ticket =>
-      ticket.type === 'PAID' && ticket.qrPayload));
+    assert.ok(processedPayment.data.data.tickets.every(ticket => ticket.type === 'PAID'));
+    assert.ok(processedPayment.data.data.tickets.every(ticket => !Object.hasOwn(ticket, 'qrPayload')),
+      'payment response does not expose ticket QR payloads');
     const repeatedPayment = await request(`/api/payments/${paidBooking.data.data.id}/process`, {
       method: 'POST',
       cookie: accounts.attendee.cookie,
@@ -1238,7 +1263,11 @@ if (!testDatabaseUrl) {
       body: { outcome: 'SUCCESS' },
     });
     assert.equal(paidCheckInPayment.response.status, 200);
-    const paidCheckInTicket = paidCheckInPayment.data.data.tickets[0];
+    const paidCheckInTicketSummary = paidCheckInPayment.data.data.tickets[0];
+    assert.equal(paidCheckInTicketSummary.qrPayload, undefined);
+    const paidCheckInTicket = (await request(`/api/tickets/${paidCheckInTicketSummary.id}`, {
+      cookie: accounts.otherAttendee.cookie,
+    })).data.data;
     await prisma.event.update({
       where: { id: paidCheckInEventId },
       data: {

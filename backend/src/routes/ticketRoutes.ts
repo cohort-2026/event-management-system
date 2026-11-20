@@ -6,7 +6,7 @@ import {
   listMyTickets,
   scanTicketQr,
 } from '../controllers/ticketController';
-import { validateUuidParam } from '../middleware/requestValidation';
+import { validateBodyShape, validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
 router.param('id', validateUuidParam);
@@ -16,7 +16,7 @@ router.param('id', validateUuidParam);
 // POST  /api/tickets/scan        Verify and check in an opaque QR payload
 // PATCH /api/tickets/:id/checkin Check in a ticket by ID
 router.get('/me', requireAuth, requireRole('ATTENDEE'), listMyTickets);
-router.post('/scan', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, scanTicketQr);
+router.post('/scan', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, validateBodyShape, scanTicketQr);
 router.get('/:id', requireAuth, requireRole('ATTENDEE', 'ORGANIZER'), getTicket);
 router.patch('/:id/checkin', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, checkInTicket);
 

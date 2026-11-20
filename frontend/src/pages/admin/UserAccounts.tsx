@@ -1,314 +1,189 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
+import Button from '@/components/legacy/Button';
 import Modal from '@/components/legacy/Modal';
+import Spinner from '@/components/legacy/Spinner';
+import { DashboardHeader } from '@/components/layout/DashboardSidebar';
+import { useAuth } from '@/context/useAuth';
+import { activateUser, deactivateUser, getUserById, getUsers, updateUserRole, type AdminUserDetail, type UserListResponse } from '@/services/userService';
+import type { User, UserRole } from '@/types/user';
 
-const sidebarItems = [
-  { label: 'Dashboard', active: false },
-  { label: 'Event approvals', active: false, count: 3 },
-  { label: 'Organisers', active: false, count: 2 },
-  { label: 'Vendors', active: false, count: 1 },
-  { label: 'People', active: true },
-  { label: 'Reports', active: false },
-  { label: 'Audit history', active: false },
-  { label: 'Notifications', active: false },
+const PAGE_SIZE = 20;
+const roles: Array<{ label: string; value: UserRole | 'ALL' }> = [
+  { label: 'All accounts', value: 'ALL' },
+  { label: 'Attendees', value: 'ATTENDEE' },
+  { label: 'Organizers', value: 'ORGANIZER' },
+  { label: 'Vendors', value: 'VENDOR' },
+  { label: 'Admins', value: 'ADMIN' },
 ];
 
-const people = [
-  { name: 'Lerato Mokoena', email: 'lerato@jozidev.co.za', role: 'Organizer', org: 'Jozi Collective', status: 'Active', lastActive: 'Today', initials: 'LM', tone: 'bg-[#d7e8f8] text-[#2c4d7a]' },
-  { name: 'Karabo Dube', email: 'karabo@dube', role: 'Vendor', org: 'CloudVeld', status: 'Active', lastActive: '2 days ago', initials: 'KD', tone: 'bg-[#d9e8ff] text-[#214d7d]' },
-  { name: 'Test Org 2', email: 'test@east.com', role: 'Organizer', org: 'Test Org 2', status: 'Deactivated', lastActive: '6 Nov', initials: 'TO', tone: 'bg-[#f0f0f0] text-[#404b5a]' },
-];
-
-const roleTabs = [
-  { label: 'All roles', role: null },
-  { label: 'Attendees 181', role: 'Attendee' },
-  { label: 'Organisers 12', role: 'Organizer' },
-  { label: 'Vendors 24', role: 'Vendor' },
-  { label: 'Admins 4', role: 'Admin' },
-];
+const roleNames: Record<UserRole, string> = { ATTENDEE: 'Attendee', ORGANIZER: 'Organizer', VENDOR: 'Vendor', ADMIN: 'Admin' };
+const messageFor = (error: unknown) => axios.isAxiosError<{ message?: string }>(error)
+  ? error.response?.data.message ?? 'The request could not be completed.'
+  : 'The request could not be completed.';
 
 export default function UserAccounts() {
-  const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [openMenuEmail, setOpenMenuEmail] = useState<string | null>(null);
-  const [viewingPerson, setViewingPerson] = useState<(typeof people)[number] | null>(null);
-  const filteredPeople = people.filter((person) => {
-    const matchesRole = selectedRole === null || person.role === selectedRole;
-    const query = search.trim().toLowerCase();
-    const matchesSearch = !query || person.name.toLowerCase().includes(query) || person.email.toLowerCase().includes(query);
-    return matchesRole && matchesSearch;
-  });
+  const { user: currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestId = useRef(0);
+  const [users, setUsers] = useState<User[]>([]);
+  const [pagination, setPagination] = useState<UserListResponse['pagination']>({ page: 1, limit: PAGE_SIZE, pageSize: PAGE_SIZE, total: 0, totalPages: 0 });
+  const [role, setRole] = useState<UserRole | 'ALL'>('ALL');
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [selectedUser, setSelectedUser] = useState<AdminUserDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [actionUser, setActionUser] = useState<User | null>(null);
+  const [roleTarget, setRoleTarget] = useState<User | null>(null);
+  const [nextRole, setNextRole] = useState<UserRole>('ATTENDEE');
+  const [saving, setSaving] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    const request = ++requestId.current;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await getUsers({
+        page,
+        limit: PAGE_SIZE,
+        search: search.trim() || undefined,
+        role: role === 'ALL' ? undefined : role,
+        status: status === 'all' ? undefined : status,
+      });
+      if (request !== requestId.current) return;
+      setUsers(response.data.data);
+      setPagination(response.data.pagination);
+    } catch (loadError) {
+      if (request === requestId.current) setError(messageFor(loadError));
+    } finally {
+      if (request === requestId.current) setLoading(false);
+    }
+  }, [page, role, search, status]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadUsers(); }, search ? 250 : 0);
+    return () => window.clearTimeout(timer);
+  }, [loadUsers, search]);
+
+  const viewUser = async (id: string) => {
+    setSelectedUser(null);
+    setDetailLoading(true);
+    setError('');
+    try {
+      const response = await getUserById(id);
+      setSelectedUser(response.data.data);
+    } catch (loadError) {
+      setError(messageFor(loadError));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const changeStatus = async () => {
+    if (!actionUser) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const activate = actionUser.isActive === false;
+      const response = activate ? await activateUser(actionUser.id) : await deactivateUser(actionUser.id);
+      setNotice(response.data.message ?? `Account ${activate ? 'activated' : 'deactivated'}.`);
+      setActionUser(null);
+      await loadUsers();
+    } catch (actionError) {
+      setError(messageFor(actionError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeRole = async () => {
+    if (!roleTarget || roleTarget.role === nextRole) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await updateUserRole(roleTarget.id, nextRole);
+      setUsers(current => current.map(person => person.id === roleTarget.id ? { ...person, role: nextRole } : person));
+      setSelectedUser(current => current?.id === roleTarget.id ? { ...current, role: nextRole } : current);
+      setNotice(response.data.message ?? `Role changed to ${roleNames[nextRole]}.`);
+      setRoleTarget(null);
+      await loadUsers();
+    } catch (roleError) {
+      setError(messageFor(roleError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chooseRole = (value: UserRole | 'ALL') => { setRole(value); setPage(1); };
+  const chooseStatus = (value: 'all' | 'active' | 'inactive') => { setStatus(value); setPage(1); };
+  const onSearch = (value: string) => { setSearch(value); setPage(1); };
 
   return (
-    <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
-      <div className="flex min-h-full min-w-0 w-full overflow-hidden rounded-[12px] border border-[#dfe3ea] bg-[#f4f4f2]">
-        <aside className="hidden">
-          <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#f15d5d] text-sm font-bold text-white">E</div>
-            <div className="text-[29px] font-extrabold tracking-[-0.05em] text-[#1f2937]">EventMS</div>
+    <div className="min-w-0 text-[#1f2937] antialiased">
+      <DashboardHeader title="People" subtitle="Search accounts, review account details, and manage access." breadcrumbs={[{ label: 'Dashboard', to: '/admin' }, { label: 'People' }]} />
+
+      {error && <p role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
+      {notice && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+
+      <section className="overflow-hidden rounded-2xl border border-[#e3e7ec] bg-white shadow-sm">
+        <div className="border-b border-[#edf0f3] p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-base font-bold">Registered accounts</h2><p className="mt-1 text-xs text-[#758091]">{pagination.total.toLocaleString('en-ZA')} accounts · roles and account status are enforced by the server</p></div>
+            <button type="button" onClick={() => void loadUsers()} disabled={loading} className="rounded-lg border border-[#dfe3ea] px-3 py-2 text-xs font-semibold text-[#455064] hover:bg-[#f8f9fa] disabled:opacity-50">Refresh</button>
           </div>
-
-          <div className="mb-3 px-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#8c93a0]">Admin</div>
-          <nav className="space-y-1.5">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => {
-                  if (item.label === 'Dashboard') navigate('/admin');
-                  if (item.label === 'Event approvals') navigate('/admin/approvals');
-                  if (item.label === 'Organisers') navigate('/admin/users/organizers');
-                  if (item.label === 'Vendors') navigate('/admin/users/vendors');
-                  if (item.label === 'People') navigate('/admin/user-accounts');
-                  if (item.label === 'Audit history') navigate('/admin/audit');
-                }}
-                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[14px] ${
-                  item.active ? 'bg-[#f4dfe7] text-[#1f2937] shadow-inner shadow-[#efe2eb]' : 'text-[#4b5563] hover:bg-[#eef1f4]'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <span className={`flex h-4 w-4 items-center justify-center ${item.active ? 'text-[#d14d74]' : 'text-[#6b7280]'}`}>
-                    {item.label === 'Dashboard' ? <HomeIcon /> : item.label === 'Event approvals' ? <ListIcon /> : item.label === 'Organisers' ? <UsersIcon /> : item.label === 'Vendors' ? <StoreIcon /> : item.label === 'People' ? <UsersIcon /> : item.label === 'Reports' ? <ReportIcon /> : item.label === 'Audit history' ? <ShieldIcon /> : <BellIcon />}
-                  </span>
-                  <span className="font-medium">{item.label}</span>
-                </span>
-                {item.count ? (
-                  <span className="min-w-[18px] rounded-full bg-[#f7dfe4] px-1.5 py-0.5 text-center text-[11px] font-bold text-[#d14d74]">
-                    {item.count}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto pt-8">
-            <div className="flex items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#cfe9f8] text-[13px] font-bold text-[#24517d]">JV</div>
-              <div className="min-w-0">
-                <div className="truncate text-[14px] font-semibold text-[#1f2937]">Johan van Wyk</div>
-                <div className="truncate text-[12px] text-[#6b7280]">Administrator</div>
-              </div>
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div role="tablist" aria-label="Filter users by role" className="flex gap-1 overflow-x-auto rounded-xl bg-[#f4f5f6] p-1">
+              {roles.map(item => <button key={item.value} type="button" role="tab" aria-selected={role === item.value} onClick={() => chooseRole(item.value)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${role === item.value ? 'bg-white text-[#273142] shadow-sm' : 'text-[#687385] hover:text-[#273142]'}`}>{item.label}</button>)}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="relative"><span className="sr-only">Search users</span><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]"><SearchIcon /></span><input value={search} onChange={event => onSearch(event.target.value)} placeholder="Name, email or organization" className="h-10 w-full rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#d14d74] focus:ring-2 focus:ring-[#f7dfe4] sm:w-64" /></label>
+              <select aria-label="Filter by account status" value={status} onChange={event => chooseStatus(event.target.value as typeof status)} className="h-10 rounded-lg border border-[#dfe3ea] bg-white px-3 text-sm text-[#455064] outline-none focus:ring-2 focus:ring-[#f7dfe4]"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
             </div>
           </div>
-        </aside>
+        </div>
 
-        <main className="min-w-0 flex-1 bg-[#f7f7f6] p-3 sm:p-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div className="text-[15px] font-semibold text-[#5a6470]">People</div>
-            <div className="ml-auto flex w-full min-w-0 items-center justify-end gap-3 sm:w-auto">
-              <div className="relative min-w-0 flex-1 sm:w-[230px] sm:flex-none">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
-                  <SearchIcon />
-                </span>
-                <input
-                  value=""
-                  readOnly
-                  placeholder="Search events, people..."
-                  className="h-10 w-full rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
-                />
-              </div>
-              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe3ea] bg-white text-[#687280]">
-                <BellIcon />
-              </button>
+        {loading ? <div role="status" className="flex min-h-60 items-center justify-center"><Spinner /></div> : users.length ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-[760px] w-full text-left text-sm">
+                <thead className="bg-[#f8f9fa] text-[10px] font-bold uppercase tracking-[0.1em] text-[#758091]"><tr><th className="px-5 py-3">Person</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Account status</th><th className="px-4 py-3">Joined</th><th className="px-5 py-3 text-right">Actions</th></tr></thead>
+                <tbody className="divide-y divide-[#edf0f3]">
+                  {users.map(person => <tr key={person.id} className="transition hover:bg-[#fcfcfd]"><td className="px-5 py-3.5"><div className="flex min-w-0 items-center gap-3"><Avatar name={`${person.firstname} ${person.lastname}`} /><div className="min-w-0"><p className="truncate font-semibold text-[#273142]">{person.firstname} {person.lastname}</p><p className="truncate text-xs text-[#758091]">{person.email}</p></div></div></td><td className="px-4 py-3.5"><span className="rounded-full bg-[#f1f3f6] px-2.5 py-1 text-xs font-semibold text-[#526071]">{roleNames[person.role]}</span></td><td className="px-4 py-3.5"><AccountStatus active={person.isActive !== false} /></td><td className="px-4 py-3.5 text-xs text-[#667085]">{new Date(person.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="px-5 py-3.5"><div className="flex justify-end gap-2"><button type="button" onClick={() => void viewUser(person.id)} className="rounded-lg border border-[#dfe3ea] px-3 py-1.5 text-xs font-semibold text-[#455064] hover:bg-[#f8f9fa]">Details</button>{person.id !== currentUser?.id && <button type="button" onClick={() => setActionUser(person)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${person.isActive === false ? 'bg-[#edf7f3] text-[#26745f] hover:bg-[#e3f2ec]' : 'bg-[#fff4f2] text-[#a64a3e] hover:bg-[#ffebe7]'}`}>{person.isActive === false ? 'Activate' : 'Deactivate'}</button>}</div></td></tr>)}
+                </tbody>
+              </table>
             </div>
-          </div>
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f3] px-4 py-3 sm:px-5"><p className="text-xs text-[#758091]">Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, pagination.total)} of {pagination.total.toLocaleString('en-ZA')}</p><div className="flex gap-2"><Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(current => current - 1)}>Previous</Button><span className="self-center px-2 text-xs font-semibold text-[#536071]">{pagination.page} / {Math.max(1, pagination.totalPages)}</span><Button size="sm" variant="secondary" disabled={page >= pagination.totalPages} onClick={() => setPage(current => current + 1)}>Next</Button></div></footer>
+          </>
+        ) : <div className="px-6 py-16 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4f5f6] text-[#748092]"><UsersIcon /></span><h3 className="mt-4 text-sm font-bold">No accounts found</h3><p className="mt-1 text-xs text-[#758091]">Try another search or adjust the role and status filters.</p></div>}
+      </section>
 
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-[33px] font-extrabold tracking-[-0.06em] text-[#1f2937]">People</h1>
-              <div className="mt-1 text-[14px] text-[#5f6b7a]">1 046 accounts</div>
-            </div>
-          </div>
-
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-[#e5e7eb] bg-[#f5f5f4] p-2 sm:flex-row sm:items-center">
-            <div className="relative w-full shrink-0 sm:w-56">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
-                <SearchIcon />
-              </span>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                aria-label="Filter by name or email"
-                placeholder="Name or email"
-                className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none focus:ring-2 focus:ring-[#9aa3af]"
-              />
-            </div>
-            <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 sm:flex-1">
-              {roleTabs.map((tab) => (
-                <button
-                  key={tab.label}
-                  type="button"
-                  aria-pressed={selectedRole === tab.role}
-                  onClick={() => setSelectedRole(tab.role)}
-                  className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
-                    selectedRole === tab.role ? 'bg-[#1f2937] text-white' : 'text-[#526071] hover:bg-white hover:text-[#1f2937]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[12px] border border-[#e5e7eb] bg-white">
-            <div className="hidden grid-cols-[minmax(180px,1.6fr)_minmax(90px,1.1fr)_minmax(110px,1.2fr)_minmax(90px,0.9fr)_minmax(80px,0.7fr)_36px] items-center gap-3 rounded-t-[11px] bg-[#f8f8f7] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#6b7280] xl:grid">
-              <div>Person</div>
-              <div>Role</div>
-              <div>Organisation</div>
-              <div>Status</div>
-              <div>Last active</div>
-              <div />
-            </div>
-
-            <div className="hidden divide-y divide-[#e5e7eb] xl:block">
-              {filteredPeople.map((person) => (
-                <div key={person.email} className="grid grid-cols-[minmax(180px,1.6fr)_minmax(90px,1.1fr)_minmax(110px,1.2fr)_minmax(90px,0.9fr)_minmax(80px,0.7fr)_36px] items-center gap-3 px-4 py-3 text-[13px] text-[#1f2937]">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold ${person.tone}`}>
-                      {person.initials}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold">{person.name}</div>
-                      <div className="truncate text-[12px] text-[#6b7280]">{person.email}</div>
-                    </div>
-                  </div>
-                  <div className="truncate text-[#464f5d]">{person.role}</div>
-                  <div className="truncate text-[#464f5d]">{person.org}</div>
-                  <div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${
-                      person.status === 'Active' ? 'bg-[#dff6ed] text-[#1a8c72]' : person.status === 'Invited' ? 'bg-[#dff3ff] text-[#0f6a94]' : person.status === 'Deactivated' ? 'bg-[#f6dfe1] text-[#a1394d]' : 'bg-[#f0f1f4] text-[#5f6b7a]'
-                    }`}>
-                      {person.status}
-                    </span>
-                  </div>
-                  <div className="text-[#464f5d]">{person.lastActive}</div>
-                  <div className="relative" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenMenuEmail(null); }} onKeyDown={event => { if (event.key === 'Escape') setOpenMenuEmail(null); }}>
-                    <button type="button" aria-label={`More actions for ${person.name}`} aria-haspopup="menu" aria-expanded={openMenuEmail === person.email} onClick={() => setOpenMenuEmail(current => current === person.email ? null : person.email)} className="flex h-8 w-8 items-center justify-center rounded-full text-[#697586] hover:bg-[#f3f4f6]">
-                      <MoreIcon />
-                    </button>
-                    {openMenuEmail === person.email && (
-                      <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-[#e5e7eb] bg-white p-1.5 shadow-lg">
-                        <button type="button" role="menuitem" onClick={() => { setViewingPerson(person); setOpenMenuEmail(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm text-[#374151] hover:bg-[#f3f4f6]">View information</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {filteredPeople.length === 0 && (
-                <p className="px-4 py-8 text-center text-sm text-[#6b7280]">No people match the selected filters.</p>
-              )}
-            </div>
-            <div className="divide-y divide-[#e5e7eb] xl:hidden">
-              {filteredPeople.map((person) => (
-                <article key={person.email} className="min-w-0 p-4">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${person.tone}`}>
-                      {person.initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-[#1f2937]">{person.name}</div>
-                      <div className="break-all text-[12px] text-[#6b7280]">{person.email}</div>
-                    </div>
-                    <div className="relative shrink-0" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenMenuEmail(null); }} onKeyDown={event => { if (event.key === 'Escape') setOpenMenuEmail(null); }}>
-                      <button type="button" aria-label={`More actions for ${person.name}`} aria-haspopup="menu" aria-expanded={openMenuEmail === person.email} onClick={() => setOpenMenuEmail(current => current === person.email ? null : person.email)} className="flex h-8 w-8 items-center justify-center rounded-full text-[#697586] hover:bg-[#f3f4f6]">
-                        <MoreIcon />
-                      </button>
-                      {openMenuEmail === person.email && (
-                        <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-[#e5e7eb] bg-white p-1.5 shadow-lg">
-                          <button type="button" role="menuitem" onClick={() => { setViewingPerson(person); setOpenMenuEmail(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm text-[#374151] hover:bg-[#f3f4f6]">View information</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                    <div className="min-w-0"><dt className="text-[#6b7280]">Role</dt><dd className="mt-0.5 truncate text-[#1f2937]">{person.role}</dd></div>
-                    <div className="min-w-0"><dt className="text-[#6b7280]">Organisation</dt><dd className="mt-0.5 truncate text-[#1f2937]">{person.org}</dd></div>
-                    <div><dt className="text-[#6b7280]">Status</dt><dd className="mt-1"><span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${
-                      person.status === 'Active' ? 'bg-[#dff6ed] text-[#1a8c72]' : person.status === 'Invited' ? 'bg-[#dff3ff] text-[#0f6a94]' : person.status === 'Deactivated' ? 'bg-[#f6dfe1] text-[#a1394d]' : 'bg-[#f0f1f4] text-[#5f6b7a]'
-                    }`}>{person.status}</span></dd></div>
-                    <div><dt className="text-[#6b7280]">Last active</dt><dd className="mt-0.5 text-[#1f2937]">{person.lastActive}</dd></div>
-                  </dl>
-                </article>
-              ))}
-              {filteredPeople.length === 0 && (
-                <p className="px-4 py-8 text-center text-sm text-[#6b7280]">No people match the selected filters.</p>
-              )}
-            </div>
-          </div>
-        </main>
-      </div>
-
-      <Modal open={Boolean(viewingPerson)} onClose={() => setViewingPerson(null)} title="User information" size="md">
-        {viewingPerson && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 rounded-xl border border-[#e5e7eb] bg-[#f8f8f7] p-4">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold ${viewingPerson.tone}`}>{viewingPerson.initials}</div>
-              <div className="min-w-0">
-                <h3 className="truncate font-semibold text-[#1f2937]">{viewingPerson.name}</h3>
-                <p className="break-all text-sm text-[#6b7280]">{viewingPerson.email}</p>
-              </div>
-            </div>
-            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <PersonInfo label="Full name" value={viewingPerson.name} />
-              <PersonInfo label="Email address" value={viewingPerson.email} />
-              <PersonInfo label="Role" value={viewingPerson.role} />
-              <PersonInfo label="Organisation" value={viewingPerson.org} />
-              <PersonInfo label="Account status" value={viewingPerson.status} />
-              <PersonInfo label="Last active" value={viewingPerson.lastActive} />
-              <PersonInfo label="Initials" value={viewingPerson.initials} />
-            </dl>
-          </div>
-        )}
+      <Modal open={detailLoading || Boolean(selectedUser)} onClose={() => { if (!detailLoading) setSelectedUser(null); }} title="Account details" size="md">
+        {detailLoading ? <div className="flex justify-center py-10"><Spinner /></div> : selectedUser && <UserDetails person={selectedUser} canChangeRole={selectedUser.id !== currentUser?.id} onChangeRole={() => { setNextRole(selectedUser.role); setRoleTarget(selectedUser); }} />}
       </Modal>
-
+      <Modal open={Boolean(actionUser)} onClose={() => { if (!saving) setActionUser(null); }} title={`${actionUser?.isActive === false ? 'Activate' : 'Deactivate'} account`} size="sm">
+        {actionUser && <div className="space-y-4"><p className="text-sm leading-6 text-[#5f6b7a]">{actionUser.isActive === false ? 'Restore access for' : 'Remove account access for'} <strong className="text-[#273142]">{actionUser.firstname} {actionUser.lastname}</strong> ({actionUser.email})?</p><p className="rounded-lg bg-[#f7f8fa] p-3 text-xs leading-5 text-[#667085]">This changes the account status. The user’s role, event history, and related records remain unchanged.</p><div className="flex justify-end gap-2"><Button variant="secondary" size="sm" disabled={saving} onClick={() => setActionUser(null)}>Cancel</Button><Button variant={actionUser.isActive === false ? 'primary' : 'danger'} size="sm" loading={saving} onClick={() => void changeStatus()}>{actionUser.isActive === false ? 'Activate account' : 'Deactivate account'}</Button></div></div>}
+      </Modal>
+      <Modal open={Boolean(roleTarget)} onClose={() => { if (!saving) setRoleTarget(null); }} title="Change account role" size="sm">
+        {roleTarget && <div className="space-y-4"><p className="text-sm leading-6 text-[#5f6b7a]">Choose a new role for <strong className="text-[#273142]">{roleTarget.firstname} {roleTarget.lastname}</strong>. The server will apply the existing profile approval rules for that role.</p><label className="block text-xs font-semibold text-[#4d596b]">New role<select value={nextRole} onChange={event => setNextRole(event.target.value as UserRole)} className="mt-1.5 h-10 w-full rounded-lg border border-[#dfe3ea] bg-white px-3 text-sm text-[#273142]"><option value="ATTENDEE">Attendee</option><option value="ORGANIZER">Organizer</option><option value="VENDOR">Vendor</option><option value="ADMIN">Admin</option></select></label><div className="flex justify-end gap-2"><Button variant="secondary" size="sm" disabled={saving} onClick={() => setRoleTarget(null)}>Cancel</Button><Button size="sm" loading={saving} disabled={nextRole === roleTarget.role} onClick={() => void changeRole()}>Confirm role change</Button></div></div>}
+      </Modal>
     </div>
   );
 }
 
-function PersonInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-[#e5e7eb] bg-white p-3">
-      <dt className="text-xs font-medium uppercase tracking-wide text-[#6b7280]">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-semibold text-[#1f2937]">{value}</dd>
-    </div>
-  );
+function UserDetails({ person, canChangeRole, onChangeRole }: { person: AdminUserDetail; canChangeRole: boolean; onChangeRole: () => void }) {
+  return <div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] p-4"><div className="flex min-w-0 items-center gap-3"><Avatar name={`${person.firstname} ${person.lastname}`} size="lg" /><div className="min-w-0"><h3 className="truncate font-bold text-[#273142]">{person.firstname} {person.lastname}</h3><p className="break-all text-sm text-[#687385]">{person.email}</p></div></div>{canChangeRole && <Button variant="secondary" size="sm" onClick={onChangeRole}>Change role</Button>}</div><dl className="grid gap-3 sm:grid-cols-2"><Detail label="Role" value={roleNames[person.role]} /><Detail label="Account status" value={person.isActive === false ? 'Inactive' : 'Active'} /><Detail label="Email verified" value={person.emailVerified ? 'Yes' : 'No'} /><Detail label="Joined" value={new Date(person.createdAt).toLocaleDateString('en-ZA', { dateStyle: 'medium' })} />{person.phone && <Detail label="Phone" value={person.phone} />}{person.organizationName && <Detail label="Organization" value={person.organizationName} />}{person.organizationEmail && <Detail label="Organization email" value={person.organizationEmail} />}{person.profileApprovalStatus && <Detail label="Organizer profile" value={humanize(person.profileApprovalStatus)} />}{person.vendorProfile && <Detail label="Vendor profile" value={humanize(person.vendorProfile.status)} />}{person.vendorProfile?.businessName && <Detail label="Business" value={person.vendorProfile.businessName} />}</dl>{person.profileRejectionReason && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-bold text-amber-900">Organizer review note</p><p className="mt-1 text-sm text-amber-900">{person.profileRejectionReason}</p></div>}</div>;
 }
 
-function HomeIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 10.5 12 4l8 6.5V18a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-7.5Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ListIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 8v-1a4 4 0 0 0-3-3.87M20 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function StoreIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 8h16l-1 11H5L4 8Zm3-3h10l1 3H6l1-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ReportIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M7 18V9m5 9V5m5 13v-7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ShieldIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 3 5 6v5c0 5 3.4 8.6 7 10 3.6-1.4 7-5 7-10V6l-7-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function BellIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function SearchIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" strokeLinecap="round" /></svg>;
-}
-
-function MoreIcon() {
-  return <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>;
-}
-
-
+function Detail({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border border-[#edf0f3] bg-white p-3"><dt className="text-[10px] font-bold uppercase tracking-wide text-[#758091]">{label}</dt><dd className="mt-1 break-words text-sm font-semibold text-[#273142]">{value}</dd></div>; }
+function AccountStatus({ active }: { active: boolean }) { return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${active ? 'bg-[#e8f6f0] text-[#28745e]' : 'bg-[#f1f2f4] text-[#697586]'}`}><span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-[#35a17d]' : 'bg-[#9aa3af]'}`} />{active ? 'Active' : 'Inactive'}</span>; }
+function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) { const initials = name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase(); return <span className={`${size === 'lg' ? 'h-12 w-12 text-sm' : 'h-9 w-9 text-xs'} flex shrink-0 items-center justify-center rounded-full bg-[#f5e8ed] font-bold text-[#923b58]`}>{initials || 'U'}</span>; }
+function humanize(value: string) { return value.toLowerCase().split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '); }
+function SearchIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" strokeLinecap="round" /></svg>; }
+function UsersIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-5 w-5"><path d="M16 20v-1.5a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4V20m6-8a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 8v-1.5a4 4 0 0 0-3-3.87M17 4.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>; }

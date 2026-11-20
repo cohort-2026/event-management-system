@@ -11,6 +11,7 @@ export type TicketCheckInResult =
   | { kind: 'already_used' }
   | { kind: 'invalid_ticket' }
   | { kind: 'invalid_booking' }
+  | { kind: 'payment_not_completed' }
   | { kind: 'event_not_in_progress' }
   | {
     kind: 'checked_in';
@@ -93,17 +94,15 @@ export const checkInTicketForOrganizer = async (
   if (
     ticket.booking.eventId !== ticket.eventId ||
     ticket.booking.attendeeId !== ticket.holderId ||
-    ticket.booking.status !== BookingStatus.CONFIRMED ||
-    !(
-      ticket.booking.paymentStatus === PaymentStatus.NOT_REQUIRED ||
-      (
-        ticket.booking.paymentStatus === PaymentStatus.PAID &&
-        ticket.booking.payment?.status === PaymentStatus.PAID
-      )
-    )
+    ticket.booking.status !== BookingStatus.CONFIRMED
   ) {
     return { kind: 'invalid_booking' };
   }
+  if (
+    ticket.booking.paymentStatus !== PaymentStatus.NOT_REQUIRED &&
+    (ticket.booking.paymentStatus !== PaymentStatus.PAID ||
+      ticket.booking.payment?.status !== PaymentStatus.PAID)
+  ) return { kind: 'payment_not_completed' };
   const now = new Date();
   if (
     ticket.event.status !== EventStatus.PUBLISHED ||

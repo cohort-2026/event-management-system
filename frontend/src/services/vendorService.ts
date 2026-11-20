@@ -47,8 +47,20 @@ export const downloadVendorReviewDocument = (id: string) =>
 export const applyForStand      = (data: CreateVendorApplicationDto)              => api.post<ApiResponse<VendorApplication>>('/vendors/apply', data);
 export const getVendorEvents    = (params?: { search?: string; category?: string; location?: string; page?: number; limit?: number }) =>
 	api.get<ApiResponse<VendorEvent[]>>('/vendors/events', { params });
-export const getMyApplications  = (params?: { page?: number; limit?: number })   =>
-	api.get<ApiResponse<VendorApplication[]> & { pagination: { page: number; limit: number; total: number; totalPages: number } }>('/vendors/applications/me', { params });
+export interface PaginatedVendorApplications extends ApiResponse<VendorApplication[]> {
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+export const getMyApplications = (params?: { page?: number; limit?: number }) =>
+	api.get<PaginatedVendorApplications>('/vendors/applications/me', { params });
+export const getAllMyApplications = async (): Promise<VendorApplication[]> => {
+  const first = await getMyApplications({ page: 1, limit: 100 });
+  const applications = [...first.data.data];
+  for (let page = 2; page <= first.data.pagination.totalPages; page += 1) {
+    const response = await getMyApplications({ page, limit: 100 });
+    applications.push(...response.data.data);
+  }
+  return applications;
+};
 export const getVendorApplication = (id: string)                                 => api.get<ApiResponse<VendorApplication>>(`/vendors/applications/${encodeURIComponent(id)}`);
 export const getVendorInvoices  = (params?: { page?: number; limit?: number })   => api.get<ApiResponse<VendorInvoice[]>>('/vendors/invoices', { params });
 export const getVendorInvoice   = (id: string)                                   => api.get<ApiResponse<VendorInvoice>>(`/vendors/invoices/${encodeURIComponent(id)}`);

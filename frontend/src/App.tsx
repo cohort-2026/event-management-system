@@ -36,12 +36,14 @@ import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
 import VendorApplications from '@/pages/organizer/VendorApplications';
 import CheckIn from '@/pages/organizer/CheckIn';
+import CheckInEvents from '@/pages/organizer/CheckInEvents';
 
 // Attendee
 import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
 import AttendeeBookings from '@/pages/attendee/AttendeeBookings';
+import AttendeeTickets from '@/pages/attendee/AttendeeTickets';
 import AttendeeTicket from '@/pages/attendee/AttendeeTicket';
-import PaymentResult from '@/pages/attendee/PaymentResult';
+import SimulatedPayment from '@/pages/attendee/SimulatedPayment';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
@@ -52,11 +54,9 @@ import StaffManagement from '@/pages/vendor/StaffManagement';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
-import EventApprovals from '@/pages/admin/EventApprovals';
 import UserManagement from '@/pages/admin/UserManagement';
 import UserAccounts from '@/pages/admin/UserAccounts';
 import VendorProfileApprovalQueue from '@/pages/admin/VendorProfileApprovalQueue';
-import AdminAccounts from '@/pages/admin/AdminAccounts';
 import AdminAuditHistory from '@/pages/admin/AdminAuditHistory';
 import AdminReports from '@/pages/admin/AdminReports';
 
@@ -95,16 +95,16 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ATTENDEE']} />}> 
             <Route path="/attendee" element={<AttendeeDashboard />} />
             <Route path="/attendee/bookings" element={<AttendeeBookings />} />
-            <Route path="/attendee/tickets" element={<AttendeeBookings />} />
+            <Route path="/attendee/tickets" element={<AttendeeTickets />} />
             <Route path="/attendee/tickets/:ticketId" element={<AttendeeTicket />} />
-            <Route path="/attendee/payment/return" element={<PaymentResult />} />
-            <Route path="/attendee/payment/cancel" element={<PaymentResult />} />
+            <Route path="/attendee/payment/simulate" element={<SimulatedPayment />} />
           </Route>
 
           {/* ── Organizer ── */}
           <Route element={<ProtectedRoute roles={['ORGANIZER']} />}>
             <Route path="/organizer"                              element={<OrganizerDashboard />} />
             <Route path="/organizer/events"                      element={<OrganizerDashboard />} />
+            <Route path="/organizer/check-in"                   element={<CheckInEvents />} />
             <Route path="/organizer/vendors"                     element={<VendorApplications />} />
             <Route path="/organizer/reports"                     element={<OrganizerReports />} />
             <Route path="/organizer/notifications"               element={<OrganizerDashboard />} />
@@ -132,7 +132,6 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/approvals" element={<EventApprovals />} />
               <Route path="/admin/vendors" element={<Navigate to="/admin/users/vendors/pending" replace />} />
               <Route path="/admin/users" element={<Navigate to="/admin/users/organizers/pending" replace />} />
               <Route path="/admin/users/organizers" element={<UserManagement key="organizers-approved" profileStatus="APPROVED" />} />
@@ -141,7 +140,6 @@ export default function App() {
               <Route path="/admin/users/vendors/pending" element={<VendorProfileApprovalQueue status="PENDING_REVIEW" />} />
               <Route path="/admin/user-accounts" element={<UserAccounts />} />
               <Route path="/admin/reports" element={<AdminReports />} />
-              <Route path="/admin/accounts" element={<AdminAccounts />} />
               <Route path="/admin/audit" element={<AdminAuditHistory />} />
             </Route>
           </Route>

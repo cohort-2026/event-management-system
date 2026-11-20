@@ -55,6 +55,12 @@ export default function AttendeeTicket() {
   const event = ticket.event;
   const cancelled = ticket.status === 'CANCELLED';
   const checkedIn = ticket.status === 'USED';
+  const bookingStatus = ticket.booking?.status ?? ticket.bookingStatus;
+  const paymentStatus = ticket.booking?.paymentStatus ?? ticket.paymentStatus;
+  const bookingConfirmed = bookingStatus === 'CONFIRMED' &&
+    (paymentStatus === 'NOT_REQUIRED' || paymentStatus === 'PAID');
+  const unavailable = !cancelled && !bookingConfirmed;
+  const canShowQr = !cancelled && !checkedIn && !unavailable && Boolean(ticket.qrPayload);
   const eventStart = new Date(event.startTime);
   const eventEnd = new Date(event.endTime);
 
@@ -69,6 +75,7 @@ export default function AttendeeTicket() {
       <article className={`overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm ${cancelled ? 'opacity-80' : ''}`}>
         <EventArtwork
           title={event.title}
+          bannerImageUrl={event.bannerImageUrl}
           className={`h-28 sm:h-32 ${cancelled ? 'grayscale' : ''}`}
         />
 
@@ -94,6 +101,11 @@ export default function AttendeeTicket() {
               </p>
             </div>
           )}
+          {unavailable && (
+            <div role="status" className="mb-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              This ticket is unavailable because its booking or payment has not been confirmed.
+            </div>
+          )}
 
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -103,9 +115,9 @@ export default function AttendeeTicket() {
               <h1 className="mt-1 text-xl font-extrabold tracking-tight text-neutral-950">{event.title}</h1>
             </div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              cancelled ? 'bg-neutral-100 text-neutral-600' : checkedIn ? 'bg-violet-100 text-violet-800' : 'bg-emerald-50 text-emerald-700'
+              cancelled || unavailable ? 'bg-neutral-100 text-neutral-600' : checkedIn ? 'bg-violet-100 text-violet-800' : 'bg-emerald-50 text-emerald-700'
             }`}>
-              {cancelled ? 'Cancelled' : checkedIn ? 'Checked in' : 'Confirmed'}
+              {cancelled ? 'Cancelled' : checkedIn ? 'Checked in' : unavailable ? 'Unavailable' : 'Confirmed'}
             </span>
           </div>
 
@@ -122,11 +134,12 @@ export default function AttendeeTicket() {
             <TicketDetail label="Venue" value={event.venue || 'Online event'} wide />
             <TicketDetail label="Name" value={`${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim() || 'Attendee'} />
             <TicketDetail label="Ticket reference" value={ticket.referenceNumber} mono />
+            {ticket.bookingReference && <TicketDetail label="Booking reference" value={ticket.bookingReference} mono />}
           </dl>
 
-          {!cancelled && !checkedIn && ticket.qrPayload && (
+          {canShowQr && (
             <div className="py-6 text-center">
-              <TicketQrCode payload={ticket.qrPayload} />
+              <TicketQrCode payload={ticket.qrPayload!} />
               <p className="mt-3 font-mono text-lg font-bold tracking-widest text-neutral-950">
                 {ticket.referenceNumber}
               </p>
@@ -134,7 +147,7 @@ export default function AttendeeTicket() {
             </div>
           )}
 
-          {!cancelled && !checkedIn && !ticket.qrPayload && (
+          {!cancelled && !checkedIn && !unavailable && !ticket.qrPayload && (
             <p role="alert" className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
               The check-in code is unavailable. Please contact the event organizer before arriving.
             </p>
