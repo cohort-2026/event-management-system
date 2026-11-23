@@ -1,12 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/useAuth';
-import NotificationBell from '@/components/layout/NotificationBell';
 import { useVendorApplicationCount } from '@/hooks/useVendorApplicationCount';
-import {
-  OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT,
-  useDashboardNavigation,
-} from '@/components/layout/dashboardNavigationState';
+import { useDashboardNavigation } from '@/components/layout/dashboardNavigationState';
 import vendorLogo from '@/assets/organizer-logo.png';
 
 const items = [
@@ -15,6 +10,7 @@ const items = [
   { label: 'My applications', to: '/vendor/applications', icon: <DocumentIcon /> },
   { label: 'Staff passes', to: '/vendor/staff', icon: <UsersIcon /> },
   { label: 'Business profile', to: '/vendor/profile', icon: <ProfileIcon /> },
+  { label: 'Notifications', to: '/vendor/notifications', icon: <BellIcon /> },
 ];
 
 export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: string }) {
@@ -22,22 +18,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
   const navigate = useNavigate();
   const navigation = useDashboardNavigation();
   const { count, error } = useVendorApplicationCount();
-  const [notificationOpenTarget, setNotificationOpenTarget] = useState<'desktop' | 'mobile' | null>(null);
-  const closeNotifications = useCallback(() => setNotificationOpenTarget(null), []);
   const initials = `${user?.firstname?.[0] ?? ''}${user?.lastname?.[0] ?? ''}`.toUpperCase();
-
-  useEffect(() => {
-    const openSidebarNotifications = () => {
-      const desktop = window.matchMedia('(min-width: 768px)').matches;
-      if (!desktop && !navigation?.mobileOpen) {
-        navigation?.toggle();
-      }
-      setNotificationOpenTarget(desktop ? 'desktop' : 'mobile');
-    };
-
-    window.addEventListener(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT, openSidebarNotifications);
-    return () => window.removeEventListener(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT, openSidebarNotifications);
-  }, [navigation]);
 
   const handleLogout = async () => {
     await logout();
@@ -48,7 +29,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
     <div className="vendor-sidebar w-0 shrink-0 bg-white md:sticky md:top-0 md:h-screen md:w-56 md:self-start">
       <aside className="hidden h-full flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-2 py-4 md:flex">
         <Brand />
-        <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
+        <p className="vendor-role-label mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
         <nav className="space-y-1" aria-label="Vendor navigation">
           {items.map(item => (
             <NavLink
@@ -70,7 +51,6 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
               )}
             </NavLink>
           ))}
-          {user?.role === 'VENDOR' && <NotificationBell key={notificationOpenTarget === 'desktop' ? 'open' : 'closed'} appearance="sidebar" initiallyOpen={notificationOpenTarget === 'desktop'} onClose={closeNotifications} />}
         </nav>
         {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
         <div className="mt-auto space-y-2">
@@ -96,7 +76,7 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
           />
           <aside id="vendor-navigation-drawer" className="fixed inset-y-0 left-0 z-50 flex w-[min(280px,calc(100vw-2rem))] flex-col overflow-y-auto border-r border-[#e7e7e7] bg-white px-2 py-4 shadow-xl md:hidden">
             <Brand />
-            <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
+            <p className="vendor-role-label mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-[#888]">Vendor</p>
             <nav className="space-y-1" aria-label="Vendor navigation">
               {items.map(item => (
                 <NavLink
@@ -119,7 +99,6 @@ export default function VendorSidebar({ accountSubtitle }: { accountSubtitle?: s
                   )}
                 </NavLink>
               ))}
-              {user?.role === 'VENDOR' && <NotificationBell key={notificationOpenTarget === 'mobile' ? 'open' : 'closed'} appearance="sidebar" initiallyOpen={notificationOpenTarget === 'mobile'} onClose={closeNotifications} />}
             </nav>
             {error && <p role="alert" className="mt-2 px-2 text-xs text-rose-700">{error}</p>}
             <div className="mt-auto space-y-2 pt-4">
@@ -183,7 +162,7 @@ function Brand() {
   return (
     <div className="mb-5 flex items-center gap-2 px-1">
       <img src={vendorLogo} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
-      <div className="text-sm font-extrabold tracking-tight text-[#262626]">EventMS</div>
+      <div className="vendor-brand-title text-sm font-extrabold tracking-tight text-[#262626]">EventMS</div>
     </div>
   );
 }
@@ -206,6 +185,10 @@ function UsersIcon() {
 
 function ProfileIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 100-8 4 4 0 000 8zm7 9a7 7 0 00-14 0" /></svg>;
+}
+
+function BellIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
 }
 
 function LogoutIcon() {

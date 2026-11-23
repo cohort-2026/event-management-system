@@ -107,8 +107,9 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
 
       <section aria-label="Search and filter events" className="mb-5 rounded-2xl border border-rose-100 bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div><h2 className="text-sm font-bold text-neutral-900">Find an event</h2><p className="text-xs text-neutral-500">Search and narrow the list</p></div>
+          <div>
+            <h2 className="vendor-find-event-heading text-sm font-bold text-neutral-900">Events</h2>
+            <p className="text-xs text-neutral-500">Search and narrow the list</p>
           </div>
           <button type="button" onClick={clearFilters} className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">Clear filters</button>
         </div>
@@ -201,7 +202,7 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
               <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
                 <div className="flex min-w-0 items-center gap-2">
                   <VendorMenuButton />
-                  <span className="truncate text-[12px] font-semibold text-[#333]">Find events</span>
+                  <span className="vendor-find-events-title truncate text-[12px] font-extrabold text-[#333]">Find events</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <VendorSearchField />

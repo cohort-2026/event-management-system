@@ -20,6 +20,18 @@ import type { ApiError } from '@/types/api';
 import type { UpdateVendorProfileDto, VendorDocument, VendorProfile } from '@/types/vendor';
 
 const businessRegistrationRegex = /^\d{4}\/\d{6}\/\d{2}$/;
+const businessCategories = [
+  'Food & Beverages',
+  'Clothing & Fashion',
+  'Beauty & Cosmetics',
+  'Arts & Crafts',
+  'Electronics & Technology',
+  'Health & Wellness',
+  'Home & Lifestyle',
+  'Entertainment',
+  'Services',
+  'Other',
+] as const;
 const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
 const phoneCountries = getCountries()
   .map(country => ({ country, name: countryNames.of(country) ?? country, callingCode: getCountryCallingCode(country) }))
@@ -45,6 +57,7 @@ export default function VendorProfilePage() {
   const { user, setUser } = useAuth();
   const [profile, setProfile] = useState<UpdateVendorProfileDto & Pick<VendorProfile, 'status' | 'rejectionReason' | 'reviewedAt'>>(emptyProfile);
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>('ZA');
+  const [businessCategory, setBusinessCategory] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -70,7 +83,10 @@ export default function VendorProfilePage() {
       .then(profileResponse => {
         if (!active) return;
         const data = profileResponse.data.data;
-        setProfile(data);
+        setProfile({ ...data, businessType: data.businessType === 'Other' ? '' : data.businessType });
+        setBusinessCategory(businessCategories.includes(data.businessType as typeof businessCategories[number])
+          ? data.businessType
+          : data.businessType ? 'Other' : '');
         const parsedPhone = parsePhoneNumberFromString(data.contactPhone, 'ZA');
         if (parsedPhone) {
           setPhoneCountry(parsedPhone.country ?? 'ZA');
@@ -206,7 +222,6 @@ export default function VendorProfilePage() {
     }
     if (submitForReview && profile.businessType.trim().length < 2) errors.businessType = 'Enter a business type or category.';
     if (submitForReview && profile.businessAddress.trim().length < 5) errors.businessAddress = 'Enter a business address.';
-    if (submitForReview && profile.businessDescription.trim().length < 20) errors.businessDescription = 'Enter a business description of at least 20 characters.';
     const parsedPhone = parsePhoneNumberFromString(phoneNumber, phoneCountry);
     const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : '';
     if (!normalizedPhone) errors.contactPhone = `Enter a valid phone number for ${countryNames.of(phoneCountry) ?? phoneCountry}.`;
@@ -253,7 +268,7 @@ export default function VendorProfilePage() {
             <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <VendorMenuButton />
-                <span className="truncate text-[12px] font-semibold text-[#333]">Business profile</span>
+                <span className="vendor-profile-page-title truncate text-[12px] font-extrabold text-[#333]">Business profile</span>
               </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField />
@@ -261,15 +276,28 @@ export default function VendorProfilePage() {
               </div>
             </header>
 
-            <main className="bg-[#fbfaf9] px-3.5 pb-4 pt-3.5">
+            <main className="bg-white px-4 pb-8 pt-6 sm:px-6 lg:px-8">
               {loading ? (
-                <div className="flex min-h-[50vh] items-center justify-center" role="status">Loading business profile…</div>
+                <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-500" role="status">Loading business profile…</div>
               ) : loadError ? (
                 <p role="alert" className="text-sm font-medium text-rose-700">{loadError}</p>
               ) : (
                 <>
+              <div className="mx-auto mb-5 max-w-6xl border-b border-slate-200 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">Business profile</p>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{profile.businessName || 'Your business name'}</h1>
+                    <p className="mt-1 text-sm text-slate-600">Manage your business information.</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isApproved ? 'bg-emerald-50 text-emerald-700' : isPending ? 'bg-sky-50 text-sky-700' : isRejected ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800'}`}>
+                    {isApproved ? 'Approved' : isPending ? 'Under review' : isRejected ? 'Needs updates' : 'Incomplete'}
+                  </span>
+                </div>
+              </div>
+              <div className="mx-auto max-w-6xl">
               {isApproved ? (
-                <div className="mb-2 flex min-h-[43px] flex-wrap items-center justify-between gap-2 rounded-lg border border-[#b8f1dc] bg-[#edfcf6] px-2.5 py-1.5 text-[#075f4d]">
+                <div className="mb-2 flex min-h-[43px] items-center gap-2 rounded-lg border border-[#b8f1dc] bg-[#edfcf6] px-2.5 py-1.5 text-[#075f4d]">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[#0b9a79]"><CheckIcon /></span>
                     <div>
@@ -280,14 +308,6 @@ export default function VendorProfilePage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled
-                    title="Approved business profiles cannot be edited by the current backend."
-                    className="min-h-9 shrink-0 rounded border border-[#d6e8e2] bg-white px-2 text-[12px] font-semibold text-[#333] disabled:cursor-not-allowed"
-                  >
-                    Request a change
-                  </button>
                 </div>
               ) : isRejected ? (
                 <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
@@ -305,74 +325,85 @@ export default function VendorProfilePage() {
                 </div>
               )}
 
-              <form onSubmit={saveProfile} noValidate className="space-y-0">
-                <fieldset disabled={!isEditable} className="space-y-0 disabled:opacity-80">
-                  <ProfileSection title="Business" description="How organisers will see you.">
-                    <div className="grid gap-2 sm:grid-cols-2">
+              <form onSubmit={saveProfile} noValidate className="space-y-3">
+                <div className="space-y-3">
+                  <ProfileSection title="Business information">
+                    <div className="grid gap-4">
                       <Field label="Trading name" error={fieldErrors.businessName}>
                         <input
                           required
+                          disabled={!isEditable}
                           maxLength={120}
                           value={profile.businessName}
                           onChange={event => updateField('businessName', event.target.value)}
                           className={fieldClassName}
                         />
                       </Field>
-                      {isApproved ? (
-                        <Field label="Products/services" error={fieldErrors.productsServices}>
-                          <input value={profile.productsServices.join(', ')} readOnly className={fieldClassName} />
-                        </Field>
-                      ) : (
-                        <Field label="Products/services">
-                          <div className="flex min-h-10 flex-wrap items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1">
-                            {profile.productsServices.map(item => (
-                              <span key={item} className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[12px] text-slate-700">
-                                {item}
-                                <button type="button" onClick={() => removeProductOrService(item)} aria-label={`Remove ${item}`} className="text-slate-400 hover:text-slate-800">×</button>
-                              </span>
-                            ))}
-                            <input
-                              value={serviceDraft}
-                              onChange={event => setServiceDraft(event.target.value)}
-                              onKeyDown={event => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  addProductOrService();
-                                }
-                              }}
-                              placeholder="Add"
-                              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[12px] outline-none focus:ring-0"
-                            />
-                            <button type="button" onClick={addProductOrService} className="shrink-0 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">Add</button>
-                          </div>
-                          {serviceError && <span role="alert" className="mt-1 block text-[12px] font-normal text-rose-700">{serviceError}</span>}
-                        </Field>
-                      )}
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <Field label="Business type or category" error={fieldErrors.businessType}>
-                        <input maxLength={100} value={profile.businessType} onChange={event => updateField('businessType', event.target.value)} className={fieldClassName} />
-                      </Field>
-                      <Field label="Business address" error={fieldErrors.businessAddress}>
-                        <input maxLength={500} value={profile.businessAddress} onChange={event => updateField('businessAddress', event.target.value)} className={fieldClassName} />
-                      </Field>
-                    </div>
-                    <div className="mt-2">
-                      <Field label="What you offer" error={fieldErrors.businessDescription}>
-                        <input
-                          maxLength={2000}
-                          value={profile.businessDescription}
-                          onChange={event => updateField('businessDescription', event.target.value)}
+                      <Field label="Business category" error={fieldErrors.businessType}>
+                        <select
+                          value={businessCategory}
+                          disabled={!isEditable}
+                          onChange={event => {
+                            const value = event.target.value;
+                            setBusinessCategory(value);
+                            updateField('businessType', value === 'Other' ? '' : value);
+                          }}
                           className={fieldClassName}
-                        />
+                        >
+                          <option value="">Select a category</option>
+                          {businessCategories.map(category => <option key={category} value={category}>{category}</option>)}
+                        </select>
+                      </Field>
+                      {businessCategory === 'Other' && (
+                        <Field label="Please specify your category" error={fieldErrors.businessType}>
+                          <input
+                            disabled={!isEditable}
+                            maxLength={100}
+                            value={profile.businessType}
+                            onChange={event => updateField('businessType', event.target.value)}
+                            placeholder="Enter your business category"
+                            className={fieldClassName}
+                          />
+                        </Field>
+                      )}
+                      <Field label="Business address" error={fieldErrors.businessAddress}>
+                        <input disabled={!isEditable} maxLength={500} value={profile.businessAddress} onChange={event => updateField('businessAddress', event.target.value)} className={fieldClassName} />
                       </Field>
                     </div>
                   </ProfileSection>
 
-                  <ProfileSection title="Tax & registration" description="Printed on your invoices.">
+                  <ProfileSection title="Products & Services">
+                    {isApproved ? (
+                      <div className="flex flex-wrap gap-2" aria-label="Products and services">
+                        {profile.productsServices.length ? profile.productsServices.map(item => <span key={item} className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700">{item}</span>) : <p className="text-sm text-slate-500">No products or services added.</p>}
+                      </div>
+                    ) : (
+                      <>
+                        <label className="block text-xs font-medium text-slate-600" htmlFor="product-service-input">Add the products or services your business provides.</label>
+                        <div className="mt-2 flex gap-2">
+                          <input id="product-service-input" value={serviceDraft} onChange={event => { setServiceDraft(event.target.value); setServiceError(''); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addProductOrService(); } }} placeholder="Enter a product or service" className={fieldClassName} />
+                          <button type="button" onClick={addProductOrService} className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Add</button>
+                        </div>
+                        {serviceError && <p role="alert" className="mt-2 text-xs text-rose-700">{serviceError}</p>}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {profile.productsServices.map(item => (
+                            <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-800">
+                              {item}
+                              <button type="button" onClick={() => removeProductOrService(item)} aria-label={`Remove ${item}`} className="rounded-full text-rose-500 hover:text-rose-900">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </ProfileSection>
+
+                  <ProfileSection title="Tax & Registration">
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Field label="CIPC registration number" error={fieldErrors.businessRegistrationNumber}>
                         <input
+                          disabled={!isEditable}
                           maxLength={100}
                           value={profile.businessRegistrationNumber}
                           onChange={event => updateField('businessRegistrationNumber', event.target.value)}
@@ -381,41 +412,8 @@ export default function VendorProfilePage() {
                         />
                       </Field>
                     </div>
-                  </ProfileSection>
-
-                  {!isApproved && <ProfileSection title="Contact" description="How organisers can reach you.">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Contact person" error={fieldErrors.contactPerson}>
-                        <input required maxLength={120} value={profile.contactPerson} onChange={event => updateField('contactPerson', event.target.value)} className={fieldClassName} />
-                      </Field>
-                      <Field label="Contact email" error={fieldErrors.contactEmail}>
-                        <input required type="email" maxLength={254} value={profile.contactEmail} onChange={event => updateField('contactEmail', event.target.value)} className={fieldClassName} />
-                      </Field>
-                      <Field label="Phone number" error={fieldErrors.contactPhone}>
-                        <div className="flex gap-2">
-                          <select
-                            value={phoneCountry}
-                            onChange={event => {
-                              setPhoneCountry(event.target.value as CountryCode);
-                              setFieldErrors(current => ({ ...current, contactPhone: '' }));
-                            }}
-                            className="h-10 max-w-[46%] rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 focus:border-[#d15d2d] focus:outline-none"
-                          >
-                            {phoneCountries.map(country => (
-                              <option key={country.country} value={country.country}>{country.name} (+{country.callingCode})</option>
-                            ))}
-                          </select>
-                          <input type="tel" value={phoneNumber} onChange={event => {
-                            setPhoneNumber(event.target.value);
-                            setFieldErrors(current => ({ ...current, contactPhone: '' }));
-                          }} className={`${fieldClassName} min-w-0`} />
-                        </div>
-                      </Field>
-                    </div>
-                  </ProfileSection>}
-                </fieldset>
-
-                <ProfileSection title="Documents" description="Private. Only you and administrators can open them.">
+                  
+                  <h3 className="mb-2 text-sm font-semibold text-slate-800">Business documents</h3>
                   {documentError && <p role="alert" className="mb-2 text-[12px] text-rose-700">{documentError}</p>}
                   {documentMessage && <p role="status" className="mb-2 text-[12px] text-emerald-700">{documentMessage}</p>}
                   {documents.length > 0 ? (
@@ -447,21 +445,53 @@ export default function VendorProfilePage() {
                     {uploading ? 'Uploading…' : <>Drop PDFs here or <span className="ml-1 font-semibold text-rose-600">browse</span> · max 10 files, 10 MB each</>}
                     <input type="file" accept="application/pdf" className="hidden" onChange={uploadDocument} disabled={uploading} />
                   </label>}
-                </ProfileSection>
+                  </ProfileSection>
 
-                {saveMessage && <p role={saveFailed ? 'alert' : 'status'} className={`py-3 text-sm font-medium ${saveFailed ? 'text-rose-700' : 'text-slate-700'}`}>{saveMessage}</p>}
+                  {!isApproved && <ProfileSection title="Contact information">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Contact person" error={fieldErrors.contactPerson}>
+                        <input required maxLength={120} value={profile.contactPerson} onChange={event => updateField('contactPerson', event.target.value)} className={fieldClassName} />
+                      </Field>
+                      <Field label="Contact email" error={fieldErrors.contactEmail}>
+                        <input required type="email" maxLength={254} value={profile.contactEmail} onChange={event => updateField('contactEmail', event.target.value)} className={fieldClassName} />
+                      </Field>
+                      <Field label="Phone number" error={fieldErrors.contactPhone}>
+                        <div className="flex gap-2">
+                          <select
+                            value={phoneCountry}
+                            onChange={event => {
+                              setPhoneCountry(event.target.value as CountryCode);
+                              setFieldErrors(current => ({ ...current, contactPhone: '' }));
+                            }}
+                            className="h-10 max-w-[46%] rounded border border-slate-300 bg-white px-2 py-0 text-[12px] text-slate-800 focus:border-[#d15d2d] focus:outline-none"
+                          >
+                            {phoneCountries.map(country => (
+                              <option key={country.country} value={country.country}>{country.name} (+{country.callingCode})</option>
+                            ))}
+                          </select>
+                          <input type="tel" value={phoneNumber} onChange={event => {
+                            setPhoneNumber(event.target.value);
+                            setFieldErrors(current => ({ ...current, contactPhone: '' }));
+                          }} className={`${fieldClassName} min-w-0`} />
+                        </div>
+                      </Field>
+                    </div>
+                  </ProfileSection>}
+                </div>
+
+                
+
                 {isEditable && (
-                  <div className="flex flex-wrap justify-end gap-3 pt-5">
+                  <div className="flex flex-wrap justify-end gap-3 pt-2">
                     <Link to="/vendor" className="vendor-button rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</Link>
                     <Button type="submit" loading={saving}>Save profile</Button>
-                    {(isDraft || isRejected) && (
-                      <Button type="submit" value="submit-review" loading={saving}>
-                        Submit for review
-                      </Button>
-                    )}
+                    {(isDraft || isRejected) && <Button type="submit" value="submit-review" loading={saving}>Submit for review</Button>}
                   </div>
                 )}
+
+                {saveMessage && <p role={saveFailed ? 'alert' : 'status'} className={`py-3 text-sm font-medium ${saveFailed ? 'text-rose-700' : 'text-slate-700'}`}>{saveMessage}</p>}
               </form>
+              </div>
                 </>
               )}
             </main>
@@ -472,14 +502,13 @@ export default function VendorProfilePage() {
   );
 }
 
-const fieldClassName = 'h-10 w-full rounded border border-slate-300 bg-white px-3 py-0 text-[12px] text-slate-800 outline-none focus:border-[#d15d2d] disabled:bg-slate-50';
+const fieldClassName = 'h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-0 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 disabled:bg-slate-50';
 
-function ProfileSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid grid-cols-1 gap-2 border-b border-slate-200 py-3 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)]">
+    <section className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div>
-        <h2 className="text-[14px] font-bold leading-5 text-slate-900">{title}</h2>
-        <p className="mt-0.5 text-[12px] leading-4 text-slate-500">{description}</p>
+        <h2 className="profile-section-title text-base font-extrabold leading-6 text-slate-900">{title}</h2>
       </div>
       <div>{children}</div>
     </section>
@@ -488,7 +517,7 @@ function ProfileSection({ title, description, children }: { title: string; descr
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
-    <label className="block text-[12px] font-semibold leading-4 text-slate-700">
+    <label className="block text-sm font-semibold leading-5 text-slate-700">
       {label}
       <span className="mt-1 block">{children}</span>
       {error && <span role="alert" className="mt-1 block text-[12px] font-normal text-rose-600">{error}</span>}

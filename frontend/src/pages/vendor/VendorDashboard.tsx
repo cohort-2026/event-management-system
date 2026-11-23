@@ -5,14 +5,14 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import { useAuth } from '@/context/useAuth';
-import { getAllMyApplications, getVendorEvents, getVendorProfile, type VendorEvent } from '@/services/vendorService';
+import { getNotifications } from '@/services/notificationService';
+import { getAllMyApplications, getVendorProfile } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
 interface DashboardData {
   profile: VendorProfile;
   applications: VendorApplication[];
-  events: VendorEvent[];
   loadedAt: number;
 }
 
@@ -23,12 +23,13 @@ export default function VendorDashboard() {
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([getVendorProfile(), getAllMyApplications(), getVendorEvents({ limit: 2 })])
-      .then(([profile, applications, events]) => {
-        if (active) setData({ profile: profile.data.data, applications, events: events.data.data, loadedAt: Date.now() });
+    Promise.all([getVendorProfile(), getAllMyApplications()])
+      .then(([profile, applications]) => {
+        if (active) setData({ profile: profile.data.data, applications, loadedAt: Date.now() });
       })
       .catch(() => {
         if (active) setError('Unable to load your vendor dashboard. Please try again.');
@@ -38,6 +39,15 @@ export default function VendorDashboard() {
       });
     return () => { active = false; };
   }, [attempt]);
+
+  useEffect(() => {
+    if (data?.profile.status !== 'APPROVED') return;
+    let active = true;
+    getNotifications()
+      .then(response => { if (active) setUnreadNotifications(response.data.unreadCount); })
+      .catch(() => { if (active) setUnreadNotifications(null); });
+    return () => { active = false; };
+  }, [data?.profile.status]);
 
   const upcomingStands = data?.applications
     .filter(application => application.status === 'APPROVED' && application.event &&
@@ -81,7 +91,7 @@ export default function VendorDashboard() {
             <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <VendorMenuButton />
-                <span className="truncate text-[12px] font-semibold text-[#333]">Overview</span>
+                <span className="vendor-page-title truncate text-[12px] font-extrabold text-[#333]">Overview</span>
               </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField />
@@ -103,29 +113,32 @@ export default function VendorDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <section className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div className="min-w-0">
-                      <h1 className="break-words text-3xl font-extrabold tracking-tight text-[#151515] sm:text-4xl">{data.profile.businessName || 'Business profile'}</h1>
-                      <p className="mt-1 text-sm text-[#777]">
-                        {data.profile.status === 'APPROVED' ? 'Approved vendor' : data.profile.status === 'PENDING_REVIEW' ? 'Profile under review' : data.profile.status === 'REJECTED' ? 'Profile needs attention' : 'Draft profile'}
-                        {user && ` - ${user.firstname} ${user.lastname}`}
-                      </p>
+                      <h2 className="vendor-welcome-title text-lg font-extrabold text-slate-950">Welcome back, {user?.firstname || 'there'}!</h2>
+                      <p className="mt-1 text-sm text-slate-600">Manage your business and discover new event opportunities.</p>
                     </div>
-                    <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center gap-2 rounded-md bg-gradient-to-r from-[#171717] via-[#4d0019] to-[#800020] px-4 text-sm font-bold text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020]">
-                      <SearchIcon /> Find events
-                    </Link>
-                  </div>
+                    <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${data.profile.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : data.profile.status === 'PENDING_REVIEW' ? 'bg-sky-50 text-sky-700' : data.profile.status === 'REJECTED' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800'}`}>
+                      {data.profile.status === 'APPROVED' ? 'Approved vendor' : data.profile.status === 'PENDING_REVIEW' ? 'Under review' : data.profile.status === 'REJECTED' ? 'Profile needs attention' : 'Profile incomplete'}
+                    </span>
+                  </section>
 
-                  <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    <StatTile label="Upcoming stands" value={String(upcomingStands.length)} />
-                    <StatTile label="Under review" value={String(underReview.length)} />
-                    <StatTile label="To pay" value={totalDue} note={nextDue ? `Due ${formatDate(nextDue)}` : undefined} />
-                    <StatTile label="Staff passes" value={String(staffCount)} />
-                  </div>
+                  <section aria-labelledby="vendor-stats-heading" className="mb-5">
+                    <h2 id="vendor-stats-heading" className="vendor-dashboard-section-title mb-2 text-base font-extrabold text-slate-900">Dashboard statistics</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                    <StatTile icon="stands" label="Upcoming stands" value={String(upcomingStands.length)} />
+                    <StatTile icon="review" label="Under review" value={String(underReview.length)} />
+                    <StatTile icon="payments" label="Outstanding payments" value={totalDue} note={nextDue ? `Due ${formatDate(nextDue)}` : undefined} />
+                    <StatTile icon="passes" label="Staff passes" value={String(staffCount)} />
+                    </div>
+                  </section>
 
                   {actionError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{actionError}</p>}
-                  <section aria-labelledby="vendor-stands-heading">
-                    <h2 id="vendor-stands-heading" className="mb-2 text-lg font-extrabold">Your stands</h2>
+                  <section aria-labelledby="vendor-stands-heading" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4">
+                      <h2 id="vendor-stands-heading" className="vendor-dashboard-section-title text-base font-extrabold text-slate-900">Your upcoming stands</h2>
+                      <p className="mt-1 text-sm text-slate-600">Approved events and stand details.</p>
+                    </div>
                     {upcomingStands.length ? (
                       <div className="grid gap-4 lg:grid-cols-2">
                         {upcomingStands.map(application => (
@@ -133,37 +146,45 @@ export default function VendorDashboard() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-lg border border-[#e5e5e5] bg-white p-4 text-sm text-[#777]">
-                        No upcoming approved stands. <Link to="/vendor/applications" className="font-semibold text-rose-700 underline">View applications</Link>
+                      <div className="flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/60 p-5 text-center">
+                        <CalendarIcon />
+                        <p className="mt-2 text-sm font-bold text-slate-800">No upcoming stands</p>
+                        <p className="mt-1 text-xs text-slate-500">Explore events to get started.</p>
                       </div>
                     )}
                   </section>
 
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                    <section className="rounded-lg border border-[#e5e5e5] bg-white p-4">
-                      <h2 className="mb-3 text-lg font-extrabold">Under review</h2>
-                      {underReview.length ? underReview.slice(0, 3).map(application => (
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <h2 className="vendor-dashboard-section-title text-base font-extrabold text-slate-900">Recent applications</h2>
+                      <p className="mt-1 text-xs text-slate-500">Track your applications.</p>
+                      {data.applications.length ? data.applications.slice(0, 3).map(application => (
                         <Link key={application.id} to="/vendor/applications" className="flex items-center gap-3 rounded-md py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#800020]">
-                          <span className="h-10 w-10 shrink-0 rounded-md bg-gradient-to-br from-[#ac3cff] via-[#d64aa3] to-[#6b57db]" aria-hidden="true" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-bold">{application.event?.title ?? 'Event'}</span>
-                            <span className="block text-sm text-[#777]">{application.requestedStandSize} - {formatCurrency(Number(application.quotedAmount))} quote</span>
+                            <span className="block text-xs text-slate-500">{application.requestedStandSize} · {formatCurrency(Number(application.quotedAmount))} quote</span>
                           </span>
-                          <span className="shrink-0 rounded-full border border-[#ffc66d] px-2 py-1 text-xs font-semibold text-[#bf6a00]">Applied</span>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{formatStatus(application.status)}</span>
                         </Link>
-                      )) : <p className="text-sm text-[#777]">No applications under review.</p>}
+                      )) : <p className="mt-3 text-sm text-slate-500">No recent activity.</p>}
                     </section>
 
-                    <section className="rounded-lg border border-[#e5e5e5] bg-white p-4">
-                      <h2 className="mb-3 text-lg font-extrabold">Looking for vendors</h2>
-                      {data.events.length ? data.events.map(event => (
-                        <Link key={event.id} to={`/events/${event.id}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#800020]">
-                          <span className="min-w-0 break-words">{event.title} - {formatDate(event.startTime)}</span>
-                          <span className="shrink-0 font-bold text-[#138a61]">{event.availableVendorStands} stands left</span>
-                        </Link>
-                      )) : <p className="text-sm text-[#777]">No events with available stands right now.</p>}
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <h2 className="vendor-dashboard-section-title text-base font-extrabold text-slate-900">Notifications</h2>
+                      <p className="mt-1 text-xs text-slate-500">Stay up to date.</p>
+                      <p className="mt-3 text-sm text-slate-600">{data.profile.status !== 'APPROVED' ? 'Notifications will be available after approval.' : unreadNotifications === null ? 'Your latest updates and reminders.' : unreadNotifications === 0 ? 'No new notifications.' : `${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}.`}</p>
+                      {data.profile.status === 'APPROVED' && <Link to="/vendor/notifications" className="mt-2 inline-block text-xs font-semibold text-rose-700 hover:underline">Open notifications</Link>}
                     </section>
                   </div>
+
+                  <Link to="/vendor/events?stands=available" className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-rose-200 hover:bg-rose-50/30 sm:p-5">
+                    <span>
+                      <span className="vendor-dashboard-section-title block text-base font-extrabold text-slate-900">Discover events</span>
+                      <span className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-800"><SearchIcon /> Find your next opportunity</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">Browse events with available stands.</span>
+                    </span>
+                    <span aria-hidden="true" className="text-lg text-slate-500">→</span>
+                  </Link>
                 </>
               )}
             </main>
@@ -174,14 +195,29 @@ export default function VendorDashboard() {
   );
 }
 
-function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
+function StatTile({ icon, label, value, note }: { icon: 'stands' | 'review' | 'payments' | 'passes'; label: string; value: string; note?: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-[#e5e5e5] bg-white p-4">
-      <p className="text-sm font-medium text-[#555]">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-[#555]">{label}</p>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-700">
+          <StatIcon name={icon} />
+        </span>
+      </div>
       <p className="mt-1 break-words text-2xl font-extrabold leading-tight">{value}</p>
       {note && <p className="mt-1 text-xs font-semibold text-[#c54821]">{note}</p>}
     </div>
   );
+}
+
+function StatIcon({ name }: { name: 'stands' | 'review' | 'payments' | 'passes' }) {
+  const paths = {
+    stands: <><rect x="3.5" y="5" width="17" height="16" rx="2" /><path strokeLinecap="round" d="M7.5 3v4M16.5 3v4M4 9.5h16M8 13h.01M12 13h.01M16 13h.01" /></>,
+    review: <><circle cx="12" cy="12" r="8.5" /><path strokeLinecap="round" d="M12 7v5l3.5 2" /></>,
+    payments: <><circle cx="12" cy="12" r="8.5" /><path strokeLinecap="round" d="M15.5 9.5c-.6-.8-1.6-1.2-3-1.2-1.5 0-2.5.7-2.5 1.8 0 2.8 5.5 1 5.5 4 0 1.2-1.1 2-2.8 2-1.4 0-2.5-.5-3.2-1.4M12 6.5v11" /></>,
+    passes: <><circle cx="9" cy="8" r="3" /><path strokeLinecap="round" strokeLinejoin="round" d="M3.5 19a5.5 5.5 0 0 1 11 0M16 11a3 3 0 1 0-1.1-5.8M16 14a5 5 0 0 1 4.5 5" /></>,
+  };
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.8">{paths[name]}</svg>;
 }
 
 function StandCard({ application, onDownload }: { application: VendorApplication; onDownload: () => void }) {
@@ -235,11 +271,24 @@ function formatCurrency(value: number, currency = 'ZAR') {
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency }).format(value);
 }
 
+function formatStatus(status: string) {
+  return status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
+}
+
 function SearchIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0" stroke="currentColor" strokeWidth="2">
       <circle cx="11" cy="11" r="6" />
       <path strokeLinecap="round" d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-slate-500" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3.5" y="5" width="17" height="16" rx="2" />
+      <path strokeLinecap="round" d="M7.5 3v4M16.5 3v4M4 9.5h16M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" />
     </svg>
   );
 }

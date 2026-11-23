@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
-import { OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT } from '@/components/layout/dashboardNavigationState';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -91,7 +90,7 @@ export default function NotificationBell({
     setOpen(false);
     onClose?.();
     if (appearance === 'header' && user?.role === 'VENDOR') {
-      window.dispatchEvent(new Event(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT));
+      navigate('/vendor/notifications', { state: { selectedNotificationId: notification.id } });
       return;
     }
     navigate(notification.link);
@@ -203,6 +202,13 @@ export default function NotificationBell({
                   </li>
                 ))}
               </ul>
+            )}
+            {user?.role === 'VENDOR' && (
+              <div className="border-t border-neutral-100 p-3 text-right">
+                <button type="button" onClick={() => { setOpen(false); navigate('/vendor/notifications'); }} className="text-xs font-semibold text-rose-700 hover:underline">
+                  View all notifications
+                </button>
+              </div>
             )}
           </section>
         </div>,

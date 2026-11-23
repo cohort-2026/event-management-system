@@ -82,7 +82,11 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         (req.method === 'GET' && /^\/applications\/(?:me|[^/]+)$/.test(req.path)) ||
         (req.method === 'GET' && /^\/invoices(?:\/[^/]+)?$/.test(req.path))
       );
-      if (!isAuthRecoveryRoute && !isVendorProfileRoute) {
+      const isOwnNotificationsRoute = req.baseUrl.endsWith('/notifications') && (
+        (req.method === 'GET' && req.path === '/') ||
+        (req.method === 'PATCH' && (req.path === '/read-all' || /^\/[^/]+\/read$/.test(req.path)))
+      );
+      if (!isAuthRecoveryRoute && !isVendorProfileRoute && !isOwnNotificationsRoute) {
         res.status(403).json({ success: false, message: 'Vendor profile approval is required before using this feature' });
         return;
       }
