@@ -133,7 +133,6 @@ function validateProfile(body: unknown, requireComplete = false): { data?: Vendo
 	}
 	if (requireComplete && businessType.length < 2) errors.businessType = 'Enter a business type or category';
 	if (requireComplete && businessAddress.length < 5) errors.businessAddress = 'Enter a business address';
-	if (requireComplete && businessDescription.length < 20) errors.businessDescription = 'Enter a business description of at least 20 characters';
 	if (businessRegistrationNumber && !/^\d{4}\/\d{6}\/\d{2}$/.test(businessRegistrationNumber)) {
 		errors.businessRegistrationNumber = 'Use the format 2020/123456/07';
 	}
