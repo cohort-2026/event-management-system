@@ -33,6 +33,10 @@ const checkInResponse = (result: TicketCheckInResult, res: Response): void => {
     });
     return;
   }
+  if (result.kind === 'payment_not_completed') {
+    res.status(409).json({ success: false, message: 'Payment has not been completed for this ticket' });
+    return;
+  }
   if (result.kind === 'event_not_in_progress') {
     res.status(409).json({ success: false, message: 'Tickets can only be checked in while the event is in progress' });
     return;
@@ -54,7 +58,6 @@ export const listMyTickets = async (req: Request, res: Response, next: NextFunct
         select: {
           id: true,
           referenceNumber: true,
-          qrPayload: true,
           bookingId: true,
           holderId: true,
           type: true,
@@ -63,7 +66,7 @@ export const listMyTickets = async (req: Request, res: Response, next: NextFunct
           issuedAt: true,
           checkedInAt: true,
           event: {
-            select: { id: true, title: true, date: true, startTime: true, endTime: true, venue: true },
+            select: { id: true, title: true, date: true, startTime: true, endTime: true, venue: true, bannerImageUrl: true },
           },
           booking: {
             select: {
@@ -134,6 +137,7 @@ export const getTicket = async (req: Request, res: Response, next: NextFunction)
             startTime: true,
             endTime: true,
             venue: true,
+            bannerImageUrl: true,
             organizerId: true,
           },
         },
@@ -179,6 +183,7 @@ export const getTicket = async (req: Request, res: Response, next: NextFunction)
           startTime: ticket.event.startTime,
           endTime: ticket.event.endTime,
           venue: ticket.event.venue,
+          bannerImageUrl: ticket.event.bannerImageUrl,
         },
       },
     });

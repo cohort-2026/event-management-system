@@ -18,7 +18,6 @@ const roleLinks: Record<UserRole, { label: string; to: string }[]> = {
     { label: "Admin", to: "/admin" },
     { label: "User management", to: "/admin/users" },
     { label: "Approved profiles", to: "/admin/user-accounts" },
-    { label: "Admin accounts", to: "/admin/accounts" },
     { label: "Audit history", to: "/admin/audit" },
   ],
 };
@@ -87,7 +86,7 @@ export default function Navbar() {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `px-3.5 py-2 rounded-lg text-sm font-medium transition-colors duration-150
+                  `px-3.5 py-2 rounded-lg text-sm ${l.to === "/for/vendors" ? "font-bold" : "font-medium"} transition-colors duration-150
                 ${isActive ? "!text-neutral-950 bg-neutral-100 dark:bg-neutral-800 dark:!text-white" : "!text-neutral-600 hover:!text-neutral-950 hover:bg-neutral-100 dark:!text-neutral-300 dark:hover:!text-white dark:hover:bg-neutral-800"}`
                 }
               >
@@ -196,7 +195,7 @@ export default function Navbar() {
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white"
+                className={`px-3 py-2.5 rounded-lg text-sm ${l.to === "/for/vendors" ? "font-bold" : "font-medium"} text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition-colors dark:!text-neutral-300 dark:hover:bg-neutral-800 dark:hover:!text-white`}
               >
                 {l.label}
               </Link>

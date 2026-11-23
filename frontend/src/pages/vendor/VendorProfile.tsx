@@ -452,7 +452,7 @@ export default function VendorProfilePage() {
                 {saveMessage && <p role={saveFailed ? 'alert' : 'status'} className={`py-3 text-sm font-medium ${saveFailed ? 'text-rose-700' : 'text-slate-700'}`}>{saveMessage}</p>}
                 {isEditable && (
                   <div className="flex flex-wrap justify-end gap-3 pt-5">
-                    <Link to="/vendor" className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</Link>
+                    <Link to="/vendor" className="vendor-button rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</Link>
                     <Button type="submit" loading={saving}>Save profile</Button>
                     {(isDraft || isRejected) && (
                       <Button type="submit" value="submit-review" loading={saving}>

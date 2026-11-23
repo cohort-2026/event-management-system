@@ -4,7 +4,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import VendorSidebar, { VendorMenuButton } from '@/components/layout/VendorSidebar';
 import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
-import { getMyApplications } from '@/services/vendorService';
+import { getAllMyApplications } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication } from '@/types/vendor';
 
@@ -22,10 +22,9 @@ export default function MyApplications() {
 
   useEffect(() => {
     let active = true;
-    getMyApplications()
-      .then(response => {
+    getAllMyApplications()
+      .then(loadedApplications => {
         if (!active) return;
-        const loadedApplications = response.data.data;
         setApplications(loadedApplications);
         setExpandedApplicationId(loadedApplications.find(application => application.assignedStand)?.id ?? null);
       })
@@ -89,7 +88,7 @@ export default function MyApplications() {
                 </div>
                 <Link
                   to="/vendor/events"
-                  className="inline-flex min-h-9 items-center rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-3 text-[11px] font-bold text-white shadow-sm transition hover:brightness-95"
+                  className="vendor-button inline-flex min-h-9 items-center rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-3 text-[11px] font-bold text-white shadow-sm transition"
                 >
                   Find events
                 </Link>
@@ -294,7 +293,7 @@ function MobileApplicationCard({ application, index }: { application: VendorAppl
         {paid ? (
           <Link
             to={`/vendor/applications/${application.id}/staff`}
-            className="rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="vendor-button rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Staff passes
           </Link>
@@ -410,7 +409,7 @@ function ApplicationRow({
           {paid ? (
             <Link
               to={`/vendor/applications/${application.id}/staff`}
-              className="whitespace-nowrap rounded border border-[#d8d8d8] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#444] hover:bg-slate-50"
+              className="vendor-button whitespace-nowrap rounded border border-[#d8d8d8] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#444] hover:bg-slate-50"
             >
               Staff passes
             </Link>
@@ -507,7 +506,7 @@ function RejectedApplication({
       ) : application.event && (
         <Link
           to={`/vendor/events/${application.event.id}/apply`}
-          className="shrink-0 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
+          className="vendor-button shrink-0 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
         >
           Revise
         </Link>
@@ -556,8 +555,8 @@ function EmptyApplications() {
         Once you apply for an event stand, its review status and invoice details will appear here.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <Link to="/vendor/events" className="rounded-md bg-[#f15a2a] px-3 py-1.5 text-[13px] font-bold text-white hover:bg-[#e24d1f]">Find events</Link>
-        <Link to="/vendor/profile" className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50">Business profile</Link>
+        <Link to="/vendor/events" className="vendor-button rounded-md bg-[#f15a2a] px-3 py-1.5 text-[13px] font-bold text-white hover:bg-[#e24d1f]">Find events</Link>
+        <Link to="/vendor/profile" className="vendor-button rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50">Business profile</Link>
       </div>
     </div>
   );

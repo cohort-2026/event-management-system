@@ -1,15 +1,5 @@
 import api from '@/services/api';
 
-export interface ManagedAdmin {
-  id: string;
-  firstname: string;
-  lastname: string;
-  email: string;
-  isActive: boolean;
-  mustChangePassword: boolean;
-  createdAt: string;
-}
-
 export interface AdminAuditEvent {
   id: string;
   action: string;
@@ -38,10 +28,5 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-export const getManagedAdmins = () => api.get<ApiResponse<ManagedAdmin[]>>('/platform-admin/admins');
-export const createManagedAdmin = (data: { firstname: string; lastname: string; email: string }) =>
-  api.post<ApiResponse<ManagedAdmin>>('/platform-admin/admins', data);
-export const updateManagedAdminStatus = (id: string, isActive: boolean) =>
-  api.patch(`/platform-admin/admins/${encodeURIComponent(id)}/status`, { isActive });
 export const getAdminAuditHistory = () => api.get<ApiResponse<AdminAuditEvent[]>>('/platform-admin/audit-logs');
 export const getAdminDashboardOverview = () => api.get<ApiResponse<AdminDashboardOverview>>('/platform-admin/dashboard');

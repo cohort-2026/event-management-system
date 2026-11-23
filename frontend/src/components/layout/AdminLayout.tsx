@@ -1,20 +1,40 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/useAuth';
-import { useState } from 'react';
-
-const navigation = [
-  { label: 'Dashboard', path: '/admin', icon: <HomeIcon /> },
-  { label: 'Organisers', path: '/admin/users/organizers', icon: <UsersIcon />, count: 2 },
-  { label: 'Vendors', path: '/admin/users/vendors/pending', icon: <StoreIcon />, count: 1 },
-  { label: 'People', path: '/admin/user-accounts', icon: <UsersIcon /> },
-  { label: 'Reports', path: '/admin/reports', icon: <ReportIcon /> },
-];
+import NotificationBell from '@/components/layout/NotificationBell';
+import { useEffect, useState } from 'react';
+import { getOrganizers } from '@/services/organizerService';
+import { getPendingVendorProfiles } from '@/services/vendorService';
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingCounts, setPendingCounts] = useState({ organizers: 0, vendors: 0 });
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getOrganizers(), getPendingVendorProfiles()])
+      .then(([organizers, vendors]) => {
+        if (!active) return;
+        setPendingCounts({
+          organizers: organizers.data.data.filter(person => person.profileApprovalStatus === 'PENDING_APPROVAL' && person.isActive).length,
+          vendors: vendors.data.data.filter(profile => profile.user.isActive).length,
+        });
+      })
+      .catch(() => { if (active) setPendingCounts({ organizers: 0, vendors: 0 }); });
+    return () => { active = false; };
+  }, []);
+
+  const navigation = [
+    { label: 'Dashboard', path: '/admin', icon: <HomeIcon /> },
+    { label: 'Organizers', path: '/admin/users/organizers/pending', icon: <UsersIcon />, count: pendingCounts.organizers },
+    { label: 'Vendors', path: '/admin/users/vendors/pending', icon: <StoreIcon />, count: pendingCounts.vendors },
+    { label: 'People', path: '/admin/user-accounts', icon: <UsersIcon /> },
+    { label: 'Reports', path: '/admin/reports', icon: <ReportIcon /> },
+    { label: 'Audit history', path: '/admin/audit', icon: <ShieldIcon /> },
+    { label: 'Notifications', path: null, icon: <BellIcon /> },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -54,9 +74,11 @@ export default function AdminLayout() {
             {navigation.map((item) => {
               const isActive = item.path === '/admin'
                 ? pathname === '/admin'
-                : item.path !== null && (pathname === item.path || (
-                  item.label !== 'Organisers' && item.label !== 'Vendors' && pathname.startsWith(`${item.path}/`)
-                  ));
+                : item.label === 'Organizers'
+                  ? pathname.startsWith('/admin/users/organizers')
+                  : item.label === 'Vendors'
+                    ? pathname.startsWith('/admin/users/vendors')
+                    : item.path !== null && (pathname === item.path || pathname.startsWith(`${item.path}/`));
 
               return (
                 <div key={item.label} className="space-y-1">
@@ -129,3 +151,5 @@ function HomeIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="curren
 function UsersIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 8v-1a4 4 0 0 0-3-3.87M20 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function StoreIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 8h16l-1 11H5L4 8Zm3-3h10l1 3H6l1-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function ReportIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 20h16M7 16V9m5 7V4m5 12v-5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
+function ShieldIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 3 5 6v5c0 5 3.4 8.6 7 10 3.6-1.4 7-5 7-10V6l-7-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
+function BellIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" strokeLinecap="round" strokeLinejoin="round" /></svg>; }

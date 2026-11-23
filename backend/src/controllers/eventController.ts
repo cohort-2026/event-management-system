@@ -1116,7 +1116,7 @@ export const listEventBookings = async (req: Request, res: Response, next: NextF
         where,
         include: {
           attendee: { select: { id: true, firstname: true, lastname: true, email: true } },
-          tickets: { select: { referenceNumber: true, type: true, status: true, issuedAt: true } },
+          tickets: { select: { id: true, referenceNumber: true, type: true, status: true, issuedAt: true } },
           payment: { select: { amount: true, currency: true, status: true, provider: true, createdAt: true } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],

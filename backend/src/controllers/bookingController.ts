@@ -7,7 +7,7 @@ import {
   notifyAttendeeBookingConfirmed,
   notifyOrganizerBookingCancelled,
 } from '../services/notificationService';
-import { isPayFastConfigured } from '../services/payfastService';
+
 import { issueTicketsForBooking } from '../services/ticketService';
 
 const MAX_TICKETS_PER_BOOKING = 100;
@@ -16,7 +16,15 @@ const MAX_BOOKING_AMOUNT = new Prisma.Decimal('99999999.99');
 const bookingInclude = {
   event: { select: { id: true, title: true, startTime: true, endTime: true, venue: true } },
   eventTicketType: { select: { id: true, name: true, price: true } },
-  tickets: true,
+  tickets: {
+    select: {
+      id: true,
+      referenceNumber: true,
+      type: true,
+      status: true,
+      issuedAt: true,
+    },
+  },
   payment: { select: { amount: true, currency: true, status: true, provider: true, providerReference: true, createdAt: true } },
 } satisfies Prisma.BookingInclude;
 
@@ -24,7 +32,7 @@ class CapacityUnavailableError extends Error {}
 class EventUnavailableError extends Error {}
 class TicketTypeUnavailableError extends Error {}
 class BookingAmountLimitError extends Error {}
-class PaymentGatewayUnavailableError extends Error {}
+
 
 const ticketTypeEnum = (name: string): TicketTypes => {
   const normalized = name.trim().toUpperCase();
@@ -118,7 +126,6 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         throw new BookingAmountLimitError();
       }
       const isFree = totalAmount.isZero();
-      if (!isFree && !isPayFastConfigured()) throw new PaymentGatewayUnavailableError();
       if (isFree) {
         const eventCapacity = await transaction.event.updateMany({
           where: {
@@ -159,7 +166,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
                 create: {
                   amount: totalAmount,
                   status: PaymentStatus.PENDING,
-                  provider: 'PAYFAST',
+                  provider: 'SIMULATED',
                 },
               },
             }
@@ -213,13 +220,6 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         success: false,
         message: 'The booking total exceeds the supported payment amount',
         errors: [{ field: 'quantity', message: 'Reduce the number of tickets' }],
-      });
-      return;
-    }
-    if (error instanceof PaymentGatewayUnavailableError) {
-      res.status(503).json({
-        success: false,
-        message: 'PayFast is not configured. Paid bookings are temporarily unavailable.',
       });
       return;
     }
@@ -305,11 +305,11 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
           where: {
             bookingId: id,
             status: PaymentStatus.PENDING,
-            provider: booking.payment?.provider ?? 'PAYFAST',
+            provider: booking.payment?.provider ?? 'SIMULATED',
           },
           data: {
             status: PaymentStatus.FAILED,
-            providerReference: `${booking.payment?.provider ?? 'PAYFAST'}-CANCELLED`,
+            providerReference: `${booking.payment?.provider ?? 'SIMULATED'}-CANCELLED`,
           },
         })
         : { count: 0 };

@@ -265,7 +265,7 @@ export default function OrganizerEventHub() {
                 <nav aria-label="Event management sections" className="flex gap-1 overflow-x-auto border-b border-neutral-200 px-4 sm:px-6">
                   <span aria-current="page" className="border-b-2 border-rose-600 px-4 py-3 text-sm font-bold text-rose-700">Overview</span>
                   <Link to={`/organizer/events/${event.id}/registrations`} className="whitespace-nowrap px-4 py-3 text-sm font-medium text-neutral-600 hover:text-brand-700">Guest list</Link>
-                  <Link to={`/organizer/events/${event.id}/check-in`} className="whitespace-nowrap px-4 py-3 text-sm font-medium text-neutral-600 hover:text-brand-700">Scanner (lookup only)</Link>
+                  <Link to={`/organizer/events/${event.id}/check-in`} className="whitespace-nowrap px-4 py-3 text-sm font-medium text-neutral-600 hover:text-brand-700">Check-in</Link>
                   <Link to={`/organizer/events/${event.id}/vendors`} className="whitespace-nowrap px-4 py-3 text-sm font-medium text-neutral-600 hover:text-brand-700">Stands</Link>
                 </nav>
               </section>

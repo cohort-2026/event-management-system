@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/useAuth';
+import { OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT } from '@/components/layout/dashboardNavigationState';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -11,15 +13,20 @@ import {
 export default function NotificationBell({
   appearance = 'default',
   compact = false,
+  initiallyOpen = false,
+  onClose,
 }: {
   appearance?: 'default' | 'sidebar' | 'header';
   compact?: boolean;
+  initiallyOpen?: boolean;
+  onClose?: () => void;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,9 +56,13 @@ export default function NotificationBell({
         || (target instanceof Element && target.closest('[data-notification-panel]'))
       ) return;
       setOpen(false);
+      onClose?.();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        onClose?.();
+      }
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
@@ -61,7 +72,7 @@ export default function NotificationBell({
       document.removeEventListener('mousedown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, []);
+  }, [onClose]);
 
   const openNotification = async (notification: AppNotification) => {
     if (!notification.readAt) {
@@ -78,6 +89,11 @@ export default function NotificationBell({
     }
 
     setOpen(false);
+    onClose?.();
+    if (appearance === 'header' && user?.role === 'VENDOR') {
+      window.dispatchEvent(new Event(OPEN_VENDOR_SIDEBAR_NOTIFICATIONS_EVENT));
+      return;
+    }
     navigate(notification.link);
   };
 
@@ -102,7 +118,10 @@ export default function NotificationBell({
         type="button"
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => {
+          if (open) onClose?.();
+          setOpen(current => !current);
+        }}
         className={appearance === 'sidebar'
           ? `relative flex shrink-0 items-center gap-1.5 rounded-md font-bold transition hover:bg-slate-100 hover:text-slate-900 ${
             compact ? 'w-full px-2.5 py-2 text-[12px]' : 'w-full px-2.5 py-2.5 text-[12px]'
@@ -131,14 +150,17 @@ export default function NotificationBell({
           data-notification-panel
           className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4"
           onMouseDown={event => {
-            if (event.target === event.currentTarget) setOpen(false);
+            if (event.target === event.currentTarget) {
+              setOpen(false);
+              onClose?.();
+            }
           }}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-label="Notifications"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl"
+            className={`${user?.role === 'VENDOR' ? 'vendor-notification-panel ' : ''}max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl`}
           >
             <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
               <h2 className="text-sm font-bold text-neutral-900">Notifications</h2>

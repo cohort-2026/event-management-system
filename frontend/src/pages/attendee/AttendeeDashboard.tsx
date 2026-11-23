@@ -3,7 +3,6 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import AttendeeLayout from '@/components/attendee/AttendeeLayout';
 import EventArtwork from '@/components/attendee/EventArtwork';
-import TicketQrCode from '@/components/attendee/TicketQrCode';
 import Spinner from '@/components/legacy/Spinner';
 import { useAuth } from '@/context/useAuth';
 import { getMyBookings } from '@/services/bookingService';
@@ -239,20 +238,25 @@ export default function AttendeeDashboard() {
                     })}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500">{featuredBooking.event.venue}</p>
+                  {featuredBooking.tickets.length > 1 && (
+                    <p className="mt-2 text-xs font-semibold text-neutral-700">
+                      This booking includes {featuredBooking.tickets.length} tickets.
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     {featuredTicket && (
                       <>
-                        {featuredTicket.qrPayload && (
-                          <Link to={`/attendee/tickets/${featuredTicket.id}`} aria-label="View ticket QR code" className="rounded border border-neutral-200 p-1">
-                            <TicketQrCode payload={featuredTicket.qrPayload} className="max-w-14" />
-                          </Link>
-                        )}
                         <Link
                           to={`/attendee/tickets/${featuredTicket.id}`}
                           className={`rounded-md bg-neutral-950 px-3 py-2 text-xs font-semibold text-white ${attendeeButtonHoverClass}`}
                         >
-                          Open ticket
+                          {featuredBooking.tickets.length > 1 ? 'Open ticket 1' : 'Open ticket'}
                         </Link>
+                        {featuredBooking.tickets.length > 1 && (
+                          <Link to="/attendee/tickets" className="text-xs font-semibold text-rose-700 hover:text-rose-800">
+                            View all {featuredBooking.tickets.length} tickets
+                          </Link>
+                        )}
                       </>
                     )}
                     {!featuredTicket && featuredBooking.paymentStatus === 'PENDING' && (

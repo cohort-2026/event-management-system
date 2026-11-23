@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
-import { DashboardHeader } from '@/components/layout/DashboardSidebar';
 import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
+import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 import Badge, { type BadgeVariant } from '@/components/legacy/Badge';
 import Button from '@/components/legacy/Button';
 import { approveApplication, getEventApplications, markVendorInvoicePaid, rejectApplication } from '@/services/vendorService';
@@ -188,18 +188,16 @@ export default function VendorApplications() {
       <div className="flex flex-col lg:flex-row">
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
-          <DashboardHeader
-            title="Vendors"
-            organizerTitleSize="large"
-            breadcrumbs={eventId ? [{ label: 'My events', to: '/organizer/events' }, { label: 'Vendors' }] : [{ label: 'Vendors' }]}
-            actions={(
-              <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
-                Export
-              </Button>
-            )}
-          />
-          <p className="mb-2 text-sm font-bold tracking-wide text-slate-600">Organizer</p>
-          <div role="tablist" aria-label="Vendor application status" className="mb-6 flex min-h-[68px] items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-[#f3f4f5] p-1.5 sm:gap-3">
+          <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
+            <OrganizerTopBar title="Vendors" showTitle={false} headingEyebrow="Organizer" heading="Vendor" headingDetail="In application for a stand." />
+          </div>
+          <h1 className="sr-only">Vendors</h1>
+          <div className="mb-2 flex justify-end">
+            <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
+              Export
+            </Button>
+          </div>
+          <div role="tablist" aria-label="Vendor application status" className="mb-6 flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-[#f3f4f5] p-1.5">
             {statusTabs.map(tab => {
               const selected = activeStatus === tab.id;
               return (
@@ -209,10 +207,10 @@ export default function VendorApplications() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setActiveStatus(tab.id)}
-                  className={`inline-flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl px-4 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:px-5 sm:text-sm ${selected ? 'bg-[#e5e6e8] text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-white/70'}`}
+                  className={`organizer-status-tab inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-[#ffe4e6] px-3 text-xs font-normal text-neutral-900 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#800020] ${selected ? 'ring-2 ring-inset ring-[#800020]' : ''}`}
                 >
                   {tab.label}
-                  {tab.id !== 'INACTIVE' && <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[10px] font-bold sm:text-xs ${selected ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}>{tab.count}</span>}
+                  {tab.id !== 'INACTIVE' && <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-normal text-neutral-900">{tab.count}</span>}
                 </button>
               );
             })}
@@ -236,9 +234,9 @@ export default function VendorApplications() {
                     const selected = selectedApplication?.id === application.id;
                     return (
                       <button key={application.id} type="button" onClick={() => setSelectedApplicationId(application.id)} aria-pressed={selected} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${selected ? 'border-slate-200 bg-slate-100' : 'border-transparent bg-white hover:bg-slate-50'}`}>
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-400 text-sm font-bold text-white">{initials}</span>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#dd2349] text-sm font-normal text-white">{initials}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block break-words font-bold text-slate-900">{vendorName}</span>
+                          <span className="block break-words text-sm font-normal text-slate-900">{vendorName}</span>
                           <span className="mt-1 block truncate text-sm text-slate-500">{application.event?.title || application.vendor?.vendorProfile?.productsServices?.[0] || 'Vendor'} · {application.vendor?.vendorProfile?.supportingDocumentUrls?.length ?? 0} documents</span>
                         </span>
                         <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{formatRelativeTime(application.createdAt)}</span>
@@ -257,26 +255,26 @@ export default function VendorApplications() {
                 const vendorName = profile?.businessName || application.companyName;
                 const initials = vendorName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'V';
                 return (
-                  <article key={application.id} className="min-w-0 rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <article key={application.id} className="w-full min-w-0 max-w-2xl self-start rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-400 text-base font-bold text-white">{initials}</span>
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#dd2349] text-sm font-normal text-white">{initials}</span>
                         <div className="min-w-0">
-                          <h2 className="break-words text-lg font-bold text-slate-900 sm:text-xl">{vendorName}</h2>
+                          <h2 className="break-words text-sm font-normal text-slate-900">{vendorName}</h2>
                           <p className="mt-1 text-sm text-slate-600">{application.vendor?.firstname} {application.vendor?.lastname}{application.vendor?.email && <> · <a className="text-brand-700 underline" href={`mailto:${application.vendor.email}`}>{application.vendor.email}</a></>}</p>
                         </div>
                       </div>
                       <Badge variant={application.vendor?.isActive === false ? 'danger' : statusVariant[application.status]}>{application.vendor?.isActive === false ? 'Inactive' : application.status.replace('_', ' ')}</Badge>
                     </div>
 
-                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">CIPC number</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.businessRegistrationNumber || application.registrationNumber || 'Not provided'}</p></div>
-                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">Contact</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.contactEmail || application.vendor?.email || 'Not provided'}</p></div>
-                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-3"><p className="text-xs uppercase tracking-wider text-slate-500">Category</p><p className="mt-2 break-words font-semibold text-slate-900">{profile?.productsServices?.[0] || 'Not provided'}</p></div>
+                    <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-2"><p className="text-xs uppercase tracking-wider text-slate-500">CIPC number</p><p className="mt-1 break-words text-sm font-normal text-slate-900">{profile?.businessRegistrationNumber || application.registrationNumber || 'Not provided'}</p></div>
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-2"><p className="text-xs uppercase tracking-wider text-slate-500">Contact</p><p className="mt-1 break-words text-sm font-normal text-slate-900">{profile?.contactEmail || application.vendor?.email || 'Not provided'}</p></div>
+                      <div className="rounded-[10px] border border-slate-200 bg-[#f7f7f7] p-2"><p className="text-xs uppercase tracking-wider text-slate-500">Category</p><p className="mt-1 break-words text-sm font-normal text-slate-900">{profile?.productsServices?.[0] || 'Not provided'}</p></div>
                     </div>
 
-                    <section className="mb-4 rounded-[12px] border border-slate-200 bg-[#f9f9f9] p-4">
-                      <h3 className="mb-3 text-base font-bold text-slate-900">Documents</h3>
+                    <section className="mb-3 rounded-[12px] border border-slate-200 bg-[#f9f9f9] p-3">
+                      <h3 className="mb-2 text-sm font-normal text-slate-900">Documents</h3>
                       {documentLinks.length > 0 ? (
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                           {documentLinks.map((document, index) => {
@@ -288,15 +286,15 @@ export default function VendorApplications() {
                       ) : <p className="text-sm text-slate-500">No supporting documents provided.</p>}
                     </section>
 
-                    <section className="mb-5">
-                      <h3 className="mb-2 text-base font-bold text-slate-900">About</h3>
+                    <section className="mb-3">
+                      <h3 className="mb-1 text-sm font-normal text-slate-900">About</h3>
                       <p className="whitespace-pre-line text-sm leading-6 text-slate-600">{profile?.businessDescription || application.description || 'No business description provided.'}</p>
                     </section>
 
-                    <div className="mb-5 rounded-xl border border-slate-200 p-4">
-                      {eventTitle && <p className="mb-3 text-sm font-semibold text-slate-900">Application for {eventTitle}</p>}
+                    <div className="mb-3 rounded-xl border border-slate-200 p-3">
+                      {eventTitle && <p className="mb-2 text-sm font-normal text-slate-900">Application for {eventTitle}</p>}
                       <section>
-                        <h3 className="text-sm font-bold text-neutral-900">Requested stand</h3>
+                        <h3 className="text-sm font-normal text-neutral-900">Requested stand</h3>
                         <dl className="mt-2 space-y-2 text-sm">
                           <div><dt className="inline font-medium text-neutral-600">Type and size: </dt><dd className="inline text-neutral-800">{application.requestedStandType} · {application.requestedStandSize}</dd></div>
                           <div><dt className="font-medium text-neutral-600">Setup and requirements</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{application.standDescription}</dd></div>

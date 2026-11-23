@@ -1,12 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from '@/components/layout/NotificationBell';
-import { getEvents } from '@/services/eventService';
-import { getUsers } from '@/services/userService';
-import { getAdminAuditHistory, getAdminDashboardOverview, type AdminAuditEvent, type AdminDashboardOverview } from '@/services/adminService';
+import Spinner from '@/components/legacy/Spinner';
 import { useAuth } from '@/context/useAuth';
+import { getAdminAuditHistory, type AdminAuditEvent } from '@/services/adminService';
+import { getAdminEventReportSummary, getEvents } from '@/services/eventService';
+import { getOrganizers } from '@/services/organizerService';
+import { getPendingVendorProfiles } from '@/services/vendorService';
+import { getUsers } from '@/services/userService';
 import type { Event } from '@/types/event';
-import type { User } from '@/types/user';
+import type { User, UserRole } from '@/types/user';
 
 interface SearchResult {
   id: string;
@@ -16,7 +20,29 @@ interface SearchResult {
   to: string;
 }
 
-type RecentAuditEvent = AdminAuditEvent & { affectedUserName?: string };
+interface DashboardStats {
+  totalUsers: number;
+  attendees: number;
+  vendors: number;
+  organizers: number;
+  admins: number;
+  pendingOrganizers: number;
+  pendingVendors: number;
+  totalEvents: number;
+  publishedEvents: number;
+  cancelledEvents: number;
+  completedEvents: number;
+  totalBookings: number;
+  attendancePercentage: number;
+}
+
+const roleLabel: Record<UserRole, string> = {
+  ATTENDEE: 'Attendee', VENDOR: 'Vendor', ORGANIZER: 'Organizer', ADMIN: 'Admin',
+};
+
+const getErrorMessage = (error: unknown) => axios.isAxiosError<{ message?: string }>(error)
+  ? error.response?.data.message ?? 'Admin dashboard data could not be loaded.'
+  : 'Admin dashboard data could not be loaded.';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -25,350 +51,191 @@ export default function AdminDashboard() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
-  const [recentActivity, setRecentActivity] = useState<RecentAuditEvent[]>([]);
-  const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
-  const [activeItem, setActiveItem] = useState('Dashboard');
-  const [showAwaitingMenu, setShowAwaitingMenu] = useState(true);
-  const review = overview?.review;
-  const statCards = [
-    { title: 'Events to review', count: review?.events.count, oldest: review?.events.oldestWaitingHours, link: 'Open queue →', to: '/admin/approvals' },
-    { title: 'Organisers to vet', count: review?.organizers.count, oldest: review?.organizers.oldestWaitingHours, link: 'Review →', to: '/admin/users/organizers/pending' },
-    { title: 'Vendors to vet', count: review?.vendors.count, oldest: review?.vendors.oldestWaitingHours, link: 'Review →', to: '/admin/users/vendors/pending' },
-  ];
-  const summaryStats = [
-    { label: 'Upcoming published events', value: overview?.reports.upcomingPublishedEvents },
-    { label: 'Bookings this week', value: overview?.reports.bookingsThisWeek },
-    { label: 'Attendance, last 30 days', value: overview ? `${overview.reports.attendanceLast30Days}%` : undefined },
-  ];
-  const reviewItems = [
-    { label: 'Dashboard', active: true, count: 0 },
-    { label: 'Awaiting Approval', active: false, count: 3 },
-    { label: 'Organisers', active: false, count: 2 },
-    { label: 'Vendors', active: false, count: 1 },
-    { label: 'People', active: false, count: 0 },
-    { label: 'Reports', active: false, count: 0 },
-    { label: 'Audit history', active: false, count: 0 },
-    { label: 'Notifications', active: false, count: 0 },
-  ];
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<AdminAuditEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    Promise.allSettled([getAdminAuditHistory(), getUsers(), getAdminDashboardOverview()]).then(([auditResult, usersResult, overviewResult]) => {
-      if (active && overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
-      if (!active || auditResult.status !== 'fulfilled') return;
-      const users = usersResult.status === 'fulfilled' ? usersResult.value.data.data : [];
-      const userNames = new Map(users.map(user => [user.id, `${user.firstname} ${user.lastname}`]));
-      setRecentActivity(auditResult.value.data.data.slice(0, 4).map(activity => ({
-        ...activity,
-        affectedUserName: activity.affectedUserId ? userNames.get(activity.affectedUserId) : undefined,
-      })));
-    });
-    return () => { active = false; };
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const roles: UserRole[] = ['ATTENDEE', 'VENDOR', 'ORGANIZER', 'ADMIN'];
+      const [allUsers, roleCounts, organizers, vendors, report, audit] = await Promise.all([
+        getUsers({ page: 1, limit: 1 }),
+        Promise.all(roles.map(role => getUsers({ page: 1, limit: 1, role }))),
+        getOrganizers(),
+        getPendingVendorProfiles(),
+        getAdminEventReportSummary(),
+        getAdminAuditHistory(),
+      ]);
+      const usersByRole = new Map(roles.map((role, index) => [role, roleCounts[index].data.pagination.total]));
+      const eventSummary = report.data.data.summary;
+      setStats({
+        totalUsers: allUsers.data.pagination.total,
+        attendees: usersByRole.get('ATTENDEE') ?? 0,
+        vendors: usersByRole.get('VENDOR') ?? 0,
+        organizers: usersByRole.get('ORGANIZER') ?? 0,
+        admins: usersByRole.get('ADMIN') ?? 0,
+        pendingOrganizers: organizers.data.data.filter(item => item.profileApprovalStatus === 'PENDING_APPROVAL' && item.isActive).length,
+        pendingVendors: vendors.data.data.filter(item => item.user.isActive).length,
+        totalEvents: eventSummary.totalEvents,
+        publishedEvents: eventSummary.publishedEvents,
+        cancelledEvents: eventSummary.cancelledEvents,
+        completedEvents: eventSummary.completedEvents,
+        totalBookings: eventSummary.totalBookings,
+        attendancePercentage: eventSummary.attendancePercentage,
+      });
+      setRecentActivity(audit.data.data.slice(0, 6));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = search.trim().toLowerCase();
-    if (!query) {
-      setSearchResults([]);
-      return;
-    }
-
+    const query = search.trim();
+    if (!query) { setSearchResults([]); setSearchError(''); return; }
     setSearching(true);
     setSearchError('');
     try {
-      const [eventsResponse, usersResponse] = await Promise.all([getEvents(), getUsers()]);
+      const [eventsResponse, usersResponse] = await Promise.all([
+        getEvents(), getUsers({ search: query, page: 1, limit: 5 }),
+      ]);
       const eventResults: SearchResult[] = eventsResponse.data.data
-        .filter((event: Event) => event.title.toLowerCase().includes(query))
+        .filter((event: Event) => event.title.toLowerCase().includes(query.toLowerCase()))
         .slice(0, 5)
-        .map((event: Event) => ({ id: event.id, title: event.title, detail: 'Event', kind: 'Event', to: `/events/${event.id}` }));
-      const userResults: SearchResult[] = usersResponse.data.data
-        .filter((user: User) => `${user.firstname} ${user.lastname} ${user.email}`.toLowerCase().includes(query))
-        .slice(0, 5)
-        .map((user: User) => ({
-          id: user.id,
-          title: `${user.firstname} ${user.lastname}`,
-          detail: `${user.email} · ${user.role.toLowerCase()}`,
-          kind: 'Person',
-          to: user.role === 'ORGANIZER' ? '/admin/users/organizers' : user.role === 'VENDOR' ? '/admin/users/vendors' : '/admin/user-accounts',
-        }));
+        .map((event: Event) => ({ id: event.id, title: event.title, detail: 'Published event', kind: 'Event', to: `/events/${event.id}` }));
+      const userResults: SearchResult[] = usersResponse.data.data.map((person: User) => ({
+        id: person.id,
+        title: `${person.firstname} ${person.lastname}`,
+        detail: `${person.email} · ${roleLabel[person.role]}`,
+        kind: 'Person',
+        to: `/admin/user-accounts?search=${encodeURIComponent(person.email)}`,
+      }));
       setSearchResults([...eventResults, ...userResults]);
-      if (eventResults.length === 0 && userResults.length === 0) setSearchError('No matching events or people found.');
-    } catch {
-      setSearchError('Search could not be completed. Please try again.');
+      if (!eventResults.length && !userResults.length) setSearchError('No matching published events or people were found.');
+    } catch (searchLoadError) {
+      setSearchError(getErrorMessage(searchLoadError));
       setSearchResults([]);
     } finally {
       setSearching(false);
     }
   };
 
+  const firstName = user?.firstname || 'Administrator';
+  const userCards = [
+    { label: 'Registered users', value: stats?.totalUsers, hint: 'All account roles', tone: 'rose' },
+    { label: 'Attendees', value: stats?.attendees, hint: 'Event participants', tone: 'blue' },
+    { label: 'Organizers', value: stats?.organizers, hint: `${stats?.pendingOrganizers ?? '—'} awaiting review`, tone: 'violet' },
+    { label: 'Vendors', value: stats?.vendors, hint: `${stats?.pendingVendors ?? '—'} awaiting review`, tone: 'teal' },
+  ];
+  const eventCards = [
+    { label: 'Total events', value: stats?.totalEvents },
+    { label: 'Published', value: stats?.publishedEvents },
+    { label: 'Completed', value: stats?.completedEvents },
+    { label: 'Cancelled', value: stats?.cancelledEvents },
+    { label: 'Bookings', value: stats?.totalBookings },
+    { label: 'Attendance', value: stats ? `${stats.attendancePercentage}%` : undefined },
+  ];
+
   return (
-    <div className="min-h-full bg-transparent text-[#1f2937] antialiased">
-      <div className="w-full overflow-hidden rounded-[12px] border border-[#dfe3ea] bg-[#f4f4f2]">
-        <div className="flex">
-          <aside className="hidden">
-            <div className="mb-6 flex items-center gap-3 rounded-xl bg-[#f3f4f5] px-2 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#f15d5d] text-sm font-bold text-white">E</div>
-              <div className="text-[29px] font-extrabold tracking-[-0.05em] text-[#1f2937]">EventMS</div>
-            </div>
-
-            <div className="mb-3 px-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#8c93a0]">Admin</div>
-            <nav className="space-y-1.5">
-              {reviewItems.map((item) => {
-                const isAwaiting = item.label === 'Awaiting Approval';
-                const isActive = activeItem === item.label;
-
-                return (
-                  <div key={item.label} className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveItem(item.label);
-
-                        if (isAwaiting) {
-                          setShowAwaitingMenu((current) => !current);
-                          navigate('/admin/approvals');
-                          return;
-                        }
-                        if (item.label === 'Dashboard') navigate('/admin');
-                        if (item.label === 'Organisers') navigate('/admin/users/organizers');
-                        if (item.label === 'Vendors') navigate('/admin/users/vendors');
-                        if (item.label === 'People') navigate('/admin/user-accounts');
-                        if (item.label === 'Audit history') navigate('/admin/audit');
-                      }}
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[14px] ${
-                        isActive ? 'bg-[#f0e7ee] text-[#1f2937] shadow-inner shadow-[#efe2eb]' : 'text-[#4b5563] hover:bg-[#eef1f4]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <span className={`flex h-4 w-4 items-center justify-center ${isActive ? 'text-[#d14d74]' : 'text-[#6b7280]'}`}>
-                          {item.label === 'Dashboard' ? <HomeIcon /> : item.label === 'Awaiting Approval' ? <ListIcon /> : item.label === 'Organisers' ? <UsersIcon /> : item.label === 'Vendors' ? <StoreIcon /> : item.label === 'People' ? <UsersIcon /> : item.label === 'Reports' ? <ReportIcon /> : item.label === 'Audit history' ? <ShieldIcon /> : <BellIcon />}
-                        </span>
-                        <span className="font-medium">{item.label}</span>
-                      </span>
-                      <span className="flex items-center gap-2">
-                        {item.count > 0 && (
-                          <span className="min-w-[18px] rounded-full bg-[#f7dfe4] px-1.5 py-0.5 text-center text-[11px] font-bold text-[#d14d74]">
-                            {item.count}
-                          </span>
-                        )}
-                        {isAwaiting && (
-                          <span className="text-[10px] font-bold text-[#687280]">{showAwaitingMenu ? '▾' : '▸'}</span>
-                        )}
-                      </span>
-                    </button>
-
-                    {isAwaiting && showAwaitingMenu && (
-                      <div className="ml-6 space-y-1 rounded-lg border border-[#e7e9ed] bg-white/80 p-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveItem('Awaiting Approval');
-                            navigate('/admin/users/organizers');
-                          }}
-                          className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-[#4b5563] hover:bg-[#f4f5f7] hover:text-[#1f2937]"
-                        >
-                          Organizers Requests
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveItem('Awaiting Approval');
-                            navigate('/admin/users/vendors');
-                          }}
-                          className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-[#4b5563] hover:bg-[#f4f5f7] hover:text-[#1f2937]"
-                        >
-                          Vendors Requests
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
-
-            <div className="mt-auto pt-8">
-              <div className="flex items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#cfe9f8] text-[13px] font-bold text-[#24517d]">JV</div>
-                <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-[#1f2937]">Johan van Wyk</div>
-                  <div className="truncate text-[12px] text-[#6b7280]">Administrator</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7c5c5] bg-[#fff7f7] px-3 py-2 text-[13px] font-semibold text-[#ad3a4a] transition hover:bg-[#fff1f2]"
-              >
-                <LogoutIcon />
-                Log out
-              </button>
-            </div>
-          </aside>
-
-          <main className="min-w-0 flex-1 bg-[#f7f7f6] p-5">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div className="text-[15px] font-semibold text-[#5a6470]">Dashboard</div>
-              <div className="flex items-center gap-3">
-                <form onSubmit={handleSearch} className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]">
-                    <SearchIcon />
-                  </span>
-                  <input
-                    value={search}
-                    onChange={(event) => { setSearch(event.target.value); setSearchResults([]); setSearchError(''); }}
-                    aria-label="Search events and people"
-                    placeholder="Search events, people..."
-                    className="h-10 w-[230px] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] text-[#2d3748] placeholder:text-[#9aa3af] focus:outline-none"
-                  />
-                  {(searchResults.length > 0 || searchError || searching) && (
-                    <div className="absolute left-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-xl">
-                      {searching ? <p className="px-4 py-3 text-sm text-[#6b7280]">Searching...</p> : searchError ? <p className="px-4 py-3 text-sm text-[#6b7280]">{searchError}</p> : (
-                        <ul className="max-h-80 divide-y divide-[#eef0f3] overflow-y-auto">
-                          {searchResults.map((result) => (
-                            <li key={`${result.kind}-${result.id}`}>
-                              <button type="button" onClick={() => navigate(result.to)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f7f8fa]">
-                                <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#1f2937]">{result.title}</span><span className="block truncate text-xs text-[#6b7280]">{result.detail}</span></span>
-                                <span className="shrink-0 text-[10px] font-bold uppercase text-[#8c93a0]">{result.kind}</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </form>
-                <NotificationBell />
-              </div>
-            </div>
-
-            <div className="mb-5">
-              <h1 className="text-[31px] font-extrabold tracking-[-0.05em] text-[#1f2937]">Good morning, {user?.firstname || 'Admin'}</h1>
-              <p className="mt-1 text-[14px] text-[#6b7280]">{overview ? `${statCards.reduce((total, card) => total + (card.count ?? 0), 0)} items are waiting for a decision.` : 'Loading review queue…'}</p>
-            </div>
-
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {statCards.map((card, index) => (
-                <div key={card.title} className={`rounded-[12px] border border-[#dfe3ea] p-4 ${index === 0 ? 'bg-[#f5efe4] text-[#1f2937]' : 'bg-white text-[#1f2937]'}`}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-[15px] font-semibold text-[#1f2937]">{card.title}</div>
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#dfe3ea] bg-white text-[#5d6573]">
-                      {index === 0 ? <ListIcon /> : <UsersIcon />}
-                    </span>
-                  </div>
-                  <div className="text-[32px] font-extrabold tracking-[-0.04em] text-[#111827]">{card.count ?? '—'}</div>
-                  <div className="mt-1 text-[12px] text-[#6b7280]">{card.oldest == null ? 'No items waiting' : `Oldest waiting ${formatWaiting(card.oldest)}`}</div>
-                  <button type="button" onClick={() => navigate(card.to)} className="mt-3 text-[12px] font-semibold text-[#d14d74] hover:text-[#bf3158]">{card.link}</button>
-                </div>
-              ))}
-            </div>
-
-            <section id="reports" aria-labelledby="admin-reports-title" className="mb-6 scroll-mt-5">
-              <h2 id="admin-reports-title" className="mb-3 text-[31px] font-extrabold tracking-[-0.05em] text-[#1f2937]">Reports overview</h2>
-              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                {summaryStats.map(stat => (
-                  <div key={stat.label} className="rounded-[12px] border border-[#e5e7eb] bg-white px-4 py-5">
-                    <div className="text-[12px] font-medium text-[#697482]">{stat.label}</div>
-                    <div className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-[#111827]">{stat.value ?? '—'}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section aria-labelledby="admin-recent-activity-title" className="rounded-[12px] border border-[#e5e7eb] bg-white p-4 sm:p-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="admin-recent-activity-title" className="text-[15px] font-bold text-[#1f2937]">Recent activity</h2>
-                <button type="button" onClick={() => navigate('/admin/audit')} className="shrink-0 text-[11px] font-bold text-rose-700 hover:text-rose-800">
-                  Audit history →
-                </button>
-              </div>
-              {recentActivity.length > 0 ? (
-                <ul className="divide-y divide-[#eef0f3]">
-                  {recentActivity.map(activity => (
-                    <li key={activity.id} className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#dcebf7] text-[9px] font-bold text-[#24517d]">
-                        {`${activity.actor.firstname[0] ?? ''}${activity.actor.lastname[0] ?? ''}`.toUpperCase() || 'A'}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] leading-4 text-[#1f2937]">
-                          <span className="font-bold">{activity.actor.firstname} {activity.actor.lastname}</span>{' '}
-                          {formatAuditAction(activity.action)}
-                          {activity.affectedUserName && <span className="text-[#5f6b7a]"> · {activity.affectedUserName}</span>}
-                        </p>
-                        <p className="mt-0.5 text-[10px] capitalize text-[#6b7280]">{activity.outcome.replaceAll('_', ' ')}</p>
-                      </div>
-                      <time dateTime={activity.createdAt} className="shrink-0 pt-0.5 text-[10px] text-[#8c93a0]">
-                        {new Date(activity.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="py-3 text-sm text-[#6b7280]">No recent administrative activity.</p>
-              )}
-            </section>
-
-          </main>
+    <div className="min-h-full space-y-5 text-[#1f2937] antialiased sm:space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm sm:px-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a63f61]">EventMS administration</p>
+          <p className="mt-1 text-sm font-medium text-[#5a6470]">Overview</p>
         </div>
-      </div>
+        <div className="flex items-center gap-3">
+          <form onSubmit={handleSearch} className="relative">
+            <label className="sr-only" htmlFor="admin-global-search">Search events and people</label>
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa3af]"><SearchIcon /></span>
+            <input id="admin-global-search" value={search} onChange={event => { setSearch(event.target.value); setSearchResults([]); setSearchError(''); }} placeholder="Search events, people..." className="h-10 w-[min(230px,52vw)] rounded-lg border border-[#dfe3ea] bg-white pl-9 pr-3 text-[13px] outline-none focus:border-[#d14d74] focus:ring-2 focus:ring-[#f7dfe4]" />
+            {(searchResults.length > 0 || searchError || searching) && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-[#dfe3ea] bg-white shadow-xl">
+                {searching ? <p className="px-4 py-3 text-sm text-[#6b7280]">Searching...</p> : searchError ? <p className="px-4 py-3 text-sm text-[#6b7280]">{searchError}</p> : (
+                  <ul className="max-h-80 divide-y divide-[#eef0f3] overflow-y-auto">
+                    {searchResults.map(result => <li key={`${result.kind}-${result.id}`}><button type="button" onClick={() => navigate(result.to)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f7f8fa]"><span className="min-w-0"><span className="block truncate text-sm font-semibold">{result.title}</span><span className="block truncate text-xs text-[#6b7280]">{result.detail}</span></span><span className="text-[10px] font-bold uppercase text-[#8c93a0]">{result.kind}</span></button></li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+          </form>
+          <NotificationBell />
+        </div>
+      </header>
+
+      <section className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[#a63f61]">Platform overview</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.05em] sm:text-4xl">Welcome back, {firstName}</h1>
+          <p className="mt-2 text-sm text-[#667085]">A current view of accounts, event activity, and profile reviews.</p>
+        </div>
+        <button type="button" onClick={() => void loadDashboard()} disabled={loading} className="rounded-lg border border-[#dfe3ea] bg-white px-3.5 py-2 text-xs font-semibold text-[#374151] shadow-sm hover:bg-[#f8f8f7] disabled:opacity-50">Refresh data</button>
+      </section>
+
+      {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><span>{error}</span><button type="button" onClick={() => void loadDashboard()} className="font-semibold underline">Try again</button></div>}
+
+      <section aria-labelledby="user-metrics-title">
+        <div className="mb-3 flex items-center justify-between gap-3"><h2 id="user-metrics-title" className="text-sm font-bold text-[#364152]">Accounts</h2><Link to="/admin/user-accounts" className="text-xs font-semibold text-[#a63f61] hover:text-[#81344f]">Manage users →</Link></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {userCards.map(card => <MetricCard key={card.label} {...card} loading={loading} />)}
+        </div>
+      </section>
+
+      <section aria-labelledby="review-queue-title">
+        <div className="mb-3 flex items-center justify-between gap-3"><div><h2 id="review-queue-title" className="text-sm font-bold text-[#364152]">Profile review queue</h2><p className="mt-0.5 text-xs text-[#7b8491]">Review organizer and vendor profiles. Events are managed by organizers.</p></div></div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <ReviewCard title="Organizer profiles" description="Verify organizer identity and organization details." count={stats?.pendingOrganizers} loading={loading} to="/admin/users/organizers/pending" tone="violet" />
+          <ReviewCard title="Vendor profiles" description="Review business information and submitted documents." count={stats?.pendingVendors} loading={loading} to="/admin/users/vendors/pending" tone="teal" />
+        </div>
+      </section>
+
+      <section aria-labelledby="event-metrics-title">
+        <div className="mb-3 flex items-center justify-between gap-3"><div><h2 id="event-metrics-title" className="text-sm font-bold text-[#364152]">Events and activity</h2><p className="mt-0.5 text-xs text-[#7b8491]">Live counts from event and booking reports.</p></div><Link to="/admin/reports" className="text-xs font-semibold text-[#a63f61] hover:text-[#81344f]">Open reports →</Link></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {eventCards.map(card => <div key={card.label} className="rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm"><p className="text-xs font-medium text-[#697482]">{card.label}</p><p className="mt-2 text-2xl font-extrabold tracking-tight">{loading ? <span className="text-[#c2c7ce]">···</span> : formatValue(card.value)}</p></div>)}
+        </div>
+      </section>
+
+      <section aria-labelledby="admin-recent-activity-title" className="rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3"><div><h2 id="admin-recent-activity-title" className="text-sm font-bold">Recent administrative activity</h2><p className="mt-0.5 text-xs text-[#7b8491]">Recorded decisions and account changes.</p></div><Link to="/admin/audit" className="text-xs font-semibold text-[#a63f61] hover:text-[#81344f]">Audit history →</Link></div>
+        {loading && !recentActivity.length ? <div className="flex justify-center py-8"><Spinner /></div> : recentActivity.length ? (
+          <ul className="divide-y divide-[#eef0f3]">
+            {recentActivity.map(activity => <li key={activity.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f5e8ed] text-xs font-bold text-[#923b58]">{`${activity.actor.firstname[0] ?? ''}${activity.actor.lastname[0] ?? ''}`.toUpperCase() || 'A'}</span><div className="min-w-0 flex-1"><p className="text-sm text-[#273142]"><span className="font-semibold">{activity.actor.firstname} {activity.actor.lastname}</span> {formatAuditAction(activity.action)}</p><p className="mt-0.5 text-xs capitalize text-[#7b8491]">{activity.outcome.replaceAll('_', ' ')}</p></div><time dateTime={activity.createdAt} className="shrink-0 text-xs text-[#7b8491]">{new Date(activity.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</time></li>)}
+          </ul>
+        ) : <p className="py-6 text-center text-sm text-[#6b7280]">No recent administrative activity.</p>}
+      </section>
     </div>
   );
 }
 
+function MetricCard({ label, value, hint, tone, loading }: { label: string; value?: number; hint: string; tone: string; loading: boolean }) {
+  const tones: Record<string, string> = { rose: 'bg-[#f8e9ee] text-[#a63f61]', blue: 'bg-[#e9f1fa] text-[#38648b]', violet: 'bg-[#f0eafa] text-[#7050a0]', teal: 'bg-[#e6f5f2] text-[#287d70]' };
+  return <div className="rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><p className="text-xs font-semibold text-[#697482]">{label}</p><span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${tones[tone]}`}>Total</span></div><p className="mt-2 text-3xl font-extrabold tracking-[-0.04em]">{loading ? <span className="text-[#c2c7ce]">···</span> : formatValue(value)}</p><p className="mt-1 text-xs text-[#7b8491]">{hint}</p></div>;
+}
+
+function ReviewCard({ title, description, count, loading, to, tone }: { title: string; description: string; count?: number; loading: boolean; to: string; tone: 'violet' | 'teal' }) {
+  const accent = tone === 'violet' ? 'bg-[#f0eafa] text-[#7050a0]' : 'bg-[#e6f5f2] text-[#287d70]';
+  return <Link to={to} className="group flex items-center gap-4 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d8ccd1] hover:shadow-md"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accent}`}><ClipboardIcon /></span><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-[#273142]">{title}</span><span className="mt-1 block text-xs text-[#7b8491]">{description}</span></span><span className="flex shrink-0 flex-col items-end"><span className="text-2xl font-extrabold">{loading ? '···' : formatValue(count)}</span><span className="text-[10px] font-semibold text-[#7b8491]">pending</span></span><span className="text-[#a63f61] transition group-hover:translate-x-0.5">→</span></Link>;
+}
+
+function formatValue(value: number | string | undefined) { return value === undefined ? '—' : typeof value === 'number' ? value.toLocaleString('en-ZA') : value; }
+
 function formatAuditAction(action: string) {
   const labels: Record<string, string> = {
-    ORGANIZER_PROFILE_APPROVED: 'approved an organizer profile',
-    ORGANIZER_PROFILE_REJECTED: 'rejected an organizer profile',
-    ORGANIZER_ACCOUNT_CREATED: 'created an organizer account',
-    ORGANIZER_ACCOUNT_DELETED: 'deleted an organizer account',
-    VENDOR_PROFILE_APPROVED: 'approved a vendor profile',
-    VENDOR_PROFILE_REJECTED: 'rejected a vendor profile',
-    VENDOR_ACCOUNT_DELETED: 'deleted a vendor account',
-    ADMIN_ACCOUNT_CREATED: 'created an admin account',
-    ADMIN_ACCOUNT_STATUS_UPDATED: 'updated an admin account',
+    ORGANIZER_PROFILE_APPROVED: 'approved an organizer profile', ORGANIZER_PROFILE_REJECTED: 'rejected an organizer profile',
+    ORGANIZER_ACCOUNT_CREATED: 'created an organizer account', ORGANIZER_ACCOUNT_DELETED: 'deleted an organizer account',
+    VENDOR_PROFILE_APPROVED: 'approved a vendor profile', VENDOR_PROFILE_REJECTED: 'rejected a vendor profile',
+    VENDOR_ACCOUNT_DELETED: 'deleted a vendor account', USER_ACCOUNT_DEACTIVATED: 'deactivated a user account',
+    USER_ACCOUNT_ACTIVATED: 'activated a user account', USER_ROLE_UPDATED: 'updated a user role',
   };
   return labels[action] ?? action.toLowerCase().replaceAll('_', ' ');
 }
 
-function formatWaiting(hours: number) {
-  if (hours < 24) return `${hours} h`;
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
-  return remainingHours ? `${days} day${days === 1 ? '' : 's'} ${remainingHours} h` : `${days} day${days === 1 ? '' : 's'}`;
-}
-
-function HomeIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 10.5 12 4l8 6.5V18a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-7.5Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ListIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 8v-1a4 4 0 0 0-3-3.87M20 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function StoreIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M4 8h16l-1 11H5L4 8Zm3-3h10l1 3H6l1-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ReportIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M7 18V9m5 9V5m5 13v-7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function ShieldIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 3 5 6v5c0 5 3.4 8.6 7 10 3.6-1.4 7-5 7-10V6l-7-3Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function BellIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
-function SearchIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" strokeLinecap="round" /></svg>;
-}
-
-function LogoutIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
+function SearchIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" strokeLinecap="round" /></svg>; }
+function ClipboardIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-5 w-5"><rect x="5" y="5" width="14" height="16" rx="2" /><path d="M9 5.5h6V3H9v2.5ZM9 11h6M9 15h6" strokeLinecap="round" /></svg>; }

@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AttendeeLayout from '@/components/attendee/AttendeeLayout';
 import EventArtwork from '@/components/attendee/EventArtwork';
 import Button from '@/components/legacy/Button';
 import Spinner from '@/components/legacy/Spinner';
 import { cancelBooking, getMyBookings } from '@/services/bookingService';
-import { startPayFastCheckout, submitPayFastCheckout } from '@/services/paymentService';
 import type { Booking } from '@/types/booking';
 
 type BookingTab = 'upcoming' | 'waitlist' | 'past' | 'cancelled';
 
 export default function AttendeeBookings() {
-  const { pathname } = useLocation();
-  const ticketsOnly = pathname === '/attendee/tickets';
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,18 +93,8 @@ export default function AttendeeBookings() {
     }
   };
 
-  const handlePayment = async (bookingId: string) => {
-    setError('');
-    setNotice('');
-    setProcessingId(bookingId);
-    try {
-      const response = await startPayFastCheckout(bookingId);
-      submitPayFastCheckout(response.data.data);
-    } catch (paymentError) {
-      setError(getErrorMessage(paymentError, 'PayFast checkout could not be started.'));
-    } finally {
-      setProcessingId(null);
-    }
+  const handlePayment = (bookingId: string) => {
+    navigate(`/attendee/payment/simulate?bookingId=${encodeURIComponent(bookingId)}`);
   };
 
   const shareEvent = async (booking: Booking) => {
@@ -130,59 +118,46 @@ export default function AttendeeBookings() {
   const pastBookings = bookings.filter(booking =>
     booking.status !== 'CANCELLED' && new Date(booking.event.startTime) < now);
   const cancelledBookings = bookings.filter(booking => booking.status === 'CANCELLED');
-  const visibleBookings = ticketsOnly
-    ? bookings.filter(booking => booking.tickets.length > 0)
-    : tab === 'upcoming'
-      ? upcomingBookings
-      : tab === 'past'
-        ? pastBookings
-        : tab === 'cancelled'
-          ? cancelledBookings
-          : [];
+  const visibleBookings = tab === 'upcoming'
+    ? upcomingBookings
+    : tab === 'past'
+      ? pastBookings
+      : tab === 'cancelled'
+        ? cancelledBookings
+        : [];
 
   return (
       <AttendeeLayout mainClassName="mx-auto w-full max-w-[1100px] px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">
-              {ticketsOnly ? 'My tickets' : 'My bookings'}
+              My bookings
             </h1>
             <p className="mt-1 text-sm text-neutral-500">
-              {ticketsOnly
-                ? 'View ticket references and booking details for your events.'
-                : 'Review your reservations, complete pending payments, or cancel upcoming bookings.'}
+              Review your reservations, complete pending payments, or cancel upcoming bookings.
             </p>
           </div>
           <div className="flex gap-2">
-            {!ticketsOnly && <Link to="/attendee" className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">Discover events</Link>}
+            <Link to="/attendee" className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">Discover events</Link>
             <Button variant="secondary" size="sm" onClick={() => void loadBookings()} loading={loading}>Refresh</Button>
           </div>
         </div>
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          {!ticketsOnly ? (
-            <div className="flex flex-wrap gap-1 rounded-lg bg-neutral-100 p-1" role="tablist" aria-label="Booking status">
-              <BookingTabButton selected={tab === 'upcoming'} onClick={() => setTab('upcoming')} label="Upcoming" count={upcomingBookings.length} />
-              <button
-                type="button"
-                disabled
-                title="Waitlists are not available yet."
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-neutral-400"
-              >
-                Waitlist <span className="ml-1 rounded-full bg-white px-1.5 py-0.5 text-[10px]">0</span>
-              </button>
-              <BookingTabButton selected={tab === 'past'} onClick={() => setTab('past')} label="Past" count={pastBookings.length} />
-              <BookingTabButton selected={tab === 'cancelled'} onClick={() => setTab('cancelled')} label="Cancelled" count={cancelledBookings.length} />
-            </div>
-          ) : (
-            <div className="flex gap-1 rounded-lg bg-neutral-100 p-1">
-              <Link to="/attendee/bookings" className="rounded-md px-3 py-1.5 text-xs font-medium text-neutral-600">Bookings</Link>
-              <Link to="/attendee/tickets" aria-current="page" className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-neutral-950 shadow-sm">Tickets</Link>
-            </div>
-          )}
-          {!ticketsOnly && (
-            <Link to="/attendee/tickets" className="text-xs font-semibold text-neutral-700 hover:text-neutral-950">My tickets →</Link>
-          )}
+          <div className="flex flex-wrap gap-1 rounded-lg bg-neutral-100 p-1" role="tablist" aria-label="Booking status">
+            <BookingTabButton selected={tab === 'upcoming'} onClick={() => setTab('upcoming')} label="Upcoming" count={upcomingBookings.length} />
+            <button
+              type="button"
+              disabled
+              title="Waitlists are not available yet."
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-neutral-400"
+            >
+              Waitlist <span className="ml-1 rounded-full bg-white px-1.5 py-0.5 text-[10px]">0</span>
+            </button>
+            <BookingTabButton selected={tab === 'past'} onClick={() => setTab('past')} label="Past" count={pastBookings.length} />
+            <BookingTabButton selected={tab === 'cancelled'} onClick={() => setTab('cancelled')} label="Cancelled" count={cancelledBookings.length} />
+          </div>
+          <Link to="/attendee/tickets" className="text-xs font-semibold text-neutral-700 hover:text-neutral-950">My tickets →</Link>
         </div>
 
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
@@ -213,6 +188,8 @@ export default function AttendeeBookings() {
                       {' · '}
                       {booking.eventTicketType?.name ?? booking.ticketType}
                       {' · '}
+                      {booking.quantity} {booking.quantity === 1 ? 'ticket' : 'tickets'}
+                      {' · '}
                       {booking.totalAmount === 0 ? 'Free' : formatPrice(booking.totalAmount)}
                       {' · '}
                       <span className="font-mono">{booking.reference}</span>
@@ -220,17 +197,40 @@ export default function AttendeeBookings() {
                   </div>
                   <BookingStatusBadge status={booking.status} paymentStatus={booking.paymentStatus} />
                   {canPay && (
-                    <Button size="sm" loading={processingId === booking.id} onClick={() => void handlePayment(booking.id)}>
+                    <Button size="sm" onClick={() => handlePayment(booking.id)}>
                       Pay now
                     </Button>
                   )}
-                  {booking.tickets[0] && (
-                    <Link
-                      to={`/attendee/tickets/${booking.tickets[0].id}`}
-                      className="rounded-md bg-neutral-950 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800"
-                    >
-                      View ticket
-                    </Link>
+                  {booking.tickets.length > 0 && (
+                    <div className="w-full border-t border-neutral-100 pt-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-neutral-800">
+                          {booking.tickets.length} {booking.tickets.length === 1 ? 'ticket' : 'tickets'}
+                        </p>
+                        <span className="text-[10px] text-neutral-500">Each ticket has its own entry code</span>
+                      </div>
+                      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {booking.tickets.map((ticket, index) => (
+                          <li key={ticket.id} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-semibold text-neutral-600">
+                                {booking.eventTicketType?.name ?? ticket.type} · Ticket {index + 1}
+                                {ticket.status === 'USED' && <span className="ml-1 text-emerald-700">· Checked in</span>}
+                                {ticket.status === 'CANCELLED' && <span className="ml-1 text-neutral-500">· Cancelled</span>}
+                              </p>
+                              <p className="mt-0.5 truncate font-mono text-xs font-bold text-neutral-950">{ticket.referenceNumber}</p>
+                            </div>
+                            <Link
+                              to={`/attendee/tickets/${ticket.id}`}
+                              className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-neutral-800"
+                              aria-label={`View ticket ${index + 1}, ${ticket.referenceNumber}`}
+                            >
+                              View
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                   <div className="relative">
                     <button
@@ -274,7 +274,7 @@ export default function AttendeeBookings() {
         ) : (
           <div className="rounded-xl border border-dashed border-neutral-300 bg-white py-14 text-center">
             <p className="font-semibold text-neutral-800">
-              {ticketsOnly ? 'No tickets yet' : tab === 'upcoming' ? 'No upcoming bookings' : tab === 'past' ? 'No past events' : tab === 'cancelled' ? 'No cancelled bookings' : 'No waitlisted events'}
+              {tab === 'upcoming' ? 'No upcoming bookings' : tab === 'past' ? 'No past events' : tab === 'cancelled' ? 'No cancelled bookings' : 'No waitlisted events'}
             </p>
             <p className="mt-1 text-sm text-neutral-500">Find an event and register to see it here.</p>
             <Link to="/attendee" className="mt-4 inline-block text-sm font-semibold text-rose-700 hover:text-rose-800">

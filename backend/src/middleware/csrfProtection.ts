@@ -5,11 +5,6 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const configuredOrigin = new URL(config.clientUrl).origin;
 
 export const protectCookieRequests = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.method === 'POST' && req.path === '/api/payments/payfast/itn') {
-    next();
-    return;
-  }
-
   if (SAFE_METHODS.has(req.method)) {
     next();
     return;

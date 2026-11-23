@@ -631,23 +631,30 @@ main.dashboard-shell {
   color: #6b7280;
 }
 
-.vendor-dashboard-content :is(
-  [class*="text-[6px]"],
-  [class*="text-[7px]"],
-  [class*="text-[8px]"],
-  [class*="text-[9px]"],
-  [class*="text-[10px]"],
-  [class*="text-[11px]"],
-  [class*="text-[12px]"],
-  [class*="text-[13px]"]
-) {
-  font-size: var(--text-sm) !important;
-  line-height: 1.4 !important;
+.vendor-dashboard-content *,
+.vendor-notification-panel * {
+  font-size: var(--text-base) !important;
+  font-weight: 400 !important;
+  line-height: var(--leading-normal) !important;
 }
 
-.vendor-profile-page main [class*="text-[14px]"] {
-  font-size: var(--text-lg) !important;
-  line-height: 1.4 !important;
+.vendor-sidebar .vendor-logout-button,
+.vendor-dashboard-content button:not(:disabled):not(.vendor-drawer-backdrop):hover,
+.vendor-dashboard-content .vendor-button:hover,
+.vendor-dashboard-content .vendor-sidebar-action:hover,
+.vendor-notification-panel button:not(:disabled):hover {
+  background-image: radial-gradient(ellipse at 70% 25%, #8d0d2e 0%, #61091e 28%, #1d050b 53%, #080808 75%);
+  color: #fff;
+}
+
+.vendor-dashboard-content button:not(:disabled):hover :is([class*="text-[#222]"], [class*="text-[#777]"], [class*="text-[#888]"]),
+.vendor-notification-panel button:not(:disabled):hover span {
+  color: #fff;
+}
+
+.vendor-sidebar .vendor-sidebar-action:hover .vendor-account-name,
+.vendor-sidebar .vendor-sidebar-action:hover .vendor-account-subtitle {
+  color: #fff;
 }
 
 .dashboard-content:where(:not(.vendor-dashboard-content)) table thead {
@@ -978,6 +985,13 @@ main.organizer-shell {
 .dashboard-content-light .organizer-nav-link:focus-visible {
   outline: 2px solid #f01446;
   outline-offset: 2px;
+}
+
+.organizer-shell .dashboard-content-light button.organizer-status-tab:not(:disabled):hover,
+.organizer-shell .dashboard-content-light button.organizer-status-tab:not(:disabled):focus-visible {
+  background-color: #fecdd3 !important;
+  background-image: none;
+  color: #171717 !important;
 }
 
 .dashboard-content-light .organizer-action-link:focus-visible,

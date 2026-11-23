@@ -16,34 +16,6 @@ import type { PendingVendorProfile, VendorDocument } from '@/types/vendor';
 type QueueTab = 'Pending' | 'Approved' | 'Rejected' | 'Inactive';
 
 const tabs: QueueTab[] = ['Pending', 'Approved', 'Rejected', 'Inactive'];
-const demoVendorProfileId = 'frontend-demo-pending-vendor';
-const demoVendorProfile: PendingVendorProfile = {
-  id: demoVendorProfileId,
-  businessName: 'Moya Handmade Market',
-  businessType: 'Handcrafted goods',
-  businessAddress: '',
-  businessDescription: 'Frontend-only example vendor profile for reviewing the pending approval workflow.',
-  businessRegistrationNumber: '2025/000001/07',
-  contactPerson: 'Nandi Mokoena',
-  contactEmail: 'nandi@moya-market.example',
-  contactPhone: '+27 11 555 0100',
-  productsServices: ['Handcrafted goods'],
-  supportingDocumentUrls: [],
-  status: 'PENDING_REVIEW',
-  rejectionReason: null,
-  reviewedAt: null,
-  createdAt: '2026-11-17T08:00:00.000Z',
-  updatedAt: '2026-11-17T08:00:00.000Z',
-  user: {
-    id: 'frontend-demo-vendor-user',
-    firstname: 'Nandi',
-    lastname: 'Mokoena',
-    email: 'nandi@moya-market.example',
-    isActive: true,
-    createdAt: '2026-11-17T08:00:00.000Z',
-    vendorDocuments: [],
-  },
-};
 
 const responseMessage = (error: unknown, fallback: string): string => (
   axios.isAxiosError<{ message?: string }>(error) ? error.response?.data.message ?? fallback : fallback
@@ -107,15 +79,16 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
 
   useEffect(() => {
     let active = true;
-    Promise.all([getPendingVendorProfiles(), getVendorProfilesByStatus('APPROVED')])
-      .then(([pendingResponse, approvedResponse]) => {
-        if (active) setProfiles([...pendingResponse.data.data, ...approvedResponse.data.data, demoVendorProfile]);
+    Promise.all([
+      getPendingVendorProfiles(),
+      getVendorProfilesByStatus('APPROVED'),
+      getVendorProfilesByStatus('REJECTED'),
+    ])
+      .then(([pendingResponse, approvedResponse, rejectedResponse]) => {
+        if (active) setProfiles([...pendingResponse.data.data, ...approvedResponse.data.data, ...rejectedResponse.data.data]);
       })
       .catch(loadError => {
-        if (active) {
-          setProfiles([demoVendorProfile]);
-          setError(responseMessage(loadError, 'Vendor profiles could not be loaded. The frontend demo profile is still available.'));
-        }
+        if (active) setError(responseMessage(loadError, 'Vendor profiles could not be loaded.'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -148,11 +121,6 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
     setNotice('');
     setApprovingId(profile.id);
     try {
-      if (profile.id === demoVendorProfileId) {
-        setProfiles(current => current.map(item => item.id === profile.id ? { ...item, status: 'APPROVED', rejectionReason: null } : item));
-        setNotice('Demo vendor approved locally. No backend data was changed.');
-        return;
-      }
       const response = await reviewVendorProfile(profile.id, 'approve');
       setProfiles(current => current.map(item => item.id === profile.id ? { ...item, status: 'APPROVED', rejectionReason: null } : item));
       setNotice(response.data.message ?? 'Vendor profile approved. The vendor can now apply for stands.');
@@ -169,15 +137,6 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
     setNotice('');
     setRejectingId(rejectionTarget.id);
     try {
-      if (rejectionTarget.id === demoVendorProfileId) {
-        setProfiles(current => current.map(item => item.id === rejectionTarget.id
-          ? { ...item, status: 'REJECTED', rejectionReason: rejectionReason.trim() }
-          : item));
-        setNotice('Demo vendor rejected locally. No backend data was changed.');
-        setRejectionTarget(null);
-        setRejectionReason('');
-        return;
-      }
       const response = await reviewVendorProfile(rejectionTarget.id, 'reject', rejectionReason.trim());
       setProfiles(current => current.map(item => item.id === rejectionTarget.id
         ? { ...item, status: 'REJECTED', rejectionReason: rejectionReason.trim() }
@@ -264,7 +223,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#5ad1c3] text-[16px] font-bold text-white">{initials(name)}</span>
                         <span className="min-w-0">
                           <span className="block break-words text-[16px] font-bold text-[#1f2937] sm:text-[18px]">{name}</span>
-                          <span className="mt-1 block truncate text-[12px] text-[#5f6b7a]">{profile.productsServices[0] || 'Vendor'} · {profile.user.vendorDocuments.length} documents{profile.id === demoVendorProfileId ? ' · Frontend demo' : ''}</span>
+                          <span className="mt-1 block truncate text-[12px] text-[#5f6b7a]">{profile.productsServices[0] || 'Vendor'} · {profile.user.vendorDocuments.length} documents</span>
                         </span>
                       </span>
                       <span className="shrink-0 rounded-full bg-[#f0f1f4] px-2.5 py-1 text-[12px] font-medium text-[#4b5563]">{formatAge(profile.createdAt)}</span>
@@ -290,7 +249,6 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
                     <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#4b5563]" />
                     {selectedProfile.status === 'PENDING_REVIEW' ? 'Pending review' : selectedProfile.status === 'REJECTED' ? 'Rejected' : selectedProfile.user.isActive ? 'Approved' : 'Inactive'}
                   </span>
-                  {selectedProfile.id === demoVendorProfileId && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">Frontend demo</span>}
                 </div>
 
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -332,7 +290,7 @@ export default function VendorProfileApprovalQueue({ status = 'PENDING_REVIEW' }
               </>
             ) : (
               <div className="flex min-h-[240px] items-center justify-center text-center text-sm text-[#6b7280]">
-                {selectedTab === 'Rejected' ? 'Rejected profiles are not returned by the current admin profile API.' : 'Select a vendor to view their profile.'}
+                Select a vendor to view their profile.
               </div>
             )}
           </section>

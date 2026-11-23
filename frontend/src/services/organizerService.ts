@@ -76,8 +76,6 @@ export const getOrganizers = async () => {
     },
   };
 };
-export const createOrganizer = (data: { firstname: string; lastname: string; email: string }) =>
-  api.post<ApiResponse<ManagedOrganizer>>('/users/organizers', data);
 export const setupOrganizerPassword = (data: { email: string; token: string; password: string }) =>
   api.post<{ success: boolean; message: string }>('/auth/setup-organizer-password', data);
 export const getOrganizerProfile = () =>

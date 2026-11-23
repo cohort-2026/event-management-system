@@ -11,9 +11,9 @@ export function useVendorApplicationCount() {
     if (user?.role !== 'VENDOR') return;
 
     let active = true;
-    getMyApplications()
+    getMyApplications({ limit: 1 })
       .then(response => {
-        if (active) setCount(response.data.data.length);
+        if (active) setCount(response.data.pagination.total);
       })
       .catch(() => {
         if (active) setError('Unable to load application count.');

@@ -7,7 +7,7 @@ import NotificationBell from '@/components/layout/NotificationBell';
 import VendorSearchField from '@/components/layout/VendorSearchField';
 import Button from '@/components/legacy/Button';
 import { getEventById } from '@/services/eventService';
-import { applyForStand, getMyApplications, getVendorProfile } from '@/services/vendorService';
+import { applyForStand, getAllMyApplications, getVendorProfile } from '@/services/vendorService';
 import type { Event } from '@/types/event';
 import type { VendorApplication, VendorProfile } from '@/types/vendor';
 
@@ -42,10 +42,9 @@ export default function ApplyForStand() {
     let active = true;
     if (!eventId) return;
 
-    Promise.all([getVendorProfile(), getMyApplications(), getEventById(eventId)])
-      .then(([profileResponse, applicationsResponse, eventResponse]) => {
+    Promise.all([getVendorProfile(), getAllMyApplications(), getEventById(eventId)])
+      .then(([profileResponse, loadedApplications, eventResponse]) => {
         if (!active) return;
-        const loadedApplications = applicationsResponse.data.data;
         setProfile(profileResponse.data.data);
         setApplications(loadedApplications);
         setEvent(eventResponse.data.data);
@@ -57,10 +56,10 @@ export default function ApplyForStand() {
         setStandDescription(previousApplication?.standDescription ?? '');
         setSupportingInformation(previousApplication?.supportingInformation ?? '');
         setStaffMembers(previousApplication?.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
-        const latestRejected = applicationsResponse.data.data
+        const latestRejected = loadedApplications
           .filter(application => application.eventId === eventId && application.status === 'REJECTED')
           .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
-        const hasActiveApplication = applicationsResponse.data.data.some(application =>
+        const hasActiveApplication = loadedApplications.some(application =>
           application.eventId === eventId && application.status !== 'REJECTED',
         );
         if (!hasActiveApplication && latestRejected) {
@@ -406,8 +405,8 @@ export default function ApplyForStand() {
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}
                         {message && <p role="status" className="text-[8px] font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
                         <div className="flex justify-end gap-1.5">
-                          <Link to="/vendor/events" className="inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
-                          <Button type="submit" className="!min-h-10 !rounded !px-3 !text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
+                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
+                          <Button type="submit" className="!min-h-10 !rounded !px-3 text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
                             Send application
                           </Button>
                         </div>
