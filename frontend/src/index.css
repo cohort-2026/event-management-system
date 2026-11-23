@@ -512,6 +512,66 @@ main.dashboard-shell {
   line-height: var(--leading-normal) !important;
 }
 
+.vendor-dashboard-content .profile-section-title {
+  font-size: var(--text-base) !important;
+  font-weight: 800 !important;
+  line-height: var(--leading-normal) !important;
+}
+
+.vendor-dashboard-page .vendor-page-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-welcome-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-dashboard-section-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-find-events-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-find-event-heading {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-applications-page-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-applications-empty-title {
+  font-size: 1.125rem !important;
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-staff-empty-title {
+  font-size: 1.125rem !important;
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-staff-page-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-profile-page-title {
+  font-weight: 800 !important;
+}
+
+.vendor-dashboard-content .vendor-notifications-page-title {
+  font-weight: 800 !important;
+}
+
+.vendor-sidebar .vendor-role-label {
+  font-weight: 800 !important;
+}
+
+.vendor-sidebar .vendor-brand-title {
+  font-weight: 800 !important;
+}
+
 .vendor-sidebar .vendor-logout-button,
 .vendor-dashboard-content button:not(:disabled):not(.vendor-drawer-backdrop):hover,
 .vendor-dashboard-content .vendor-button:hover,

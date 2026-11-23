@@ -73,7 +73,7 @@ export default function MyApplications() {
             <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <VendorMenuButton />
-                <span className="truncate text-[12px] font-semibold text-[#333]">My applications</span>
+                <span className="vendor-applications-page-title truncate text-[12px] font-extrabold text-[#333]">My applications</span>
               </div>
               <div className="flex items-center gap-2">
                 <VendorSearchField value={searchQuery} onChange={setSearchQuery} />
@@ -81,20 +81,17 @@ export default function MyApplications() {
               </div>
             </header>
 
-            <main className="px-3.5 pb-4 pt-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h1 className="text-3xl font-extrabold tracking-tight text-[#151515] sm:text-4xl">My applications</h1>
-                </div>
+            <main className="px-4 pb-8 pt-5 sm:px-6 lg:px-8">
+              <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
                 <Link
                   to="/vendor/events"
-                  className="vendor-button inline-flex min-h-9 items-center rounded-md bg-gradient-to-r from-[#ed1744] to-[#ff6a00] px-3 text-[11px] font-bold text-white shadow-sm transition"
+                  className="vendor-applications-action vendor-button inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
                   Find events
                 </Link>
               </div>
 
-              <div className="mb-2 flex flex-wrap items-center gap-1" role="tablist" aria-label="Application history">
+              <div className="mb-4 flex flex-wrap items-center gap-2" role="tablist" aria-label="Application history">
                 {([
                   ['active', 'Active'],
                   ['past', 'Past'],
@@ -106,11 +103,7 @@ export default function MyApplications() {
                     role="tab"
                     aria-selected={selectedTab === tab}
                     onClick={() => setSelectedTab(tab)}
-                    className={`rounded-md border px-1.5 py-0.5 text-[11px] font-bold transition ${
-                      selectedTab === tab
-                        ? 'border-[#f15a2a] bg-[#fff1ea] text-[#c54821]'
-                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                    }`}
+                    className="vendor-applications-action vendor-application-tab min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                   >
                     {label} <span className="ml-0.5 opacity-70">{applicationGroups[tab].length}</span>
                   </button>
@@ -546,17 +539,17 @@ function EventArtwork({ index, className }: { index: number; className: string }
 
 function EmptyApplications() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#fef2eb] text-[#d15d2d]">
+    <div className="flex min-h-[360px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fef2eb] text-[#d15d2d]">
         <DocumentIcon />
       </div>
-      <h2 className="mt-3 text-sm font-black text-slate-900">No applications yet</h2>
-      <p className="mx-auto mt-1.5 max-w-md text-[13px] text-slate-500">
+      <h2 className="vendor-applications-empty-title mt-4 text-lg font-bold text-slate-900">No applications yet</h2>
+      <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
         Once you apply for an event stand, its review status and invoice details will appear here.
       </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <Link to="/vendor/events" className="vendor-button rounded-md bg-[#f15a2a] px-3 py-1.5 text-[13px] font-bold text-white hover:bg-[#e24d1f]">Find events</Link>
-        <Link to="/vendor/profile" className="vendor-button rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50">Business profile</Link>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Link to="/vendor/events" className="vendor-applications-action vendor-button rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Find events</Link>
+        <Link to="/vendor/profile" className="vendor-applications-action vendor-button rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Business profile</Link>
       </div>
     </div>
   );

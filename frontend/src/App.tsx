@@ -51,6 +51,7 @@ import VendorProfilePage from '@/pages/vendor/VendorProfile';
 import ApplyForStand from '@/pages/vendor/ApplyForStand';
 import MyApplications from '@/pages/vendor/MyApplications';
 import StaffManagement from '@/pages/vendor/StaffManagement';
+import VendorNotifications from '@/pages/vendor/VendorNotifications';
 
 // Admin
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/vendor/events"                   element={<EventList />} />
             <Route path="/vendor/profile"                  element={<VendorProfilePage />} />
             <Route path="/vendor/staff"                    element={<StaffManagement />} />
+            <Route path="/vendor/notifications"             element={<VendorNotifications />} />
             <Route path="/vendor/events/:id/apply"         element={<ApplyForStand />} />
             <Route path="/vendor/applications"             element={<MyApplications />} />
             <Route path="/vendor/applications/:id/staff"   element={<StaffManagement />} />

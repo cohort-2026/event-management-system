@@ -101,7 +101,7 @@ export default function StaffManagement() {
             <header className="vendor-topbar sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#e7e7e7] bg-white px-4">
               <div className="flex min-w-0 items-center gap-1 text-[11px] text-[#555]">
                 <VendorMenuButton />
-                <Link to="/vendor/staff" className="shrink-0 hover:text-[#171717]">Staff passes</Link>
+                <Link to="/vendor/staff" className="vendor-staff-page-title shrink-0 font-bold text-[#333] hover:text-[#171717]">Staff passes</Link>
                 {selectedApplication?.event?.title && (
                   <>
                     <span>/</span>
@@ -115,17 +115,18 @@ export default function StaffManagement() {
               </div>
             </header>
 
-            <main className="px-3 pb-4 pt-3">
+            <main className="px-4 pb-8 pt-5 sm:px-6 lg:px-8">
               {error && <p role="alert" className="mb-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-[12px] text-rose-700">{error}</p>}
               {loading ? (
                 <div role="status" className="rounded-lg border border-[#e5e5e5] bg-white p-8 text-center text-xs text-[#777]">
                   Loading staff passes…
                 </div>
               ) : approvedApplications.length === 0 ? (
-                <div className="rounded-lg border border-[#e5e5e5] bg-white p-6 text-center">
-                  <h1 className="text-[13px] font-extrabold text-[#171717]">No approved stands yet</h1>
-                  <p className="mt-1 text-[12px] text-[#777]">Staff passes will appear here after an organizer approves your stand application.</p>
-                  <Link to="/vendor/applications" className="vendor-button mt-3 inline-flex rounded-md bg-[#f15a2a] px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-[#e24d1f]">
+                <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-50 text-orange-700"><PassIcon /></div>
+                  <h1 className="vendor-staff-empty-title mt-4 text-lg font-extrabold text-slate-900">No approved stands yet</h1>
+                  <p className="mt-2 max-w-xl text-sm text-slate-600">Staff passes will appear here after an organizer approves your stand application.</p>
+                  <Link to="/vendor/applications" className="vendor-button mt-5 inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
                     View my applications
                   </Link>
                 </div>
@@ -386,4 +387,13 @@ function matchesApplicationSearch(application: VendorApplication, query: string)
 
 function LockIcon() {
   return <svg aria-hidden="true" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 10V7a4 4 0 00-8 0v3m-2 0h12a2 2 0 012 2v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7a2 2 0 012-2z" /></svg>;
+}
+
+function PassIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h7l5 5V20a1.25 1.25 0 0 1-1.25 1.25h-10.5A1.25 1.25 0 0 1 6 20V5a1.25 1.25 0 0 1 1-1.25Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 4v5h5M9 13h6M9 16h6" />
+    </svg>
+  );
 }
