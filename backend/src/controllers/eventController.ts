@@ -43,6 +43,8 @@ interface EventInput {
   isFree: boolean;
   price: number | null;
   vendorStandRatePerSqm: number;
+  vendorTaxRate: number;
+  vendorPaymentInstructions: string;
   ticketTypes: TicketInput[];
 }
 
@@ -109,6 +111,8 @@ const parseEventInput = (body: Record<string, unknown>):
   const capacity = body.capacity;
   const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
   const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined ? 0 : body.vendorStandRatePerSqm;
+  const vendorTaxRate = body.vendorTaxRate === undefined ? 0 : body.vendorTaxRate;
+  const vendorPaymentInstructions = text(body.vendorPaymentInstructions);
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
@@ -149,6 +153,13 @@ const parseEventInput = (body: Record<string, unknown>):
     Math.abs(vendorStandRatePerSqm - Math.round(vendorStandRatePerSqm * 100) / 100) > 1e-8
   ) {
     return { error: 'Vendor stand rate must be between 0 and 99,999,999.99 ZAR per square metre' };
+  }
+  if (typeof vendorTaxRate !== 'number' || !Number.isFinite(vendorTaxRate) || vendorTaxRate < 0 || vendorTaxRate > 100 ||
+      Math.abs(vendorTaxRate - Math.round(vendorTaxRate * 100) / 100) > 1e-8) {
+    return { error: 'Vendor invoice tax rate must be between 0 and 100 percent, with up to two decimal places' };
+  }
+  if (vendorPaymentInstructions.length > 2000) {
+    return { error: 'Vendor payment instructions must be 2,000 characters or fewer' };
   }
   if (!Array.isArray(ticketTypesInput) || ticketTypesInput.length < 1 || ticketTypesInput.length > MAX_TICKETS) {
     return { error: `Add between 1 and ${MAX_TICKETS} ticket types` };
@@ -234,6 +245,8 @@ const parseEventInput = (body: Record<string, unknown>):
       isFree,
       price,
       vendorStandRatePerSqm,
+      vendorTaxRate,
+      vendorPaymentInstructions,
       ticketTypes,
     },
   };
@@ -295,6 +308,8 @@ const serializeEvent = (event: Prisma.EventGetPayload<{ include: typeof eventInc
     ...eventData,
     price: event.price === null ? null : Number(event.price),
     vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+    vendorTaxRate: Number(event.vendorTaxRate),
+    vendorPaymentInstructions: event.vendorPaymentInstructions,
     availableVendorStands: Math.max(0, event.vendorStandsAvailable - _count.vendorApplications),
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
   };
@@ -304,6 +319,7 @@ const serializePublicEvent = (event: Prisma.EventGetPayload<{ include: typeof ev
   const {
     meetingDetails: _meetingDetails,
     organizerId: _organizerId,
+    vendorPaymentInstructions: _vendorPaymentInstructions,
     ...publicEvent
   } = serializeEvent(event);
   return publicEvent;
@@ -336,6 +352,8 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         isFree: data.isFree,
         price: data.price,
         vendorStandRatePerSqm: data.vendorStandRatePerSqm,
+        vendorTaxRate: data.vendorTaxRate,
+        vendorPaymentInstructions: data.vendorPaymentInstructions,
         status: EventStatus.DRAFT,
         organizerId: req.user!.id,
         ticketTypes: {
@@ -442,6 +460,8 @@ const updateEventRecord = async (
           isFree: data.isFree,
           price: data.price,
           vendorStandRatePerSqm: data.vendorStandRatePerSqm,
+          vendorTaxRate: data.vendorTaxRate,
+          vendorPaymentInstructions: data.vendorPaymentInstructions,
         },
       });
 
@@ -555,6 +575,8 @@ const PATCHABLE_EVENT_FIELDS = new Set([
   'bannerImageUrl',
   'vendorStandsAvailable',
   'vendorStandRatePerSqm',
+  'vendorTaxRate',
+  'vendorPaymentInstructions',
   'startTime',
   'endTime',
   'capacity',
@@ -604,6 +626,8 @@ export const patchEvent = async (req: Request, res: Response, next: NextFunction
       bannerImageUrl: event.bannerImageUrl ?? '',
       vendorStandsAvailable: event.vendorStandsAvailable,
       vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+      vendorTaxRate: Number(event.vendorTaxRate),
+      vendorPaymentInstructions: event.vendorPaymentInstructions,
       startTime: event.startTime.toISOString(),
       endTime: event.endTime.toISOString(),
       capacity: event.capacity,

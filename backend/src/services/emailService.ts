@@ -51,8 +51,20 @@ export const sendEventCancellationNotification = async (email: string, eventTitl
 export const sendVendorStandInvoice = async (details: {
   email: string;
   firstname: string;
+  companyName: string;
+  registrationNumber: string;
+  businessAddress: string;
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
   eventTitle: string;
+  eventDate: Date;
+  eventVenue: string;
+  paymentInstructions: string;
   invoiceNumber: string;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
   amount: number;
   dueAt: Date;
   assignedStand: string;
@@ -68,14 +80,30 @@ export const sendVendorStandInvoice = async (details: {
       `Hello ${details.firstname},`,
       '',
       `Your stand application for "${details.eventTitle}" has been approved.`,
-      `Assigned stand: ${details.assignedStand}`,
-      `Requested size: ${details.requestedStandSize} (${details.areaSqm.toFixed(2)} m²)`,
+      `Event date: ${details.eventDate.toLocaleDateString('en-ZA')}`,
+      `Venue: ${details.eventVenue}`,
+      '',
+      'Vendor details:',
+      `Business: ${details.companyName}`,
+      `Registration number: ${details.registrationNumber}`,
+      ...(details.businessAddress ? [`Business address: ${details.businessAddress}`] : []),
+      ...(details.contactPerson ? [`Contact person: ${details.contactPerson}`] : []),
+      `Contact email: ${details.contactEmail}`,
+      ...(details.contactPhone ? [`Contact phone: ${details.contactPhone}`] : []),
+      '',
+      `Stand reference: ${details.assignedStand}`,
+      `Stand dimensions: ${details.requestedStandSize} (${details.areaSqm.toFixed(2)} m²)`,
       `Rate: ZAR ${details.ratePerSqm.toFixed(2)} per m²`,
-      `Amount due: ZAR ${details.amount.toFixed(2)}`,
+      `Subtotal: ZAR ${details.subtotal.toFixed(2)}`,
+      ...(details.taxRate > 0
+        ? [`VAT / tax (${details.taxRate.toFixed(2)}%): ZAR ${details.taxAmount.toFixed(2)}`]
+        : []),
+      `Amount payable: ZAR ${details.amount.toFixed(2)}`,
       `Invoice number: ${details.invoiceNumber}`,
       `Due date: ${details.dueAt.toLocaleDateString('en-ZA')}`,
       '',
-      'Please contact the event organizer for payment instructions.',
+      'Payment instructions:',
+      details.paymentInstructions || 'Please contact the event organizer for payment instructions.',
     ].join('\n'),
   });
 };

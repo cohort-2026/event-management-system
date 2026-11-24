@@ -220,6 +220,8 @@ model Event {
   isFree            Boolean     @default(true) @map("is_free")
   price             Decimal?    @db.Decimal(10, 2)
   vendorStandRatePerSqm Decimal @default(0) @map("vendor_stand_rate_per_sqm") @db.Decimal(10, 2)
+  vendorTaxRate Decimal @default(0) @map("vendor_tax_rate") @db.Decimal(5, 2)
+  vendorPaymentInstructions String @default("") @map("vendor_payment_instructions") @db.Text
   status            EventStatus @default(DRAFT)
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
@@ -350,6 +352,10 @@ model VendorApplication {
 model VendorInvoice {
   id            String             @id @default(uuid())
   invoiceNumber String             @unique @map("invoice_number")
+  subtotal      Decimal            @default(0) @db.Decimal(14, 2)
+  taxRate       Decimal            @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount     Decimal            @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  paymentInstructions String      @default("") @map("payment_instructions") @db.Text
   amount        Decimal            @db.Decimal(14, 2)
   currency      String             @default("ZAR")
   status        VendorInvoiceStatus @default(ISSUED)

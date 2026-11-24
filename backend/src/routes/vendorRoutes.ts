@@ -1526,17 +1526,27 @@ const decideVendorApplication = async (
 		select: {
 			id: true,
 			vendorId: true,
+			companyName: true,
+			registrationNumber: true,
 			status: true,
 			requestedStandSize: true,
 			standAreaSqm: true,
 			standRatePerSqm: true,
 			quotedAmount: true,
-			event: { select: { id: true, title: true, organizerId: true } },
+			event: { select: { id: true, title: true, date: true, venue: true, vendorTaxRate: true, vendorPaymentInstructions: true, organizerId: true } },
 			vendor: {
 				select: {
 					email: true,
 					firstname: true,
-					vendorProfile: { select: { status: true } },
+					vendorProfile: {
+						select: {
+							status: true,
+							businessAddress: true,
+							contactPerson: true,
+							contactEmail: true,
+							contactPhone: true,
+						},
+					},
 				},
 			},
 		},
@@ -1550,8 +1560,14 @@ const decideVendorApplication = async (
 	}
 
 	const decidedAt = new Date();
-	const invoiceNumber = `EVMS-${decidedAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+	const invoiceNumber = `EVMS-${decidedAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().toUpperCase()}`;
 	const dueAt = new Date(decidedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+	const subtotalCents = Math.round(Number(application.quotedAmount) * 100);
+	const taxRate = Number(application.event.vendorTaxRate ?? 0);
+	const taxCents = Math.round(subtotalCents * taxRate / 100);
+	const subtotal = subtotalCents / 100;
+	const taxAmount = taxCents / 100;
+	const amount = (subtotalCents + taxCents) / 100;
 	try {
 		const updated = await prisma.$transaction(async transaction => {
 			if (decision.status === 'APPROVED') {
@@ -1588,7 +1604,15 @@ const decideVendorApplication = async (
 
 			if (decision.status === 'APPROVED') {
 				const invoice = await transaction.vendorInvoice.create({
-					data: { invoiceNumber, amount: application.quotedAmount, dueAt },
+					data: {
+						invoiceNumber,
+						subtotal,
+						taxRate,
+						taxAmount,
+						amount,
+						dueAt,
+						paymentInstructions: application.event.vendorPaymentInstructions,
+					},
 				});
 				await transaction.vendorApplication.update({
 					where: { id: applicationId },
@@ -1597,7 +1621,7 @@ const decideVendorApplication = async (
 			}
 
 			const message = decision.status === 'APPROVED'
-				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${Number(application.quotedAmount).toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${amount.toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
 				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
 			await transaction.notification.create({
 				data: {
@@ -1632,9 +1656,21 @@ const decideVendorApplication = async (
 				await sendVendorStandInvoice({
 					email: application.vendor.email,
 					firstname: application.vendor.firstname,
+					companyName: application.companyName,
+					registrationNumber: application.registrationNumber,
+					businessAddress: application.vendor.vendorProfile?.businessAddress ?? '',
+					contactPerson: application.vendor.vendorProfile?.contactPerson ?? '',
+					contactEmail: application.vendor.vendorProfile?.contactEmail ?? application.vendor.email,
+					contactPhone: application.vendor.vendorProfile?.contactPhone ?? '',
 					eventTitle: application.event.title,
+					eventDate: application.event.date,
+					eventVenue: application.event.venue,
+					paymentInstructions: application.event.vendorPaymentInstructions,
 					invoiceNumber,
-					amount: Number(application.quotedAmount),
+					subtotal,
+					taxRate,
+					taxAmount,
+					amount,
 					dueAt,
 					assignedStand: decision.assignedStand,
 					requestedStandSize: application.requestedStandSize,
@@ -1723,8 +1759,8 @@ router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), require
 
 router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
 	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';
-	if (assignedStand.length < 1 || assignedStand.length > 80) {
-		return res.status(400).json({ success: false, message: 'Assigned stand must be between 1 and 80 characters' });
+	if (!/^[A-E](?:[1-9]|10)$/.test(assignedStand)) {
+		return res.status(400).json({ success: false, message: 'Choose a stand between A1 and E10' });
 	}
 	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand });
 });
