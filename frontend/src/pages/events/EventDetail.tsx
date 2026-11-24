@@ -148,6 +148,8 @@ export default function EventDetail() {
   ));
   const bookingQuantity = Math.min(Math.max(1, quantity), maxQuantity || 1);
   const canRegister = event.status === 'PUBLISHED' && start > new Date() && maxQuantity > 0;
+  const selectedTicketSoldOut = Boolean(selectedTicket && (selectedTicket.availableQuantity <= 0 || event.availableCapacity <= 0));
+  const eventSoldOut = event.availableCapacity <= 0;
   const eventBooking = existingBooking?.eventId === event.id ? existingBooking : null;
 
   const reserveTickets = (ticketCount: number, ticketId: string) => {
@@ -309,7 +311,9 @@ export default function EventDetail() {
                   <div>
                     <p className="font-semibold text-neutral-800">{ticket.name}</p>
                     {ticket.description && <p className="mt-1 text-sm text-neutral-500">{ticket.description}</p>}
-                    <p className="mt-1 text-xs text-neutral-400">{ticket.availableQuantity} available</p>
+                    <p className={`mt-1 text-xs ${ticket.availableQuantity <= 0 || eventSoldOut ? 'font-semibold text-rose-700' : 'text-neutral-400'}`}>
+                      {ticket.availableQuantity <= 0 || eventSoldOut ? 'Sold out' : `${ticket.availableQuantity} available`}
+                    </p>
                   </div>
                   <p className="font-bold text-neutral-900">{ticket.price === 0 ? 'Free' : `R${ticket.price.toFixed(2)}`}</p>
                 </li>
@@ -397,7 +401,7 @@ export default function EventDetail() {
                           <span className="min-w-0">
                             <span className="block truncate text-xs font-semibold text-neutral-900">{ticket.name}</span>
                             <span className="mt-0.5 block text-[9px] text-neutral-500">
-                              {ticket.availableQuantity > 0 ? `${ticket.availableQuantity} left` : 'Sold out'}
+                              {ticket.availableQuantity > 0 && event.availableCapacity > 0 ? `${ticket.availableQuantity} left` : 'Sold out'}
                             </span>
                           </span>
                         </span>
@@ -441,7 +445,14 @@ export default function EventDetail() {
                       </p>
                     )}
                     {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
-                    {user?.role === 'ATTENDEE' ? (
+                    {user?.role === 'ATTENDEE' ? selectedTicketSoldOut && event.status === 'PUBLISHED' && start > new Date() ? (
+                      <Button
+                        className="mt-3 w-full"
+                        onClick={() => navigate('/attendee/bookings?tab=waitlist')}
+                      >
+                        Join Waitlist
+                      </Button>
+                    ) : (
                       <Button
                         className="mt-3 w-full bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600"
                         loading={bookingLoading}
@@ -456,9 +467,15 @@ export default function EventDetail() {
                       </p>
                     ) : (
                       <div className="mt-3 space-y-2">
+                        {selectedTicketSoldOut && event.status === 'PUBLISHED' && start > new Date() ? (
+                          <Button className="w-full" onClick={() => navigate('/login', { state: { from: location } })}>
+                            Join Waitlist
+                          </Button>
+                        ) : (
                         <Button className="w-full bg-gradient-to-r from-rose-600 to-orange-500" disabled={!canRegister} onClick={handleRegister}>
                           Book my place
                         </Button>
+                        )}
                         <Link to="/register" state={{ from: location }} className="block text-center text-[10px] text-neutral-500 hover:text-neutral-800">
                           Create an attendee account
                         </Link>
