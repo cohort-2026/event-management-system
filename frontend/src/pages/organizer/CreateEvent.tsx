@@ -30,6 +30,8 @@ interface EventForm {
   eventType: EventType;
   venue: string;
   meetingDetails: string;
+  directions: string;
+  parkingInformation: string;
   startTime: string;
   endTime: string;
   capacity: string;
@@ -57,6 +59,8 @@ const EMPTY_FORM: EventForm = {
   eventType: 'IN_PERSON',
   venue: '',
   meetingDetails: '',
+  directions: '',
+  parkingInformation: '',
   startTime: '',
   endTime: '',
   capacity: '',
@@ -102,6 +106,8 @@ const toForm = (event: Event): EventForm => ({
   eventType: event.eventType,
   venue: event.eventType === 'ONLINE' && event.venue === 'Online' ? '' : event.venue,
   meetingDetails: event.meetingDetails ?? '',
+  directions: event.directions ?? '',
+  parkingInformation: event.parkingInformation ?? '',
   startTime: asLocalDateTime(event.startTime),
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
@@ -452,6 +458,8 @@ export default function CreateEvent() {
         eventType: form.eventType,
         venue: form.eventType === 'ONLINE' && !form.venue.trim() ? 'Online' : form.venue.trim(),
         meetingDetails: form.meetingDetails.trim() || undefined,
+        directions: form.directions.trim() || undefined,
+        parkingInformation: form.parkingInformation.trim() || undefined,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         date: startTime.toISOString(),
@@ -757,6 +765,16 @@ export default function CreateEvent() {
                       {form.eventType !== 'IN_PERSON' && (
                         <div className="md:col-span-2">
                           <Textarea label="Online meeting details" value={form.meetingDetails} onChange={event => updateForm('meetingDetails', event.target.value)} error={fieldErrors['online-meeting-details']} maxLength={2000} required helperText="Add the meeting URL or access instructions." />
+                        </div>
+                      )}
+                      {form.eventType !== 'ONLINE' && (
+                        <div className="md:col-span-2">
+                          <Textarea label="Directions" value={form.directions} onChange={event => updateForm('directions', event.target.value)} maxLength={2000} helperText="Add directions attendees can follow to reach the venue." />
+                        </div>
+                      )}
+                      {form.eventType !== 'ONLINE' && (
+                        <div className="md:col-span-2">
+                          <Textarea label="Parking information" value={form.parkingInformation} onChange={event => updateForm('parkingInformation', event.target.value)} maxLength={2000} helperText="Share parking availability, access, or fees." />
                         </div>
                       )}
                       <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} error={fieldErrors['start-date-and-time']} required />

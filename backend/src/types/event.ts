@@ -21,6 +21,8 @@ export interface Event {
   endTime: Date;
   eventType: EventType;
   meetingDetails?: string | null;
+  directions?: string | null;
+  parkingInformation?: string | null;
   bannerImageUrl?: string | null;
   capacity: number;
   availableCapacity: number;
@@ -38,6 +40,8 @@ export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'qua
 export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
   categoryOther?: string;
   meetingDetails?: string;
+  directions?: string;
+  parkingInformation?: string;
   bannerImageUrl?: string;
   vendorStandsAvailable: number;
   ticketTypes: EventTicketTypeInput[];

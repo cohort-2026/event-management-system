@@ -2,10 +2,12 @@ import app from './app';
 import { config } from './config/index';
 import { provisionInitialAdmin } from './services/adminProvisioning';
 import { disconnectPrisma, prisma } from './lib/prisma';
+import { startEventReminderJob } from './services/eventReminderJob';
 
 async function startServer(): Promise<void> {
   await prisma.$connect();
   await provisionInitialAdmin();
+  const eventReminderTimer = startEventReminderJob();
   const server = app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);
   });
@@ -14,6 +16,7 @@ async function startServer(): Promise<void> {
   const shutdown = (): void => {
     if (shuttingDown) return;
     shuttingDown = true;
+    clearInterval(eventReminderTimer);
     server.close(() => {
       disconnectPrisma().then(
         () => { process.exitCode = 0; },

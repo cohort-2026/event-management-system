@@ -35,6 +35,8 @@ interface EventInput {
   venue: string;
   eventType: EventType;
   meetingDetails: string | null;
+  directions: string | null;
+  parkingInformation: string | null;
   bannerImageUrl: string | null;
   vendorStandsAvailable: number;
   startTime: Date;
@@ -103,6 +105,8 @@ const parseEventInput = (body: Record<string, unknown>):
   const eventType = body.eventType;
   const venue = text(body.venue);
   const meetingDetails = text(body.meetingDetails);
+  const directions = text(body.directions);
+  const parkingInformation = text(body.parkingInformation);
   const rawBannerImageUrl = text(body.bannerImageUrl);
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
@@ -164,6 +168,8 @@ const parseEventInput = (body: Record<string, unknown>):
     return { error: 'Add online meeting details for a hybrid event' };
   }
   if (meetingDetails.length > 2000) return { error: 'Meeting details cannot exceed 2000 characters' };
+  if (directions.length > 2000) return { error: 'Directions cannot exceed 2000 characters' };
+  if (parkingInformation.length > 2000) return { error: 'Parking information cannot exceed 2000 characters' };
   if (normalizedEventType !== 'IN_PERSON' && meetingDetails.length > 0 &&
       (/^https?:\/\//i.test(meetingDetails) && !validWebUrl(meetingDetails))) {
     return { error: 'Meeting link must be a valid HTTP or HTTPS URL' };
@@ -226,6 +232,8 @@ const parseEventInput = (body: Record<string, unknown>):
       venue: normalizedVenue,
       eventType: normalizedEventType,
       meetingDetails: meetingDetails || null,
+      directions: directions || null,
+      parkingInformation: parkingInformation || null,
       bannerImageUrl,
       vendorStandsAvailable,
       startTime,
@@ -329,6 +337,8 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         endTime: data.endTime,
         eventType: data.eventType,
         meetingDetails: data.meetingDetails,
+        directions: data.directions,
+        parkingInformation: data.parkingInformation,
         bannerImageUrl: data.bannerImageUrl,
         vendorStandsAvailable: data.vendorStandsAvailable,
         capacity: data.capacity,
@@ -435,6 +445,8 @@ const updateEventRecord = async (
           endTime: data.endTime,
           eventType: data.eventType,
           meetingDetails: data.meetingDetails,
+          directions: data.directions,
+          parkingInformation: data.parkingInformation,
           bannerImageUrl: data.bannerImageUrl,
           vendorStandsAvailable: data.vendorStandsAvailable,
           capacity: data.capacity,
@@ -552,6 +564,8 @@ const PATCHABLE_EVENT_FIELDS = new Set([
   'venue',
   'eventType',
   'meetingDetails',
+  'directions',
+  'parkingInformation',
   'bannerImageUrl',
   'vendorStandsAvailable',
   'vendorStandRatePerSqm',
@@ -601,6 +615,8 @@ export const patchEvent = async (req: Request, res: Response, next: NextFunction
       venue: event.venue,
       eventType: event.eventType,
       meetingDetails: event.meetingDetails ?? '',
+      directions: event.directions ?? '',
+      parkingInformation: event.parkingInformation ?? '',
       bannerImageUrl: event.bannerImageUrl ?? '',
       vendorStandsAvailable: event.vendorStandsAvailable,
       vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
