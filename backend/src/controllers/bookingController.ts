@@ -400,7 +400,7 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
       res.status(409).json({ success: false, message: 'Bookings with checked-in tickets cannot be cancelled' });
       return;
     }
-    if (result === 'cancelled') {
+    if (typeof result !== 'string' && result.kind === 'cancelled') {
       res.json({
         success: true,
         data: { ...serializeBooking(result.booking), inventoryRelease: result.inventoryRelease },
