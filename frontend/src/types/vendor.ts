@@ -104,6 +104,8 @@ export interface VendorInvoice {
   amount: number | string;
   currency: string;
   status: 'ISSUED' | 'PAID' | 'VOID';
+  emailStatus?: 'PENDING' | 'SENT' | 'FAILED';
+  emailSentAt?: string | null;
   issuedAt: string;
   dueAt: string;
 }

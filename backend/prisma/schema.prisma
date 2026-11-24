@@ -90,6 +90,12 @@ enum VendorInvoiceStatus {
   VOID
 }
 
+enum VendorInvoiceEmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum ProfileApprovalStatus {
   PENDING_APPROVAL
   APPROVED
@@ -353,6 +359,8 @@ model VendorInvoice {
   amount        Decimal            @db.Decimal(14, 2)
   currency      String             @default("ZAR")
   status        VendorInvoiceStatus @default(ISSUED)
+  emailStatus   VendorInvoiceEmailStatus @default(PENDING) @map("email_status")
+  emailSentAt   DateTime?           @map("email_sent_at")
   issuedAt      DateTime           @default(now()) @map("issued_at")
   dueAt         DateTime           @map("due_at")
   application   VendorApplication?
