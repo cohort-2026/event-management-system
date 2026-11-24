@@ -3,6 +3,7 @@ import { requireApprovedOrganizerProfile, requireAuth, requireRole } from '../mi
 import {
   checkInTicket,
   getTicket,
+  getTicketsByAccessToken,
   listMyTickets,
   scanTicketQr,
 } from '../controllers/ticketController';
@@ -16,6 +17,7 @@ router.param('id', validateUuidParam);
 // POST  /api/tickets/scan        Verify and check in an opaque QR payload
 // PATCH /api/tickets/:id/checkin Check in a ticket by ID
 router.get('/me', requireAuth, requireRole('ATTENDEE'), listMyTickets);
+router.get('/access/:token', getTicketsByAccessToken);
 router.post('/scan', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, validateBodyShape, scanTicketQr);
 router.get('/:id', requireAuth, requireRole('ATTENDEE', 'ORGANIZER'), getTicket);
 router.patch('/:id/checkin', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, checkInTicket);

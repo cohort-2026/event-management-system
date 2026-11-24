@@ -9,6 +9,7 @@ import {
 } from '../services/notificationService';
 
 import { issueTicketsForBooking } from '../services/ticketService';
+import { sendBookingConfirmationOnce } from '../services/bookingConfirmationService';
 
 const MAX_TICKETS_PER_BOOKING = 100;
 const MAX_BOOKING_AMOUNT = new Prisma.Decimal('99999999.99');
@@ -152,6 +153,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
       const createdBooking = await transaction.booking.create({
         data: {
           reference: bookingReference(),
+          ticketAccessToken: randomUUID(),
           quantity,
           totalAmount,
           eventId,
@@ -194,6 +196,14 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
         include: bookingInclude,
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (booking.status === BookingStatus.CONFIRMED) {
+      try {
+        await sendBookingConfirmationOnce(booking.id);
+      } catch (emailError) {
+        console.error('Attendee booking confirmation email processing failed:', booking.reference, emailError);
+      }
+    }
 
     res.status(201).json({
       success: true,

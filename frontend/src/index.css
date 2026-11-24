@@ -4,6 +4,52 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  body:has(.ticket-access-page) {
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .ticket-access-page {
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .ticket-access-content {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .ticket-access-brand,
+  .ticket-download-controls,
+  .ticket-access-notice {
+    display: none !important;
+  }
+
+  .ticket-access-list {
+    display: block !important;
+  }
+
+  .ticket-access-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .ticket-access-card + .ticket-access-card {
+    break-before: page;
+    page-break-before: always;
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

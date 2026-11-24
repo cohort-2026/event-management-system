@@ -192,6 +192,41 @@ export const getTicket = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
+export const getTicketsByAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const token = typeof req.params.token === 'string' ? req.params.token.trim() : '';
+    if (!/^[0-9a-f-]{36}$/i.test(token)) {
+      res.status(404).json({ success: false, message: 'Ticket link not found' });
+      return;
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { ticketAccessToken: token },
+      select: {
+        reference: true,
+        status: true,
+        paymentStatus: true,
+        event: { select: { title: true, startTime: true, endTime: true, venue: true } },
+        tickets: {
+          select: { id: true, referenceNumber: true, qrPayload: true, type: true, status: true },
+          orderBy: [{ issuedAt: 'asc' }, { id: 'asc' }],
+        },
+      },
+    });
+
+    if (!booking || booking.status !== 'CONFIRMED' ||
+      !['PAID', 'NOT_REQUIRED'].includes(booking.paymentStatus) || booking.tickets.length === 0) {
+      res.status(404).json({ success: false, message: 'Ticket link not found' });
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data: booking });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const checkInTicket = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';

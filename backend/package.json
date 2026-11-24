@@ -6,7 +6,6 @@
   "scripts": {
     "predev": "prisma generate",
     "prebuild": "prisma generate",
-    "postinstall": "prisma generate",
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
@@ -38,6 +37,7 @@
     "multer": "^2.5.0",
     "nodemailer": "^10.0.10",
     "prisma": "^5.22.0",
+    "qrcode": "^1.5.4",
     "tsc-alias": "1.9.10"
   },
   "devDependencies": {

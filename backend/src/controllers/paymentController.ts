@@ -5,6 +5,7 @@ import {
   notifyAttendeeBookingConfirmed,
 } from '../services/notificationService';
 import { TicketsAlreadyIssuedError, issueTicketsForBooking } from '../services/ticketService';
+import { sendBookingConfirmationOnce } from '../services/bookingConfirmationService';
 
 type SimulatedOutcome = 'SUCCESS' | 'FAILED';
 
@@ -392,6 +393,13 @@ export const processSimulatedPayment = async (
       req.user!.id,
       body.outcome as SimulatedOutcome,
     );
+    if (result.kind === 'success') {
+      try {
+        await sendBookingConfirmationOnce(bookingId);
+      } catch (emailError) {
+        console.error('Attendee booking confirmation email processing failed:', bookingId, emailError);
+      }
+    }
     if (result.kind === 'not_found') {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;

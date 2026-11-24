@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import QRCode from 'qrcode';
 import { config } from '../config/index';
 
 const transporter = nodemailer.createTransport({
@@ -11,6 +12,82 @@ const transporter = nodemailer.createTransport({
     pass: config.mailPassword,
   },
 });
+
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, character => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}[character]!));
+
+export const sendBookingConfirmationEmail = async (details: {
+  email: string;
+  attendeeName: string;
+  bookingReference: string;
+  eventTitle: string;
+  startTime: Date;
+  endTime: Date;
+  venue: string;
+  ticketAccessUrl: string;
+  tickets: Array<{ referenceNumber: string; qrPayload: string }>;
+}): Promise<void> => {
+  const attachments = await Promise.all(details.tickets.map(async (ticket, index) => ({
+    filename: `${ticket.referenceNumber}.png`,
+    content: await QRCode.toBuffer(ticket.qrPayload, {
+      type: 'png',
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 320,
+    }),
+    contentType: 'image/png',
+    cid: `ticket-qr-${index}@eventms`,
+    contentDisposition: 'inline' as const,
+  })));
+  const escape = escapeHtml;
+  const startLabel = details.startTime.toLocaleString('en-ZA', {
+    timeZone: 'Africa/Johannesburg', dateStyle: 'full', timeStyle: 'short',
+  });
+  const endLabel = details.endTime.toLocaleTimeString('en-ZA', {
+    timeZone: 'Africa/Johannesburg', hour: '2-digit', minute: '2-digit',
+  });
+  const ticketHtml = details.tickets.map((ticket, index) => `
+    <section style="margin:24px 0;padding:16px;border:1px solid #e5e7eb;border-radius:12px;text-align:center">
+      <p style="font-weight:bold">Ticket ${escape(ticket.referenceNumber)}</p>
+      <img src="cid:ticket-qr-${index}@eventms" width="240" height="240" alt="QR code for ticket ${escape(ticket.referenceNumber)}" />
+    </section>`).join('');
+
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `Your ticket for ${details.eventTitle} is confirmed`,
+    text: [
+      `Hello ${details.attendeeName},`,
+      '',
+      `Your booking for ${details.eventTitle} is confirmed.`,
+      `Booking reference: ${details.bookingReference}`,
+      `Date and time: ${startLabel} - ${endLabel}`,
+      `Venue: ${details.venue || 'Online event'}`,
+      ...details.tickets.map(ticket => `Ticket reference: ${ticket.referenceNumber}`),
+      '',
+      `View your tickets and QR codes or download a PDF copy: ${details.ticketAccessUrl}`,
+    ].join('\n'),
+    html: `
+      <main style="font-family:Arial,sans-serif;color:#171717;max-width:640px;margin:auto">
+        <h1 style="font-size:24px">Your ticket is confirmed</h1>
+        <p>Hello ${escape(details.attendeeName)},</p>
+        <p>Your booking for <strong>${escape(details.eventTitle)}</strong> is confirmed.</p>
+        <p><strong>Booking reference:</strong> ${escape(details.bookingReference)}<br />
+        <strong>Date and time:</strong> ${escape(startLabel)} - ${escape(endLabel)}<br />
+        <strong>Venue:</strong> ${escape(details.venue || 'Online event')}</p>
+        <h2 style="font-size:18px">Your ticket QR codes</h2>
+        ${ticketHtml}
+        <p><a href="${escape(details.ticketAccessUrl)}">Open your tickets and event details</a> to view the same ticket layout or download it as a PDF.</p>
+        <p>Keep this email available at the event entrance.</p>
+      </main>`,
+    attachments,
+  });
+};
 
 export const sendVerificationCode = async (email: string, code: string): Promise<void> => {
   await transporter.sendMail({
