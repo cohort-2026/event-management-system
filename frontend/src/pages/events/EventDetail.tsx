@@ -14,6 +14,8 @@ import { getEventById } from '@/services/eventService';
 import { createBooking, getMyBookings } from '@/services/bookingService';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
+import { getMyWaitlists, joinWaitlist } from '@/services/waitlistService';
+import type { WaitlistEntry } from '@/types/waitlist';
 
 interface BookingConfirmation {
   reference: string;
@@ -38,6 +40,9 @@ export default function EventDetail() {
   const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
   const [bookingError, setBookingError] = useState('');
+  const [myWaitlists, setMyWaitlists] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistMessage, setWaitlistMessage] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -72,6 +77,9 @@ export default function EventDetail() {
       .catch(lookupError => {
         if (active) setBookingError(getErrorMessage(lookupError, 'Your existing booking could not be checked.'));
       });
+    getMyWaitlists().then(response => {
+      if (active) setMyWaitlists(response.data.data);
+    }).catch(() => undefined);
 
     return () => { active = false; };
   }, [event, user?.role]);
@@ -196,6 +204,21 @@ export default function EventDetail() {
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const joinSelectedWaitlist = async () => {
+    if (!user) { navigate('/login', { state: { from: location } }); return; }
+    if (user.role !== 'ATTENDEE' || !selectedTicket || !applicationsOpen) return;
+    if (!window.confirm(`Join the ${selectedTicket.name} waitlist? Joining does not guarantee that you will receive a ticket.`)) return;
+    setWaitlistLoading(true);
+    setBookingError('');
+    try {
+      const response = await joinWaitlist(event.id, selectedTicket.id);
+      setMyWaitlists(current => [response.data.data, ...current]);
+      setWaitlistMessage(`You have successfully joined the ${selectedTicket.name} waitlist. Your current position is #${response.data.data.position}.`);
+    } catch (requestError) {
+      setBookingError(getErrorMessage(requestError, 'You could not join this waitlist.'));
+    } finally { setWaitlistLoading(false); }
   };
 
   return (
@@ -382,7 +405,7 @@ export default function EventDetail() {
                       <button
                         type="button"
                         aria-pressed={activeTicketId === ticket.id}
-                        disabled={ticket.availableQuantity <= 0 || event.availableCapacity <= 0}
+                        disabled={false}
                         onClick={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
                         className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                           activeTicketId === ticket.id
@@ -409,7 +432,7 @@ export default function EventDetail() {
                   ))}
                 </ul>
 
-                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
+                    {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
                   <div className="mt-3 space-y-3">
                     <label className="block text-xs font-medium text-neutral-700">
                       Quantity
@@ -441,7 +464,13 @@ export default function EventDetail() {
                       </p>
                     )}
                     {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
-                    {user?.role === 'ATTENDEE' ? (
+                    {selectedTicket && applicationsOpen && selectedTicket.availableQuantity <= 0 ? (
+                      user?.role === 'ATTENDEE' ? (
+                        myWaitlists.some(entry => entry.ticketTypeId === selectedTicket.id && ['WAITING', 'OFFERED'].includes(entry.status)) ? (
+                          <Link to="/attendee" className="mt-3 block w-full rounded-md border border-rose-200 px-3 py-2.5 text-center text-xs font-bold text-rose-700">View Waitlist Status</Link>
+                        ) : <Button className="mt-3 w-full" loading={waitlistLoading} onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                      ) : user ? <p className="mt-3 text-center text-xs text-neutral-600">Waitlists are available to attendees.</p> : <Button className="mt-3 w-full" onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                    ) : user?.role === 'ATTENDEE' ? (
                       <Button
                         className="mt-3 w-full bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600"
                         loading={bookingLoading}
@@ -464,6 +493,7 @@ export default function EventDetail() {
                         </Link>
                       </div>
                     )}
+                    {waitlistMessage && <p role="status" className="mt-2 text-xs text-emerald-700">{waitlistMessage}</p>}
                   </>
                 <p className="mt-2 text-center text-[9px] text-neutral-500">Free cancellation until the event starts</p>
               </>

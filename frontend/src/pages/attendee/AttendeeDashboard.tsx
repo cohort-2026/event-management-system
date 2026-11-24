@@ -11,6 +11,8 @@ import { getMyTickets } from '@/services/ticketService';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
 import type { Ticket } from '@/types/ticket';
+import { cancelWaitlist, getMyWaitlists } from '@/services/waitlistService';
+import type { WaitlistEntry } from '@/types/waitlist';
 
 type DateFilter = 'month' | 'week' | null;
 type EventArt = { background: string; sun?: boolean };
@@ -89,6 +91,8 @@ export default function AttendeeDashboard() {
   const [error, setError] = useState('');
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState('');
+  const [waitlists, setWaitlists] = useState<WaitlistEntry[]>([]);
+  const [selectedWaitlist, setSelectedWaitlist] = useState<WaitlistEntry | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -108,6 +112,20 @@ export default function AttendeeDashboard() {
 
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    getMyWaitlists().then(response => setWaitlists(response.data.data)).catch(() => undefined);
+  }, []);
+
+  const leaveWaitlist = async (entry: WaitlistEntry) => {
+    if (!window.confirm(`Leave the ${entry.ticketType.name} waitlist for ${entry.event.title}?`)) return;
+    try {
+      await cancelWaitlist(entry.id);
+      setWaitlists(current => current.map(item => item.id === entry.id ? { ...item, status: 'CANCELLED' } : item));
+    } catch (error) {
+      setBookingsError(axios.isAxiosError(error) ? error.response?.data?.message ?? 'Could not leave this waitlist.' : 'Could not leave this waitlist.');
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -376,6 +394,22 @@ export default function AttendeeDashboard() {
           </section>
         </div>
       </section>
+
+      <section aria-labelledby="my-waitlists" className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div><h2 id="my-waitlists" className="text-sm font-bold">My Waitlists</h2><p className="mt-1 text-[10px] text-neutral-500">Your place in sold out ticket queues</p></div>
+          <Link to="/events" className="text-[10px] font-semibold text-rose-700">Browse events</Link>
+        </div>
+        {waitlists.length === 0 ? <div className="rounded-lg bg-neutral-50 px-4 py-6 text-center"><p className="text-sm text-neutral-600">You haven&apos;t joined any waitlists yet.</p><Link to="/events" className="mt-2 inline-block text-xs font-semibold text-rose-700">Find published events</Link></div> :
+          <ul className="divide-y divide-neutral-100">{waitlists.map(entry => <li key={entry.id} className="flex flex-wrap items-center gap-3 py-3">
+            <EventArtwork title={entry.event.title} bannerImageUrl={entry.event.bannerImageUrl} className="h-14 w-14 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-neutral-900">{entry.event.title}</p><p className="mt-1 text-[10px] text-neutral-500">{entry.ticketType.name} · {new Date(entry.event.startTime).toLocaleDateString('en-ZA')} · {entry.event.venue}</p></div>
+            <div className="text-right"><p className="text-xs font-bold">{['WAITING', 'OFFERED'].includes(entry.status) ? `#${entry.position}` : entry.status}</p><p className="text-[10px] text-neutral-500">{entry.status.toLowerCase()}</p></div>
+            <div className="flex gap-2"><Link to={`/events/${entry.event.id}`} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">View Event</Link><button type="button" onClick={() => setSelectedWaitlist(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">Details</button>{['WAITING', 'OFFERED'].includes(entry.status) && <button type="button" onClick={() => void leaveWaitlist(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-rose-700">Leave</button>}</div>
+          </li>)}</ul>}
+      </section>
+
+      {selectedWaitlist && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedWaitlist(null); }}><section role="dialog" aria-modal="true" aria-labelledby="waitlist-details-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"><h2 id="waitlist-details-title" className="text-lg font-bold">Waitlist details</h2><p className="mt-3 text-sm font-semibold">{selectedWaitlist.event.title} · {selectedWaitlist.ticketType.name}</p><p className="mt-2 text-xs text-neutral-600">Position: #{selectedWaitlist.position} · Status: {selectedWaitlist.status.toLowerCase()}</p><p className="mt-1 text-xs text-neutral-600">Joined {new Date(selectedWaitlist.createdAt).toLocaleDateString('en-ZA')}</p><p className="mt-3 text-xs text-neutral-600">If a ticket becomes available, waitlist offers will be handled by the event team. Joining does not guarantee a ticket.</p><button type="button" onClick={() => setSelectedWaitlist(null)} className="mt-5 w-full rounded-lg bg-neutral-950 px-3 py-2 text-sm font-semibold text-white">Close</button></section></div>}
 
       <section id="event-search" className="rounded-xl border border-neutral-200 bg-white px-4 py-5 shadow-sm sm:px-7 sm:py-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
