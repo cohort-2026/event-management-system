@@ -98,8 +98,17 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
     }
 
     const booking = await prisma.$transaction(async transaction => {
+      const now = new Date();
       const event = await transaction.event.findFirst({
-        where: { id: eventId, status: EventStatus.PUBLISHED, startTime: { gt: new Date() } },
+        where: {
+          id: eventId,
+          status: EventStatus.PUBLISHED,
+          startTime: { gt: now },
+          AND: [
+            { OR: [{ registrationOpensAt: null }, { registrationOpensAt: { lte: now } }] },
+            { OR: [{ registrationClosesAt: null }, { registrationClosesAt: { gt: now } }] },
+          ],
+        },
         select: { id: true, title: true, availableCapacity: true },
       });
       if (!event) throw new EventUnavailableError();

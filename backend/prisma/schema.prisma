@@ -211,6 +211,8 @@ model Event {
   date              DateTime
   startTime         DateTime    @map("start_time")
   endTime           DateTime    @map("end_time")
+  registrationOpensAt DateTime? @map("registration_opens_at")
+  registrationClosesAt DateTime? @map("registration_closes_at")
   eventType         EventType   @default(IN_PERSON) @map("event_type")
   meetingDetails    String?     @map("meeting_details")
   bannerImageUrl    String?     @map("banner_image_url")
@@ -221,6 +223,7 @@ model Event {
   price             Decimal?    @db.Decimal(10, 2)
   vendorStandRatePerSqm Decimal @default(0) @map("vendor_stand_rate_per_sqm") @db.Decimal(10, 2)
   status            EventStatus @default(DRAFT)
+  closedAt          DateTime?   @map("closed_at")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 

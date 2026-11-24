@@ -76,8 +76,12 @@ export default function EventList({ upcomingOnly = false }: { upcomingOnly?: boo
     const effectiveEnd = datePreset === 'custom' ? (endDate ? new Date(`${endDate}T23:59:59.999`) : null) : presetEnd;
     const matchesStart = !effectiveStart || date >= effectiveStart;
     const matchesEnd = !effectiveEnd || date <= effectiveEnd;
+    const now = new Date();
+    const opensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+    const closesAt = new Date(event.registrationClosesAt ?? event.startTime);
+    const acceptingApplications = event.status === 'PUBLISHED' && now >= opensAt && now < closesAt && date > now;
     const matchesApplications = applicationStatus === 'All' ||
-      (applicationStatus === 'Open' ? date > new Date() : date <= new Date());
+      (applicationStatus === 'Open' ? acceptingApplications : !acceptingApplications);
     return matchesSearch && (category === 'All' || event.category === category) &&
       matchesStart && matchesEnd && matchesApplications;
   }).sort((first, second) => {
