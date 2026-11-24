@@ -124,6 +124,7 @@ model User {
   passwordSetupToken PasswordSetupToken?
   organizedEvents     Event[]
   bookings            Booking[]
+  cancelledBookings   Booking[] @relation("BookingCancelledBy")
   waitlistEntries     WaitlistEntry[]
   tickets             Ticket[]
   vendorApplications  VendorApplication[]
@@ -151,6 +152,7 @@ model AuditLog {
   action         String
   affectedUserId String?  @map("affected_user_id")
   outcome        String
+  metadata       Json?
   createdAt      DateTime @default(now()) @map("created_at")
   actor          User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
 
@@ -293,6 +295,9 @@ model Booking {
   paymentStatus PaymentStatus @default(NOT_REQUIRED) @map("payment_status")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
+  cancelledAt   DateTime?     @map("cancelled_at")
+  cancellationReason String?  @map("cancellation_reason")
+  cancelledById String?       @map("cancelled_by_id")
 
   // Relations
   eventId    String   @map("event_id")
@@ -301,10 +306,12 @@ model Booking {
   eventTicketType EventTicketType? @relation(fields: [eventTicketTypeId], references: [id], onDelete: SetNull)
   attendeeId String   @map("attendee_id")
   attendee   User     @relation(fields: [attendeeId], references: [id])
+  cancelledBy User?   @relation("BookingCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   tickets    Ticket[]
   payment    Payment?
 
   @@index([attendeeId, createdAt])
+  @@index([cancelledAt])
   @@map("bookings")
 }
 

@@ -22,12 +22,15 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   createdAt: string;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
   event: {
     id: string;
     title: string;
     startTime: string;
     endTime: string;
     venue: string;
+    bannerImageUrl?: string | null;
   };
   eventTicketType: {
     id: string;
