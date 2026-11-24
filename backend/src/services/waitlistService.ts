@@ -61,6 +61,39 @@ export const getPosition = async (entryId: string, attendeeId: string, isAdmin: 
   return { kind: 'found' as const, entry, position: preceding + 1 };
 };
 
+export const offerNextWaitlist = async (eventId: string, ticketTypeId: string, quantity: number) => {
+  const offered: string[] = [];
+  for (let i = 0; i < quantity; i += 1) {
+    const entry = await prisma.$transaction(async transaction => {
+      await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "event_ticket_types" WHERE "id" = ${ticketTypeId} FOR UPDATE
+      `;
+      const next = await transaction.waitlistEntry.findFirst({
+        where: { eventId, ticketTypeId, status: WaitlistStatus.WAITING },
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      });
+      if (!next) return null;
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const updated = await transaction.waitlistEntry.update({
+        where: { id: next.id, status: WaitlistStatus.WAITING },
+        data: { status: WaitlistStatus.OFFERED, offeredAt: now, expiresAt },
+      });
+      await transaction.eventTicketType.update({
+        where: { id: ticketTypeId },
+        data: { availableQuantity: { decrement: 1 } },
+      });
+      await transaction.event.update({
+        where: { id: eventId },
+        data: { availableCapacity: { decrement: 1 } },
+      });
+      return updated;
+    });
+    if (!entry) break;
+    offered.push(entry.id);
+  }
+  return offered;
+};
 export const cancelWaitlistEntry = async (entryId: string, attendeeId: string, isAdmin: boolean) =>
   prisma.$transaction(async transaction => {
     const current = await transaction.waitlistEntry.findUnique({ where: { id: entryId }, select: { id: true, eventId: true, ticketTypeId: true, attendeeId: true, status: true } });

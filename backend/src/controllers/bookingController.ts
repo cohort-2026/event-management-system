@@ -9,6 +9,7 @@ import {
 } from '../services/notificationService';
 
 import { issueTicketsForBooking } from '../services/ticketService';
+import { offerNextWaitlist } from '../services/waitlistService';
 
 const MAX_TICKETS_PER_BOOKING = 100;
 const MAX_BOOKING_AMOUNT = new Prisma.Decimal('99999999.99');
@@ -384,6 +385,10 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
+    if (typeof result !== 'string' && result.kind === 'cancelled' && result.inventoryRelease.quantity > 0 && result.inventoryRelease.ticketTypeId) {
+      await offerNextWaitlist(result.inventoryRelease.eventId, result.inventoryRelease.ticketTypeId, result.inventoryRelease.quantity);
+    }
+
     if (result === 'not_found') {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
@@ -400,7 +405,7 @@ export const cancelBooking = async (req: Request, res: Response, next: NextFunct
       res.status(409).json({ success: false, message: 'Bookings with checked-in tickets cannot be cancelled' });
       return;
     }
-    if (result === 'cancelled') {
+    if (typeof result !== 'string' && result.kind === 'cancelled') {
       res.json({
         success: true,
         data: { ...serializeBooking(result.booking), inventoryRelease: result.inventoryRelease },

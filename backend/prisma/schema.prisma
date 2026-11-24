@@ -272,6 +272,8 @@ model WaitlistEntry {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
   cancelledAt       DateTime?      @map("cancelled_at")
+  offeredAt         DateTime?      @map("offered_at")
+  expiresAt         DateTime?      @map("expires_at")
   eventId           String         @map("event_id")
   ticketTypeId      String         @map("ticket_type_id")
   attendeeId        String         @map("attendee_id")
@@ -282,6 +284,7 @@ model WaitlistEntry {
   @@index([eventId, ticketTypeId, status, position, createdAt, id])
   @@index([attendeeId, createdAt])
   @@index([ticketTypeId, status])
+  @@index([expiresAt])
   @@map("waitlist_entries")
 }
 
