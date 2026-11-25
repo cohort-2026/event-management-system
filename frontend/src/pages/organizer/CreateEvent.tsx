@@ -71,7 +71,7 @@ const EMPTY_FORM: EventForm = {
   registrationClosesAt: '',
   capacity: '',
   vendorStandsAvailable: '0',
-  vendorStandRatePerSqm: '0',
+  vendorStandRatePerSqm: '100',
   bannerImageUrl: '',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
@@ -519,7 +519,7 @@ export default function CreateEvent() {
         date: startTime.toISOString(),
         capacity,
         vendorStandsAvailable: Number(form.vendorStandsAvailable),
-        vendorStandRatePerSqm: Number(existingEvent?.vendorStandRatePerSqm ?? 0),
+        vendorStandRatePerSqm: Number(form.vendorStandRatePerSqm),
         isFree: ticketTypes.every(ticket => ticket.price === 0),
         bannerImageUrl,
         ticketTypes: ticketTypes.map(ticket => ({
