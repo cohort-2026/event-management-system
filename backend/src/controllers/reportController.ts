@@ -323,3 +323,191 @@ export const getEventReportById = async (req: Request, res: Response, next: Next
     next(error);
   }
 };
+
+export const getFinalEventReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!id) {
+      res.status(400).json({ success: false, message: 'A valid event ID is required' });
+      return;
+    }
+
+    const outcome = await prisma.$transaction(async transaction => {
+      const event = await transaction.event.findFirst({
+        where: { id, organizerId: req.user!.id },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          category: true,
+          venue: true,
+          eventType: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          capacity: true,
+          isFree: true,
+          price: true,
+          vendorStandsAvailable: true,
+          vendorStandRatePerSqm: true,
+          organizer: { select: { firstname: true, lastname: true, organizationName: true } },
+          ticketTypes: { select: { name: true, price: true, quantity: true }, orderBy: { name: 'asc' } },
+        },
+      });
+      if (!event) return { kind: 'not_found' as const };
+      if (event.status !== EventStatus.COMPLETED) return { kind: 'not_completed' as const };
+
+      const [bookingRows, ticketRows, paymentRows, applications, checkedInTicketRows] = await Promise.all([
+        transaction.booking.groupBy({
+          by: ['status'],
+          where: { eventId: id },
+          _count: { _all: true },
+          _sum: { quantity: true, totalAmount: true },
+        }),
+        transaction.ticket.groupBy({
+          by: ['status'],
+          where: { eventId: id },
+          _count: { _all: true },
+        }),
+        transaction.payment.groupBy({
+          by: ['status'],
+          where: { booking: { is: { eventId: id } } },
+          _count: { _all: true },
+          _sum: { amount: true },
+        }),
+        transaction.vendorApplication.findMany({
+          where: { eventId: id },
+          select: {
+            id: true,
+            companyName: true,
+            requestedStandType: true,
+            requestedStandSize: true,
+            standAreaSqm: true,
+            standRatePerSqm: true,
+            quotedAmount: true,
+            assignedStand: true,
+            status: true,
+            vendor: { select: { firstname: true, lastname: true, email: true, vendorProfile: { select: { businessName: true } } } },
+            invoice: { select: { invoiceNumber: true, amount: true, status: true, issuedAt: true, dueAt: true } },
+          },
+          orderBy: [{ status: 'asc' }, { companyName: 'asc' }],
+        }),
+        transaction.ticket.findMany({
+          where: { eventId: id, status: TicketStatus.USED, checkedInAt: { not: null } },
+          select: { checkedInAt: true },
+          orderBy: { checkedInAt: 'asc' },
+        }),
+      ]);
+
+      const bookingCounts = countMap(bookingRows);
+      const ticketCounts = countMap(ticketRows);
+      const paymentTotals = amountMap(paymentRows);
+      const invoiceAmounts = { ISSUED: 0, PAID: 0, VOID: 0 };
+      const invoiceCounts = { ISSUED: 0, PAID: 0, VOID: 0 };
+      for (const application of applications) {
+        if (!application.invoice) continue;
+        invoiceAmounts[application.invoice.status] += Number(application.invoice.amount);
+        invoiceCounts[application.invoice.status] += 1;
+      }
+
+      const checkedInAttendees = ticketCounts.get(TicketStatus.USED) ?? 0;
+      const noShowAttendees = ticketCounts.get(TicketStatus.ACTIVE) ?? 0;
+      const validIssuedTickets = checkedInAttendees + noShowAttendees;
+      const ticketRevenue = paymentTotals.get(PaymentStatus.PAID)?.amount ?? 0;
+      const paidVendorRevenue = invoiceAmounts.PAID;
+      const checkInsByHourMap = new Map<number, number>();
+      for (const ticket of checkedInTicketRows) {
+        if (!ticket.checkedInAt) continue;
+        const hour = Number(new Intl.DateTimeFormat('en-ZA', {
+          hour: '2-digit',
+          hourCycle: 'h23',
+          timeZone: 'Africa/Johannesburg',
+        }).format(ticket.checkedInAt));
+        checkInsByHourMap.set(hour, (checkInsByHourMap.get(hour) ?? 0) + 1);
+      }
+      const checkInsByHour = [...checkInsByHourMap.entries()].sort(([left], [right]) => left - right).map(([hour, count]) => ({
+        hour,
+        label: new Intl.DateTimeFormat('en-ZA', {
+          hour: 'numeric',
+          hour12: true,
+          timeZone: 'Africa/Johannesburg',
+        }).format(new Date(Date.UTC(2020, 0, 1, hour))),
+        count,
+      }));
+
+      return {
+        kind: 'report' as const,
+        data: {
+          generatedAt: new Date(),
+          event: {
+            ...event,
+            price: event.price === null ? null : Number(event.price),
+            vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+            ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
+          },
+          attendance: {
+            totalTicketCapacity: event.capacity,
+            totalBookings: [...bookingCounts.values()].reduce((sum, count) => sum + count, 0),
+            totalConfirmedBookings: bookingCounts.get(BookingStatus.CONFIRMED) ?? 0,
+            totalRegisteredAttendees: Number(bookingRows.find(row => row.status === BookingStatus.CONFIRMED)?._sum.quantity ?? 0),
+            totalCancellations: bookingCounts.get(BookingStatus.CANCELLED) ?? 0,
+            totalWaitlistedAttendees: 0,
+            waitlistTrackingAvailable: false,
+            totalTicketsIssued: validIssuedTickets + (ticketCounts.get(TicketStatus.CANCELLED) ?? 0),
+            totalAttendeesCheckedIn: checkedInAttendees,
+            totalNoShows: noShowAttendees,
+            noShowRate: percentage(noShowAttendees, validIssuedTickets),
+            attendanceRate: percentage(checkedInAttendees, validIssuedTickets),
+            checkInsByHour,
+          },
+          vendors: {
+            totalApplications: applications.length,
+            approved: applications.filter(application => application.status === VendorApplicationStatus.APPROVED).length,
+            pending: applications.filter(application => application.status === VendorApplicationStatus.PENDING_REVIEW).length,
+            rejected: applications.filter(application => application.status === VendorApplicationStatus.REJECTED).length,
+            standAllocations: applications.filter(application => application.status === VendorApplicationStatus.APPROVED).map(application => ({
+              companyName: application.vendor.vendorProfile?.businessName || application.companyName,
+              contactName: `${application.vendor.firstname} ${application.vendor.lastname}`,
+              email: application.vendor.email,
+              stand: application.assignedStand,
+              standType: application.requestedStandType,
+              standSize: application.requestedStandSize,
+              areaSqm: Number(application.standAreaSqm),
+              quotedAmount: Number(application.quotedAmount),
+              invoiceNumber: application.invoice?.invoiceNumber ?? null,
+              invoiceStatus: application.invoice?.status ?? null,
+            })),
+          },
+          vendorInvoices: {
+            issuedCount: invoiceCounts.ISSUED,
+            issuedAmount: invoiceAmounts.ISSUED,
+            paidCount: invoiceCounts.PAID,
+            paidAmount: invoiceAmounts.PAID,
+            voidCount: invoiceCounts.VOID,
+            voidAmount: invoiceAmounts.VOID,
+            outstandingAmount: invoiceAmounts.ISSUED,
+          },
+          revenue: {
+            ticketRevenue,
+            paidVendorRevenue,
+            totalRevenue: ticketRevenue + paidVendorRevenue,
+            ticketPaymentMode: 'SIMULATED' as const,
+          },
+        },
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+
+    if (outcome.kind === 'not_found') {
+      res.status(404).json({ success: false, message: 'Event not found' });
+      return;
+    }
+    if (outcome.kind === 'not_completed') {
+      res.status(409).json({ success: false, message: 'Final reports are available after event completion' });
+      return;
+    }
+    res.json({ success: true, data: outcome.data });
+  } catch (error) {
+    next(error);
+  }
+};
