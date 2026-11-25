@@ -42,8 +42,10 @@ const standRowLabel = (row: number): string => {
   return label;
 };
 
-const standLabel = (index: number): string => `${standRowLabel(Math.floor(index / 5))}${(index % 5) + 1}`;
-const money = (amount: number | string): string => `R${Number(amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const standLabel = (index: number): string => `${standRowLabel(Math.floor(index / 5))}${(index % 5) + 1}`;
+  const standCode = standLabel;
+  const money = (amount: number | string): string => `R${Number(amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const moneyFixed = money;
 
 const downloadApplicationsCsv = (applications: VendorApplication[]) => {
   const columns = [
@@ -125,6 +127,11 @@ export default function VendorApplications() {
   const eventApproved = eventApplications.filter(application => application.status === 'APPROVED');
   const invoicedAmount = eventApproved.reduce((sum, application) => sum + Number(application.quotedAmount || 0), 0);
   const paidAmount = eventApproved.reduce((sum, application) => sum + Number(application.invoice?.status === 'PAID' ? application.quotedAmount : 0), 0);
+  const selectedEvent = allocationEvent ?? organizerEvents.find(event => event.id === eventId);
+  const allocatedCount = applications.filter(application => application.status === 'APPROVED').length;
+  const invoicedTotal = applications.reduce((sum, application) => sum + Number(application.quotedAmount || 0), 0);
+  const paidTotal = applications.reduce((sum, application) => sum + Number(application.invoice?.status === 'PAID' ? application.quotedAmount : 0), 0);
+  const allocatedStandCodes = new Set(applications.filter(application => application.status === 'APPROVED' && application.assignedStand).map(application => application.assignedStand!.trim().toUpperCase()));
 
   const refresh = useCallback(async () => {
     setError('');
@@ -240,7 +247,7 @@ export default function VendorApplications() {
             <OrganizerTopBar title="Stand requests" showTitle={false} headingEyebrow="My events" heading={selectedEvent?.title || 'Stand requests'} headingDetail="Review vendor applications and allocate stands." />
           </div>
           <h1 className="mb-1 text-2xl font-bold text-neutral-900">Stand requests</h1>
-          <p className="mb-5 text-sm text-neutral-500">{standCount} stands · {money(selectedEvent?.vendorStandRatePerSqm)}/m²</p>
+          <p className="mb-5 text-sm text-neutral-500">{standCount} stands · {money(selectedEvent?.vendorStandRatePerSqm ?? 0)}/m²</p>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-neutral-200 bg-white p-4"><p className="text-xs text-neutral-500">Allocated</p><p className="mt-1 text-2xl font-bold text-neutral-900">{allocatedCount}<span className="ml-1 text-sm font-normal text-neutral-400">/ {eventId ? standCount : organizerEvents.reduce((sum, event) => sum + event.vendorStandsAvailable, 0)}</span></p></div>
             <div className="rounded-xl border border-neutral-200 bg-white p-4"><p className="text-xs text-neutral-500">Invoiced</p><p className="mt-1 text-2xl font-bold text-neutral-900">{money(invoicedTotal)}</p></div>
@@ -550,7 +557,7 @@ export default function VendorApplications() {
             </div>
             <footer className="flex gap-2 border-t border-neutral-100 px-4 pb-4">
               <Button type="button" variant="secondary" size="sm" className="flex-1 rounded-lg" disabled={Boolean(approvingId || rejectingId)} onClick={() => setShowRejectReason(true)}>Reject...</Button>
-              <Button type="button" size="sm" className="flex-1 rounded-lg bg-black text-white hover:bg-neutral-800" loading={approvingId === selectedApplication.id} disabled={Boolean(approvingId || rejectingId || !assignedStands[selectedApplication.id])} onClick={() => void approve(selectedApplication.id)}>
+              <Button type="button" size="sm" className="flex-1 rounded-lg bg-black text-white hover:bg-neutral-800" loading={approvingId === selectedApplication.id} disabled={Boolean(approvingId || rejectingId || !assignedStands[selectedApplication.id])} onClick={() => void approve(selectedApplication.id, assignedStands[selectedApplication.id] ?? '', Number(applicationRates[selectedApplication.id] ?? selectedApplication.standRatePerSqm ?? 0))}>
                 Allocate {assignedStands[selectedApplication.id] || 'stand'}
               </Button>
             </footer>
