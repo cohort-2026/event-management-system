@@ -160,6 +160,7 @@ export const claimWaitlistOffer = async (entryId: string, attendeeId: string) =>
   const booking = await transaction.booking.create({
     data: {
       reference,
+      ticketAccessToken: randomUUID(),
       quantity: 1,
       totalAmount: amount,
       eventId: entry.eventId,

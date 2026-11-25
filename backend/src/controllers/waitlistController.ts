@@ -76,7 +76,7 @@ export const listMyWaitlistOffers = async (req: Request, res: Response, next: Ne
 
 export const claimWaitlistOfferController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await claimWaitlistOffer(req.params.id, req.user!.id);
+    const result = await claimWaitlistOffer(String(req.params.id), req.user!.id);
     if (result.kind === 'missing') { res.status(404).json({ success: false, message: 'Waitlist offer not found' }); return; }
     if (result.kind === 'forbidden') { res.status(403).json({ success: false, message: 'This offer does not belong to you' }); return; }
     if (result.kind === 'expired') { res.status(409).json({ success: false, message: 'This waitlist offer has expired' }); return; }

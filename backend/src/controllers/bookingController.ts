@@ -16,7 +16,7 @@ const MAX_TICKETS_PER_BOOKING = 100;
 const MAX_BOOKING_AMOUNT = new Prisma.Decimal('99999999.99');
 
 const bookingInclude = {
-  event: { select: { id: true, title: true, category: true, bannerImageUrl: true, startTime: true, endTime: true, venue: true, bannerImageUrl: true } },
+  event: { select: { id: true, title: true, category: true, bannerImageUrl: true, startTime: true, endTime: true, venue: true } },
   eventTicketType: { select: { id: true, name: true, price: true } },
   tickets: {
     select: {
