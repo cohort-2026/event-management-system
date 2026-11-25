@@ -53,6 +53,8 @@ export interface VendorApplication {
   supportingInformation?: string | null;
   standAreaSqm: number | string;
   standRatePerSqm: number | string;
+  tablesAndChairsAmount: number | string;
+  extensionCordAmount: number | string;
   quotedAmount: number | string;
   assignedStand?: string | null;
   status: VendorApplicationStatus;
@@ -102,6 +104,8 @@ export interface VendorInvoice {
   id: string;
   invoiceNumber: string;
   amount: number | string;
+  taxRate: number | string;
+  taxAmount: number | string;
   currency: string;
   status: 'ISSUED' | 'PAID' | 'VOID';
   emailStatus?: 'PENDING' | 'SENT' | 'FAILED';
@@ -154,5 +158,5 @@ export interface VendorDocument {
 export type CreateVendorApplicationDto = Pick<
   VendorApplication,
   'eventId' | 'requestedStandType' | 'requestedStandSize' | 'standDescription' | 'supportingInformation'
-> & { staffMembers: AddStaffMemberDto[] };
+> & { staffMembers: AddStaffMemberDto[]; tablesAndChairsIncluded: boolean; extensionCordIncluded: boolean };
 export type AddStaffMemberDto = Pick<VendorStaffMember, 'name' | 'email'>;

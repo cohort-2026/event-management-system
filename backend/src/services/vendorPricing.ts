@@ -1,0 +1,1 @@
+export const VENDOR_INVOICE_TAX_RATE = 15;

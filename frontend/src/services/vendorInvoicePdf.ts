@@ -5,11 +5,20 @@ export function downloadInvoicePdf(application: VendorApplication) {
   if (!invoice) throw new Error('No invoice is available for this application.');
 
   const amount = Number(invoice.amount);
+  const taxRate = Number(invoice.taxRate);
+  const taxAmount = Number(invoice.taxAmount);
   const areaSqm = Number(application.standAreaSqm);
   const ratePerSqm = Number(application.standRatePerSqm);
-  if (!Number.isFinite(amount) || !Number.isFinite(areaSqm) || !Number.isFinite(ratePerSqm)) {
+  const tablesAndChairsAmount = Number(application.tablesAndChairsAmount);
+  const extensionCordAmount = Number(application.extensionCordAmount);
+  if (![amount, taxRate, taxAmount, areaSqm, ratePerSqm, tablesAndChairsAmount, extensionCordAmount].every(Number.isFinite)) {
     throw new Error('The invoice amount or stand pricing is invalid.');
   }
+  const addOns = [
+    { description: 'Tables and chairs - 20 chairs, 4 tables', amount: tablesAndChairsAmount },
+    { description: 'Extension cord - 10 m', amount: extensionCordAmount },
+  ].filter(item => item.amount > 0);
+  const shift = addOns.length * 18;
 
   const pdfText = (value: string) => value
     .replace(/[^\x20-\x7E]/g, '?')
@@ -89,47 +98,54 @@ export function downloadInvoicePdf(application: VendorApplication) {
   text(133, 486, fit(`${application.requestedStandType} stand - ${application.requestedStandSize}`, 45), 8);
   text(365, 486, `${areaSqm.toFixed(2)} sqm`, 8);
   text(414, 486, `${currency} ${ratePerSqm.toFixed(2)}`, 8);
-  text(500, 486, `${currency} ${amount.toFixed(2)}`, 8);
-  line(54, 476, 558, 476);
-  [124, 356, 407, 493].forEach(x => line(x, 476, x, 521));
+  text(500, 486, `${currency} ${(Math.round(areaSqm * ratePerSqm * 100) / 100).toFixed(2)}`, 8);
+  addOns.forEach((item, index) => {
+    const y = 486 - (index + 1) * 18;
+    text(133, y, item.description, 8);
+    text(365, y, '1', 8);
+    text(414, y, `${currency} ${item.amount.toFixed(2)}`, 8);
+    text(500, y, `${currency} ${item.amount.toFixed(2)}`, 8);
+  });
+  line(54, 476 - shift, 558, 476 - shift);
+  [124, 356, 407, 493].forEach(x => line(x, 476 - shift, x, 521));
   line(54, 521, 558, 521);
 
-  rect(54, 450, 285, 16, '0.73 0.73 0.73');
-  text(60, 455, 'Other Comments or Special Instructions', 8, '1 1 1');
-  line(54, 394, 339, 394);
-  line(54, 450, 54, 394);
-  line(339, 450, 339, 394);
-  text(60, 435, `Payment amount due: ${currency} ${amount.toFixed(2)}`, 8);
-  text(60, 420, `Due date: ${date(invoice.dueAt)}`, 8);
-  text(60, 405, `Payment reference: ${invoice.invoiceNumber}`, 8);
-  text(365, 450, 'SUBTOTAL', 8);
-  text(490, 450, `${currency} ${amount.toFixed(2)}`, 8);
-  line(358, 444, 558, 444);
-  text(365, 427, 'TAX', 8);
-  text(490, 427, '-', 8);
-  line(358, 421, 558, 421);
-  rect(358, 393, 200, 20, '0.90 0.92 0.96');
-  text(365, 400, 'TOTAL', 9);
-  text(485, 400, `${currency} ${amount.toFixed(2)}`, 9, headerBlue);
-  text(80, 372, 'Questions? Contact the event organizer.', 8);
-  text(203, 356, 'Thank you for your business!', 11, headerBlue);
-  text(164, 338, 'Payment instructions: contact the event organizer.', 8);
-  line(54, 319, 558, 319, '0.35 0.35 0.35');
+  rect(54, 450 - shift, 285, 16, '0.73 0.73 0.73');
+  text(60, 455 - shift, 'Other Comments or Special Instructions', 8, '1 1 1');
+  line(54, 394 - shift, 339, 394 - shift);
+  line(54, 450 - shift, 54, 394 - shift);
+  line(339, 450 - shift, 339, 394 - shift);
+  text(60, 435 - shift, `Payment amount due: ${currency} ${amount.toFixed(2)}`, 8);
+  text(60, 420 - shift, `Due date: ${date(invoice.dueAt)}`, 8);
+  text(60, 405 - shift, `Payment reference: ${invoice.invoiceNumber}`, 8);
+  text(365, 450 - shift, 'SUBTOTAL', 8);
+  text(490, 450 - shift, `${currency} ${(amount - taxAmount).toFixed(2)}`, 8);
+  line(358, 444 - shift, 558, 444 - shift);
+  text(365, 427 - shift, `TAX (${taxRate}%)`, 8);
+  text(490, 427 - shift, `${currency} ${taxAmount.toFixed(2)}`, 8);
+  line(358, 421 - shift, 558, 421 - shift);
+  rect(358, 393 - shift, 200, 20, '0.90 0.92 0.96');
+  text(365, 400 - shift, 'TOTAL', 9);
+  text(485, 400 - shift, `${currency} ${amount.toFixed(2)}`, 9, headerBlue);
+  text(80, 372 - shift, 'Questions? Contact the event organizer.', 8);
+  text(203, 356 - shift, 'Thank you for your business!', 11, headerBlue);
+  text(164, 338 - shift, 'Payment instructions: contact the event organizer.', 8);
+  line(54, 319 - shift, 558, 319 - shift, '0.35 0.35 0.35');
 
-  text(270, 301, 'REMITTANCE', 10, headerBlue);
-  text(54, 280, issuer, 12, headerBlue);
-  text(54, 265, 'Contact the event organizer for payment instructions.', 8);
-  text(395, 279, 'DATE', 7);
-  text(450, 279, date(invoice.issuedAt), 8);
-  text(395, 264, 'INVOICE #', 7);
-  text(450, 264, invoice.invoiceNumber, 8);
-  text(395, 249, 'CUSTOMER ID', 7);
-  text(450, 249, application.vendorId.slice(0, 8), 7);
-  text(330, 224, 'AMOUNT ENCLOSED', 8);
-  line(430, 218, 558, 218);
-  line(430, 241, 558, 241);
-  line(430, 218, 430, 241);
-  line(558, 218, 558, 241);
+  text(270, 301 - shift, 'REMITTANCE', 10, headerBlue);
+  text(54, 280 - shift, issuer, 12, headerBlue);
+  text(54, 265 - shift, 'Contact the event organizer for payment instructions.', 8);
+  text(395, 279 - shift, 'DATE', 7);
+  text(450, 279 - shift, date(invoice.issuedAt), 8);
+  text(395, 264 - shift, 'INVOICE #', 7);
+  text(450, 264 - shift, invoice.invoiceNumber, 8);
+  text(395, 249 - shift, 'CUSTOMER ID', 7);
+  text(450, 249 - shift, application.vendorId.slice(0, 8), 7);
+  text(330, 224 - shift, 'AMOUNT ENCLOSED', 8);
+  line(430, 218 - shift, 558, 218 - shift);
+  line(430, 241 - shift, 558, 241 - shift);
+  line(430, 218 - shift, 430, 241 - shift);
+  line(558, 218 - shift, 558, 241 - shift);
   text(54, 72, `Invoice ${invoice.invoiceNumber} | Due ${date(invoice.dueAt)}`, 7, '0.42 0.45 0.5');
 
   const drawingCommands = commands.join('\n');

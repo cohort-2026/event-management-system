@@ -162,7 +162,7 @@ export default function VendorDashboard() {
                         <Link key={application.id} to="/vendor/applications" className="flex items-center gap-3 rounded-md py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#800020]">
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-bold">{application.event?.title ?? 'Event'}</span>
-                            <span className="block text-xs text-slate-500">{application.requestedStandSize} · {formatCurrency(Number(application.quotedAmount))} quote</span>
+                            <span className="block text-xs text-slate-500">{application.requestedStandSize} · {formatCurrency(Number(application.quotedAmount))} quote excl. tax</span>
                           </span>
                           <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{formatStatus(application.status)}</span>
                         </Link>

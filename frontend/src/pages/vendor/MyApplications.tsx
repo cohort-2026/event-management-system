@@ -204,7 +204,7 @@ function ApplicationsTable({
         <div className="grid grid-cols-[minmax(200px,2fr)_minmax(90px,0.7fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(180px,1.3fr)_minmax(110px,0.8fr)] items-center gap-2 border-b border-[#ededed] bg-white px-3 py-2 text-[10px] font-bold text-[#777]">
           <span>Event</span>
           <span>Stand</span>
-          <span>Quote</span>
+          <span>Quote (excl. tax)</span>
           <span>Status</span>
           <span>Invoice</span>
           <span aria-hidden="true" />
@@ -256,7 +256,7 @@ function MobileApplicationCard({ application, index }: { application: VendorAppl
           <dd className="truncate font-semibold text-slate-700">{application.assignedStand ? `Stand ${application.assignedStand}` : 'Pending'}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-xs text-slate-500">Quote</dt>
+          <dt className="text-xs text-slate-500">Quote (excl. tax)</dt>
           <dd className="truncate font-semibold text-slate-700">{formatCurrency(application.quotedAmount)}</dd>
         </div>
         <div className="col-span-2 min-w-0 border-t border-slate-200 pt-2">

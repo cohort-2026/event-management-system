@@ -12,6 +12,7 @@ import {
   sendEventChangeNotification,
 } from '../services/emailService';
 import { prisma } from '../lib/prisma';
+import { VENDOR_INVOICE_TAX_RATE } from '../services/vendorPricing';
 const MAX_CAPACITY = 1_000_000;
 const MAX_TICKETS = 20;
 const MAX_PRICE = 99_999_999.99;
@@ -94,7 +95,7 @@ const validWebUrl = (value: string): boolean => {
   }
 };
 
-const parseEventInput = (body: Record<string, unknown>):
+const parseEventInput = (body: Record<string, unknown>, defaultVendorStandRatePerSqm = 0):
   { value: EventInput; error?: never } | { value?: never; error: string } => {
   const title = text(body.title);
   const description = text(body.description);
@@ -108,7 +109,9 @@ const parseEventInput = (body: Record<string, unknown>):
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
   const capacity = body.capacity;
   const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
-  const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined ? 0 : body.vendorStandRatePerSqm;
+  const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined
+    ? defaultVendorStandRatePerSqm
+    : body.vendorStandRatePerSqm;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
@@ -295,6 +298,7 @@ const serializeEvent = (event: Prisma.EventGetPayload<{ include: typeof eventInc
     ...eventData,
     price: event.price === null ? null : Number(event.price),
     vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+    vendorInvoiceTaxRate: VENDOR_INVOICE_TAX_RATE,
     availableVendorStands: Math.max(0, event.vendorStandsAvailable - _count.vendorApplications),
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
   };
@@ -311,7 +315,7 @@ const serializePublicEvent = (event: Prisma.EventGetPayload<{ include: typeof ev
 
 export const createEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const parsed = parseEventInput(req.body ?? {});
+    const parsed = parseEventInput(req.body ?? {}, 100);
     if (!parsed.value) {
       res.status(400).json({ success: false, message: parsed.error });
       return;
@@ -528,7 +532,21 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       res.status(400).json({ success: false, message: 'A valid event ID is required' });
       return;
     }
-    const parsed = parseEventInput(req.body ?? {});
+    const body = req.body ?? {};
+    let defaultVendorStandRatePerSqm = 0;
+    if (body.vendorStandRatePerSqm === undefined) {
+      const event = await prisma.event.findFirst({
+        where: { id: eventId, organizerId: req.user!.id },
+        select: { vendorStandRatePerSqm: true },
+      });
+      if (!event) {
+        res.status(404).json({ success: false, message: 'Event not found' });
+        return;
+      }
+      defaultVendorStandRatePerSqm = Number(event.vendorStandRatePerSqm);
+    }
+
+    const parsed = parseEventInput(body, defaultVendorStandRatePerSqm);
     if (!parsed.value) {
       res.status(400).json({ success: false, message: parsed.error });
       return;

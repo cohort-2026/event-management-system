@@ -350,7 +350,7 @@ function OtherApplication({ application }: { application: VendorApplication }) {
           <p className="truncate text-[10px] leading-tight text-[#777]">
             {paid
               ? 'Staff passes are available for this paid application.'
-              : `Staff passes unlock when ${application.invoice?.invoiceNumber ?? 'the invoice'} (${formatCurrency(application.quotedAmount)}) is marked paid by the organizer.`}
+              : `Staff passes unlock when ${application.invoice?.invoiceNumber ?? 'the invoice'} (${formatCurrency(application.invoice?.amount ?? application.quotedAmount)}) is marked paid by the organizer.`}
           </p>
         </div>
       </div>

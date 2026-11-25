@@ -115,6 +115,10 @@ function StandIcon() {
   return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10l2-5h14l2 5M4 10h16v10H4V10zm4 10v-6h8v6M3 10a2 2 0 004 0m0 0a2 2 0 004 0m0 0a2 2 0 004 0m0 0a2 2 0 004 0" /></svg>;
 }
 
+function TableIcon() {
+  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 10h16M6 10v10m12-10v10M3 10l2-5h14l2 5M7 20h10" /></svg>;
+}
+
 function PlusIcon() {
   return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v14m7-7H5" /></svg>;
 }
@@ -575,7 +579,7 @@ export default function OrganizerDashboard() {
 
           {!isMyEventsPage && !isNotificationsPage && (
             <>
-              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <StatCard
                       label="Upcoming events"
                       value={loading ? '—' : upcomingEvents.length}
@@ -603,6 +607,13 @@ export default function OrganizerDashboard() {
                       sub={standRequestsError ? 'Could not load request statuses' : 'Awaiting your review'}
                       icon={<StandIcon />}
                   color="purple"
+                />
+                <StatCard
+                      label="Tables and chairs"
+                      value="R2,000"
+                      sub="20 chairs • 4 tables"
+                      icon={<TableIcon />}
+                  color="rose"
                 />
               </div>
 
