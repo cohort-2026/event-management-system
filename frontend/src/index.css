@@ -1,8 +1,53 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  body:has(.ticket-access-page) {
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .ticket-access-page {
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .ticket-access-content {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .ticket-access-brand,
+  .ticket-download-controls,
+  .ticket-access-notice {
+    display: none !important;
+  }
+
+  .ticket-access-list {
+    display: block !important;
+  }
+
+  .ticket-access-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .ticket-access-card + .ticket-access-card {
+    break-before: page;
+    page-break-before: always;
+  }
+}
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -309,7 +354,7 @@ body {
   .card-grid {
     display: grid;
     gap: var(--spacing-5);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr));
   }
 
   .form-stack {
@@ -507,9 +552,25 @@ main.dashboard-shell {
 
 .vendor-dashboard-content *,
 .vendor-notification-panel * {
-  font-size: var(--text-base) !important;
+  font-size: var(--text-sm) !important;
   font-weight: 400 !important;
   line-height: var(--leading-normal) !important;
+}
+
+.vendor-notification-panel .notification-panel-title,
+.vendor-notification-panel .notification-item-title {
+  font-size: var(--text-sm) !important;
+  font-weight: 600 !important;
+}
+
+.vendor-notification-panel .notification-panel-action,
+.vendor-notification-panel .notification-item-date {
+  font-size: var(--text-xs) !important;
+}
+
+.vendor-notification-panel .notification-item-message {
+  font-size: 0.8125rem !important;
+  line-height: 1.45 !important;
 }
 
 .vendor-dashboard-content .profile-section-title {
@@ -568,6 +629,12 @@ main.dashboard-shell {
   font-weight: 800 !important;
 }
 
+.vendor-apply-page form label,
+.vendor-apply-page form summary {
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
 .vendor-sidebar .vendor-brand-title {
   font-weight: 800 !important;
 }
@@ -584,6 +651,12 @@ main.dashboard-shell {
 .vendor-dashboard-content button:not(:disabled):hover :is([class*="text-[#222]"], [class*="text-[#777]"], [class*="text-[#888]"]),
 .vendor-notification-panel button:not(:disabled):hover span {
   color: #fff;
+}
+
+.vendor-dashboard-content button.vendor-apply-addon-button:not(:disabled):not(.vendor-drawer-backdrop):hover {
+  background-image: none;
+  background-color: #fff;
+  color: inherit;
 }
 
 .vendor-sidebar .vendor-sidebar-action:hover .vendor-account-name,

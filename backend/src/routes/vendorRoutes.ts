@@ -11,14 +11,17 @@ import { notifyAdmins } from '../services/notificationService';
 import {
 	sendVendorApplicationRejected,
 	sendVendorApplicationSubmitted,
+	sendVendorInvoiceStatusUpdate,
 	sendVendorProfileDecision,
 	sendVendorStandInvoice,
 } from '../services/emailService';
 import { prisma } from '../lib/prisma';
+import { VENDOR_INVOICE_TAX_RATE } from '../services/vendorPricing';
 import { validateUuidParam } from '../middleware/requestValidation';
 
 const router = Router();
 router.param('id', validateUuidParam);
+const invoiceEmailStatusValues = { PENDING: 'PENDING', SENT: 'SENT', FAILED: 'FAILED' } as const;
 
 interface VendorDocumentRecord {
 	id: string;
@@ -974,7 +977,7 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 	const supportingInformation = typeof body.supportingInformation === 'string' ? body.supportingInformation.trim() : '';
 	const staffInput = body.staffMembers ?? [];
 	if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
-	const allowedFields = ['eventId', 'requestedStandType', 'requestedStandSize', 'standDescription', 'supportingInformation', 'staffMembers'];
+	const allowedFields = ['eventId', 'requestedStandType', 'requestedStandSize', 'standDescription', 'supportingInformation', 'staffMembers', 'tablesAndChairsIncluded', 'extensionCordIncluded'];
 	const unexpectedField = Object.keys(body).find(field => !allowedFields.includes(field));
 	if (unexpectedField) {
 		return res.status(400).json({
@@ -982,6 +985,10 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 			message: 'The application contains non-editable fields',
 			errors: [{ field: unexpectedField, message: 'This field cannot be submitted' }],
 		});
+	}
+	if ((body.tablesAndChairsIncluded !== undefined && typeof body.tablesAndChairsIncluded !== 'boolean') ||
+		(body.extensionCordIncluded !== undefined && typeof body.extensionCordIncluded !== 'boolean')) {
+		return res.status(400).json({ success: false, message: 'Add-on selections must be true or false' });
 	}
 	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
 		return res.status(400).json({ success: false, message: 'A valid event UUID is required' });
@@ -1036,6 +1043,8 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 				organizerId: true,
 				status: true,
 				startTime: true,
+				registrationOpensAt: true,
+				registrationClosesAt: true,
 				vendorStandsAvailable: true,
 				vendorStandRatePerSqm: true,
 				organizer: { select: { id: true, firstname: true, email: true } },
@@ -1043,7 +1052,12 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 			},
 		});
 		if (!event) return { error: 'not_found' as const };
-		if (event.status !== 'PUBLISHED' || event.startTime <= new Date()) return { error: 'closed' as const };
+		const now = new Date();
+		if (
+			event.status !== 'PUBLISHED' || event.startTime <= now ||
+			(event.registrationOpensAt && event.registrationOpensAt > now) ||
+			(event.registrationClosesAt && event.registrationClosesAt <= now)
+		) return { error: 'closed' as const };
 		if (event.vendorStandsAvailable - event._count.vendorApplications <= 0) return { error: 'full' as const };
 
 		const profile = await transaction.vendorProfile.findUnique({
@@ -1066,7 +1080,10 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 		if (existing) return { error: 'duplicate' as const };
 
 		const standRatePerSqm = Number(event.vendorStandRatePerSqm);
-		const quotedAmount = Math.round(standAreaSqm * standRatePerSqm * 100) / 100;
+		const tablesAndChairsAmount = body.tablesAndChairsIncluded === true ? 2000 : 0;
+		const extensionCordAmount = body.extensionCordIncluded === true ? 100 : 0;
+		const quotedAmount = Math.round(standAreaSqm * standRatePerSqm * 100) / 100
+			+ tablesAndChairsAmount + extensionCordAmount;
 		const application = await transaction.vendorApplication.create({
 			data: {
 				vendorId: userId,
@@ -1080,6 +1097,8 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 				supportingInformation: supportingInformation || null,
 				standAreaSqm,
 				standRatePerSqm,
+				tablesAndChairsAmount,
+				extensionCordAmount,
 				quotedAmount,
 				staffMembers: {
 					create: staffMembers.map(member => ({
@@ -1159,7 +1178,20 @@ router.get('/applications/me', requireAuth, requireRole('VENDOR'), async (req, r
 	const [applications, total] = await Promise.all([
 		prisma.vendorApplication.findMany({
 			where,
-			include: vendorApplicationView,
+			include: {
+				...vendorApplicationView,
+				vendor: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						email: true,
+						vendorProfile: {
+							select: { businessName: true, businessAddress: true, contactPhone: true },
+						},
+					},
+				},
+			},
 			orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
 			skip: (page - 1) * limit,
 			take: limit,
@@ -1216,6 +1248,8 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			date: Date;
 			startTime: Date;
 			endTime: Date;
+			registrationOpensAt: Date;
+			registrationClosesAt: Date;
 			availableVendorStands: number;
 		}>>(Prisma.sql`
 			SELECT
@@ -1227,6 +1261,8 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 				e."date",
 				e."start_time" AS "startTime",
 				e."end_time" AS "endTime",
+				COALESCE(e."registration_opens_at", e."created_at") AS "registrationOpensAt",
+				COALESCE(e."registration_closes_at", e."start_time") AS "registrationClosesAt",
 				(e."vendor_stands_available" - (
 					SELECT COUNT(*) FROM "vendor_applications" va
 					WHERE va."event_id" = e."id" AND va."status" = 'APPROVED'::"VendorApplicationStatus"
@@ -1243,7 +1279,7 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		data: events.map(event => ({
 			...event,
 			location: event.venue,
-			applicationDeadline: event.startTime,
+			applicationDeadline: event.registrationClosesAt,
 			applicationRequirements: null,
 		})),
 		pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -1305,6 +1341,12 @@ router.get('/invoices', requireAuth, requireRole('VENDOR'), async (req, res) => 
 						id: true,
 						status: true,
 						assignedStand: true,
+						requestedStandType: true,
+						requestedStandSize: true,
+						standAreaSqm: true,
+						standRatePerSqm: true,
+						tablesAndChairsAmount: true,
+						extensionCordAmount: true,
 						event: { select: { id: true, title: true, date: true, venue: true } },
 					},
 				},
@@ -1333,6 +1375,12 @@ router.get('/invoices/:id', requireAuth, requireRole('VENDOR'), async (req, res)
 					id: true,
 					status: true,
 					assignedStand: true,
+					requestedStandType: true,
+					requestedStandSize: true,
+					standAreaSqm: true,
+					standRatePerSqm: true,
+					tablesAndChairsAmount: true,
+					extensionCordAmount: true,
 					event: { select: { id: true, title: true, date: true, venue: true } },
 				},
 			},
@@ -1508,8 +1556,16 @@ router.delete('/staff/:id', requireAuth, requireRole('VENDOR'), async (req, res)
 });
 
 type VendorApplicationDecision =
-	| { status: 'APPROVED'; assignedStand: string }
+	| { status: 'APPROVED'; assignedStand: string; standRatePerSqm: number }
 	| { status: 'REJECTED'; rejectionReason: string };
+
+const standIndexFromLabel = (stand: string): number | null => {
+	const match = /^([A-Z]+)([1-5])$/.exec(stand);
+	if (!match) return null;
+	let row = 0;
+	for (const character of match[1]) row = row * 26 + character.charCodeAt(0) - 64;
+	return (row - 1) * 5 + Number(match[2]) - 1;
+};
 
 const decideVendorApplication = async (
 	req: Request,
@@ -1526,17 +1582,46 @@ const decideVendorApplication = async (
 		select: {
 			id: true,
 			vendorId: true,
+			invoiceId: true,
+			companyName: true,
+			requestedStandType: true,
 			status: true,
 			requestedStandSize: true,
 			standAreaSqm: true,
 			standRatePerSqm: true,
+			tablesAndChairsAmount: true,
+			extensionCordAmount: true,
 			quotedAmount: true,
-			event: { select: { id: true, title: true, organizerId: true } },
+			event: {
+				select: {
+					id: true,
+					title: true,
+					venue: true,
+					date: true,
+					organizerId: true,
+					organizer: {
+						select: {
+							firstname: true,
+							lastname: true,
+							email: true,
+							organizationName: true,
+							organizationEmail: true,
+							phone: true,
+						},
+					},
+				},
+			},
 			vendor: {
 				select: {
 					email: true,
 					firstname: true,
-					vendorProfile: { select: { status: true } },
+					vendorProfile: {
+						select: {
+							status: true,
+							businessAddress: true,
+							contactPhone: true,
+						},
+					},
 				},
 			},
 		},
@@ -1545,13 +1630,29 @@ const decideVendorApplication = async (
 	if (application.event.organizerId !== userId) {
 		return res.status(403).json({ success: false, message: 'You can only review requests for events you organize' });
 	}
+	const finalStandRatePerSqm = decision.status === 'APPROVED'
+		? decision.standRatePerSqm
+		: Number(application.standRatePerSqm);
+	const finalQuotedAmount = new Prisma.Decimal(application.standAreaSqm)
+		.mul(finalStandRatePerSqm)
+		.toDecimalPlaces(2);
 	if (application.status !== 'PENDING_REVIEW') {
 		return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
+	}
+	if (decision.status === 'APPROVED' && application.invoiceId) {
+		return res.status(409).json({
+			success: false,
+			message: 'An invoice already exists for this stand allocation. A replacement must be explicitly authorized.',
+		});
 	}
 
 	const decidedAt = new Date();
 	const invoiceNumber = `EVMS-${decidedAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
-	const dueAt = new Date(decidedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+	const dueAt = new Date(decidedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+	const subtotal = new Prisma.Decimal(application.quotedAmount);
+	const taxAmount = subtotal.mul(VENDOR_INVOICE_TAX_RATE).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+	const invoiceAmount = subtotal.add(taxAmount);
+	let invoiceId: string | null = null;
 	try {
 		const updated = await prisma.$transaction(async transaction => {
 			if (decision.status === 'APPROVED') {
@@ -1570,26 +1671,56 @@ const decideVendorApplication = async (
 						_count: { select: { vendorApplications: { where: { status: 'APPROVED' } } } },
 					},
 				});
-				if (event && (event.status !== 'PUBLISHED' || event.startTime <= new Date())) return 'event_closed' as const;
-				if (!event || event._count.vendorApplications >= event.vendorStandsAvailable) return 'no_stands' as const;
+				if (!event) return 'no_stands' as const;
+				if (event.status !== 'PUBLISHED' || event.startTime <= new Date()) return 'event_closed' as const;
+				const standIndex = standIndexFromLabel(decision.assignedStand);
+				if (standIndex === null || standIndex >= event.vendorStandsAvailable) return 'invalid_stand' as const;
+				const occupiedStand = await transaction.vendorApplication.findFirst({
+					where: {
+						eventId: application.event.id,
+						status: 'APPROVED',
+						assignedStand: { equals: decision.assignedStand, mode: 'insensitive' },
+					},
+					select: { id: true },
+				});
+				if (occupiedStand) return 'stand_taken' as const;
+				if (event._count.vendorApplications >= event.vendorStandsAvailable) return 'no_stands' as const;
 			}
 
 			const result = await transaction.vendorApplication.updateMany({
-				where: { id: applicationId, status: 'PENDING_REVIEW' },
+				where: {
+					id: applicationId,
+					status: 'PENDING_REVIEW',
+					...(decision.status === 'APPROVED' ? { invoiceId: null } : {}),
+				},
 				data: {
 					status: decision.status,
 					assignedStand: decision.status === 'APPROVED' ? decision.assignedStand : null,
+					...(decision.status === 'APPROVED' ? {
+						standRatePerSqm: finalStandRatePerSqm,
+						quotedAmount: finalQuotedAmount,
+					} : {}),
 					decidedById: userId,
 					decidedAt,
 					rejectionReason: decision.status === 'REJECTED' ? decision.rejectionReason : null,
 				},
 			});
-			if (result.count !== 1) return 'already_decided' as const;
+			if (result.count !== 1) {
+				if (decision.status === 'APPROVED') {
+					const currentApplication = await transaction.vendorApplication.findUnique({
+						where: { id: applicationId },
+						select: { invoiceId: true },
+					});
+					if (currentApplication?.invoiceId) return 'already_invoiced' as const;
+				}
+				return 'already_decided' as const;
+			}
 
 			if (decision.status === 'APPROVED') {
 				const invoice = await transaction.vendorInvoice.create({
-					data: { invoiceNumber, amount: application.quotedAmount, dueAt },
+					data: { invoiceNumber, amount: invoiceAmount, taxRate: VENDOR_INVOICE_TAX_RATE, taxAmount, dueAt },
 				});
+				invoiceId = invoice.id;
 				await transaction.vendorApplication.update({
 					where: { id: applicationId },
 					data: { invoiceId: invoice.id },
@@ -1597,7 +1728,7 @@ const decideVendorApplication = async (
 			}
 
 			const message = decision.status === 'APPROVED'
-				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${Number(application.quotedAmount).toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${invoiceAmount.toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
 				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
 			await transaction.notification.create({
 				data: {
@@ -1622,28 +1753,83 @@ const decideVendorApplication = async (
 		if (updated === 'event_closed') {
 			return res.status(409).json({ success: false, message: 'Applications cannot be approved after the event starts or is cancelled' });
 		}
+		if (updated === 'invalid_stand') {
+			return res.status(409).json({ success: false, message: 'Choose a stand configured for this event' });
+		}
+		if (updated === 'stand_taken') {
+			return res.status(409).json({ success: false, message: 'That stand has already been allocated. Choose another stand.' });
+		}
 		if (updated === 'already_decided') {
 			return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
 		}
+		if (updated === 'already_invoiced') {
+			return res.status(409).json({
+				success: false,
+				message: 'An invoice already exists for this stand allocation. A replacement must be explicitly authorized.',
+			});
+		}
 		let invoiceEmailSent = true;
 		let decisionEmailSent = true;
+		let invoiceEmailStatus: typeof invoiceEmailStatusValues[keyof typeof invoiceEmailStatusValues] = invoiceEmailStatusValues.PENDING;
+		let invoiceEmailStatusRecorded = false;
 		if (decision.status === 'APPROVED') {
 			try {
 				await sendVendorStandInvoice({
 					email: application.vendor.email,
 					firstname: application.vendor.firstname,
+					customerId: application.vendorId.slice(0, 8),
+					vendorName: application.companyName,
+					vendorAddress: application.vendor.vendorProfile?.businessAddress ?? '',
+					vendorPhone: application.vendor.vendorProfile?.contactPhone ?? '',
 					eventTitle: application.event.title,
+					venue: application.event.venue,
+					eventDate: application.event.date,
+					issuerName: application.event.organizer.organizationName || `${application.event.organizer.firstname} ${application.event.organizer.lastname}`,
+					issuerEmail: application.event.organizer.organizationEmail || application.event.organizer.email,
+					issuerPhone: application.event.organizer.phone || '',
 					invoiceNumber,
-					amount: Number(application.quotedAmount),
+					issuedAt: decidedAt,
+					amount: invoiceAmount.toNumber(),
+					taxRate: VENDOR_INVOICE_TAX_RATE,
+					taxAmount: taxAmount.toNumber(),
 					dueAt,
 					assignedStand: decision.assignedStand,
+					requestedStandType: application.requestedStandType,
 					requestedStandSize: application.requestedStandSize,
 					areaSqm: Number(application.standAreaSqm),
-					ratePerSqm: Number(application.standRatePerSqm),
+					ratePerSqm: finalStandRatePerSqm,
+					tablesAndChairsAmount: Number(application.tablesAndChairsAmount),
+					extensionCordAmount: Number(application.extensionCordAmount),
 				});
+				invoiceEmailStatus = invoiceEmailStatusValues.SENT;
 			} catch (emailError) {
 				console.error('Vendor stand invoice email failed:', emailError);
 				invoiceEmailSent = false;
+				invoiceEmailStatus = invoiceEmailStatusValues.FAILED;
+			}
+			try {
+				const recorded = await prisma.vendorInvoice.updateMany({
+					where: {
+						id: invoiceId!,
+						status: VendorInvoiceStatus.ISSUED,
+						application: {
+							is: {
+								id: applicationId,
+								status: 'APPROVED',
+								event: { is: { organizerId: userId } },
+							},
+						},
+					},
+					data: {
+						status: VendorInvoiceStatus.ISSUED,
+						emailStatus: invoiceEmailStatus,
+						emailSentAt: invoiceEmailStatus === invoiceEmailStatusValues.SENT ? new Date() : null,
+					},
+				});
+				invoiceEmailStatusRecorded = recorded.count === 1;
+				if (!invoiceEmailStatusRecorded) console.error(`Vendor invoice email status was not recorded for ${invoiceNumber}`);
+			} catch (statusError) {
+				console.error('Vendor invoice email status update failed:', statusError);
 			}
 		} else {
 			try {
@@ -1661,7 +1847,9 @@ const decideVendorApplication = async (
 		return res.json({
 			success: true,
 			message: decision.status === 'APPROVED' ? 'Stand request approved and invoice issued' : 'Stand request rejected',
-			...(decision.status === 'APPROVED' ? { invoiceEmailSent } : { decisionEmailSent }),
+			...(decision.status === 'APPROVED'
+				? { invoiceEmailSent, invoiceEmailStatus, invoiceEmailStatusRecorded }
+				: { decisionEmailSent }),
 		});
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -1681,8 +1869,9 @@ router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), require
 				id: true,
 				vendorId: true,
 				status: true,
-				invoice: { select: { id: true, invoiceNumber: true } },
+				invoice: { select: { id: true, invoiceNumber: true, amount: true, currency: true } },
 				event: { select: { title: true } },
+				vendor: { select: { email: true, firstname: true } },
 			},
 		});
 		if (!application) return 'not_found' as const;
@@ -1697,6 +1886,14 @@ router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), require
 			data: { status: VendorInvoiceStatus.PAID },
 		});
 		if (updated.count !== 1) return 'not_issued' as const;
+		const vendorEmailDetails = {
+			email: application.vendor.email,
+			firstname: application.vendor.firstname,
+			eventTitle: application.event.title,
+			invoiceNumber: application.invoice.invoiceNumber,
+			amount: Number(application.invoice.amount),
+			currency: application.invoice.currency,
+		};
 		await transaction.auditLog.create({
 			data: {
 				actorId: organizerId,
@@ -1713,20 +1910,35 @@ router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), require
 				link: `/vendor/applications/${applicationId}/staff`,
 			},
 		});
-		return 'paid' as const;
+		return { kind: 'paid' as const, vendorEmailDetails };
 	});
 
 	if (result === 'not_found') return res.status(404).json({ success: false, message: 'Stand request not found' });
 	if (result === 'not_issued') return res.status(409).json({ success: false, message: 'Only an issued invoice for an approved stand can be marked paid' });
-	return res.json({ success: true, message: 'Invoice marked paid. Staff passes are available to the vendor.' });
+	let vendorEmailSent = true;
+	try {
+		await sendVendorInvoiceStatusUpdate({ ...result.vendorEmailDetails, status: 'PAID' });
+	} catch (emailError) {
+		console.error('Vendor invoice payment status email failed:', emailError);
+		vendorEmailSent = false;
+	}
+	return res.json({
+		success: true,
+		message: 'Invoice marked paid. Staff passes are available to the vendor.',
+		vendorEmailSent,
+	});
 });
 
 router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
-	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';
+	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim().toUpperCase() : '';
+	const standRatePerSqm = req.body?.standRatePerSqm;
 	if (assignedStand.length < 1 || assignedStand.length > 80) {
 		return res.status(400).json({ success: false, message: 'Assigned stand must be between 1 and 80 characters' });
 	}
-	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand });
+	if (typeof standRatePerSqm !== 'number' || !Number.isFinite(standRatePerSqm) || standRatePerSqm < 0 || standRatePerSqm > 99_999_999.99 || Math.abs(standRatePerSqm - Math.round(standRatePerSqm * 100) / 100) > 1e-8) {
+		return res.status(400).json({ success: false, message: 'Stand rate must be a valid amount with no more than two decimal places' });
+	}
+	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand, standRatePerSqm });
 });
 
 router.patch('/:id/reject', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {

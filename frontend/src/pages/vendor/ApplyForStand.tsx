@@ -33,10 +33,13 @@ export default function ApplyForStand() {
   const [foodHandling, setFoodHandling] = useState('');
   const [supportingInformation, setSupportingInformation] = useState('');
   const [staffMembers, setStaffMembers] = useState<ApplicationStaffMember[]>([]);
+  const [tablesAndChairsIncluded, setTablesAndChairsIncluded] = useState(false);
+  const [extensionCordIncluded, setExtensionCordIncluded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [showNextSteps, setShowNextSteps] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +59,8 @@ export default function ApplyForStand() {
         setStandDescription(previousApplication?.standDescription ?? '');
         setSupportingInformation(previousApplication?.supportingInformation ?? '');
         setStaffMembers(previousApplication?.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        setTablesAndChairsIncluded(Number(previousApplication?.tablesAndChairsAmount ?? 0) > 0);
+        setExtensionCordIncluded(Number(previousApplication?.extensionCordAmount ?? 0) > 0);
         const latestRejected = loadedApplications
           .filter(application => application.eventId === eventId && application.status === 'REJECTED')
           .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
@@ -91,9 +96,18 @@ export default function ApplyForStand() {
   const dimensions = /^(\d{1,3}(?:\.\d{1,2})?)\s*m?\s*[x×]\s*(\d{1,3}(?:\.\d{1,2})?)\s*m?$/i.exec(requestedStandSize);
   const standWidth = dimensions ? Number(dimensions[1]) : 0;
   const standDepth = dimensions ? Number(dimensions[2]) : 0;
-  const standArea = standWidth * standDepth;
+  const standArea = Math.round(standWidth * standDepth * 100) / 100;
   const ratePerSquareMetre = Number(event?.vendorStandRatePerSqm ?? 0);
-  const quote = Math.round(standArea * ratePerSquareMetre * 100) / 100;
+  const subtotal = Math.round(standArea * ratePerSquareMetre * 100) / 100
+    + (tablesAndChairsIncluded ? 2000 : 0) + (extensionCordIncluded ? 100 : 0);
+  const taxRate = event?.vendorInvoiceTaxRate;
+  const taxAmount = taxRate === undefined ? null : Math.round(subtotal * taxRate) / 100;
+  const quote = taxAmount === null ? null : subtotal + taxAmount;
+  const registrationOpensAt = event ? new Date(event.registrationOpensAt ?? event.createdAt) : null;
+  const registrationClosesAt = event ? new Date(event.registrationClosesAt ?? event.startTime) : null;
+  const now = new Date();
+  const registrationOpen = Boolean(event && event.status === 'PUBLISHED' && registrationOpensAt && registrationClosesAt &&
+    registrationOpensAt <= now && registrationClosesAt > now && new Date(event.startTime) > now);
   const selectedPreset = standOptions.find(option => option.size === requestedStandSize && option.type === requestedStandType);
   const customSize = !selectedPreset;
 
@@ -139,6 +153,8 @@ export default function ApplyForStand() {
         standDescription: standDescription.trim(),
         supportingInformation: applicationDetails,
         staffMembers,
+        tablesAndChairsIncluded,
+        extensionCordIncluded,
       });
       setMessage('Your stand request has been submitted.');
     } catch (requestError) {
@@ -179,7 +195,7 @@ export default function ApplyForStand() {
               </div>
             </header>
 
-            <main className="px-3.5 pb-4 pt-2">
+            <main className="mx-auto w-full max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
               {loading ? (
                 <p role="status" className="py-10 text-center text-[9px] text-neutral-500">Loading event and business profile…</p>
               ) : error && !event ? (
@@ -191,10 +207,19 @@ export default function ApplyForStand() {
                   <Link to="/vendor/profile" className="mt-2 inline-flex text-[8px] font-semibold text-brand-700 hover:text-brand-900">Open business profile</Link>
                 </div>
               ) : event && (
-                <div className="grid items-start gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <aside className="space-y-2">
-                    <article className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-                      <div className="relative h-[66px] overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
+                <>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-rose-700">Vendor application</p>
+                    <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-neutral-950">Apply for a stand</h1>
+                    <p className="mt-1 text-sm text-neutral-600">Tell the organizer about your business and the space you need.</p>
+                  </div>
+                  <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded-lg border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Back to events</Link>
+                </div>
+                <div className="grid items-start gap-5 lg:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.8fr)]">
+                  <aside className="space-y-4">
+                    <article className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+                      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
                         {event.bannerImageUrl && <img src={event.bannerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
                         {!event.bannerImageUrl && (
                           <>
@@ -203,64 +228,70 @@ export default function ApplyForStand() {
                             <span className="absolute right-2 -top-5 h-12 w-12 rounded-full bg-[#ffb46b]/70" />
                           </>
                         )}
-                        <div className="absolute left-1 top-1 flex min-h-10 min-w-10 flex-col items-center justify-center rounded-md bg-white text-[#222] shadow-sm">
-                          <span className="text-[6px] font-bold leading-[7px] text-rose-600">
+                        <div className="absolute left-3 top-3 flex min-h-14 min-w-14 flex-col items-center justify-center rounded-xl bg-white text-[#222] shadow-sm">
+                          <span className="text-xs font-bold leading-4 text-rose-600">
                             {new Date(event.startTime).toLocaleDateString('en-ZA', { month: 'short' }).toUpperCase()}
                           </span>
-                          <span className="text-[10px] font-extrabold leading-[10px]">
+                          <span className="text-xl font-extrabold leading-6">
                             {new Date(event.startTime).toLocaleDateString('en-ZA', { day: '2-digit' })}
                           </span>
                         </div>
                       </div>
-                      <div className="p-2">
-                        <h2 className="truncate text-[9px] font-extrabold leading-3 text-neutral-900">{event.title}</h2>
-                        <p className="mt-0.5 truncate text-[7px] leading-[9px] text-neutral-500">
+                      <div className="p-5">
+                        <h2 className="text-lg font-extrabold leading-6 text-neutral-900">{event.title}</h2>
+                        <p className="mt-1 text-sm text-neutral-500">
                           {new Date(event.startTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
                           {' · '}{event.venue}
                         </p>
-                        <dl className="mt-2 space-y-1 text-[7px] leading-[9px]">
+                        <dl className="mt-5 space-y-3 text-sm">
                           <InfoRow label="Expected" value={`${event.capacity.toLocaleString()} attendees`} />
+                          <div className="flex items-end justify-between gap-3">
+                            <div>
+                              <dt className="text-neutral-500">Provided</dt>
+                              <dd className="text-neutral-500">Extension cord (10 m)</dd>
+                            </div>
+                            <dd className="text-right font-semibold text-neutral-800">R100</dd>
+                          </div>
                           <InfoRow label="Stands left" value={`${event.availableVendorStands} of ${event.vendorStandsAvailable}`} />
                           <InfoRow label="Rate" value={`${formatRate(ratePerSquareMetre)}/m²`} />
                           <InfoRow label="Event time" value={`${formatTime(event.startTime)} – ${formatTime(event.endTime)}`} />
+                          <InfoRow label="Applications open" value={new Date(event.registrationOpensAt ?? event.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
+                          <InfoRow label="Applications close" value={new Date(event.registrationClosesAt ?? event.startTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
                         </dl>
                       </div>
                     </article>
 
-                    <article className="rounded-lg border border-neutral-200 bg-white p-2">
-                      <h3 className="text-[8px] font-extrabold leading-3 text-neutral-900">What happens next</h3>
-                      <ol className="mt-1 list-inside list-decimal space-y-0.5 text-[7px] leading-[9px] text-neutral-600">
-                        <li>The organizer reviews your application.</li>
-                        <li>If approved, you get a stand number and an invoice.</li>
-                        <li>Pay within 7 days to keep your stand.</li>
-                        <li>Add your staff to get door passes.</li>
-                      </ol>
-                    </article>
                   </aside>
 
-                  <section className="rounded-lg border border-neutral-200 bg-white p-2.5">
-                    <div className="mb-2">
-                      <h2 className="text-[11px] font-extrabold leading-4 text-neutral-900">Apply for a stand</h2>
-                      <p className="text-[7px] leading-[10px] text-neutral-500">
+                  <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-7">
+                    <div className="mb-5 border-b border-neutral-100 pb-4">
+                      <h2 className="text-lg font-extrabold text-neutral-900">Application details</h2>
+                      <p className="mt-1 text-sm text-neutral-500">
                         Applying as <span className="font-bold text-neutral-800">{profile.businessName}</span>
                         {profile.businessRegistrationNumber && ` · ${profile.businessRegistrationNumber}`}
                       </p>
                     </div>
 
                     {activeApplication ? (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                        <h3 className="text-[9px] font-semibold text-amber-950">
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <h3 className="text-sm font-semibold text-amber-950">
                           You already have a {activeApplication.status.toLowerCase().replace('_', ' ')} application for this event.
                         </h3>
                         {activeApplication.assignedStand && <p className="mt-1 text-[8px] text-amber-900">Assigned stand: {activeApplication.assignedStand}</p>}
                         <Link to="/vendor/applications" className="mt-1 inline-flex text-[8px] font-semibold text-brand-700 underline">View your applications</Link>
                       </div>
-                    ) : event.availableVendorStands === 0 ? (
+                    ) : !registrationOpen ? (
                       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[9px] text-neutral-700">
+                        {registrationOpensAt && now < registrationOpensAt
+                          ? `Applications open ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                          : `Applications closed ${registrationClosesAt?.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'for this event'}.`}
+                      </div>
+                    ) : event.availableVendorStands === 0 ? (
+                      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
                         All vendor stands for this event have been allocated.
                       </div>
                     ) : (
-                      <form onSubmit={submitApplication} className="space-y-2">
+                      <form onSubmit={submitApplication} className="space-y-6">
                         {rejectedApplication && (
                           <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-[8px] text-rose-800">
                             <h3 className="font-semibold">Update your rejected application</h3>
@@ -270,14 +301,14 @@ export default function ApplyForStand() {
                         )}
 
                         <fieldset>
-                          <legend className="mb-1 text-[8px] font-bold leading-[10px] text-neutral-800">Stand size</legend>
-                          <div className="grid gap-1.5 sm:grid-cols-2">
+                          <legend className="mb-3 text-sm font-bold text-neutral-800">Choose your stand size</legend>
+                          <div className="grid gap-3 sm:grid-cols-2">
                             {standOptions.map(option => {
                               const area = option.width * option.depth;
                               return (
                                 <label
                                   key={option.size}
-                                  className={`flex min-h-14 cursor-pointer items-center justify-between gap-1.5 rounded-md border px-2 py-2 transition ${
+                                  className={`flex min-h-24 cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 transition ${
                                     requestedStandSize === option.size
                                       ? 'border-rose-600 ring-1 ring-rose-600'
                                       : 'border-neutral-200 hover:border-neutral-400'
@@ -292,7 +323,7 @@ export default function ApplyForStand() {
                                   />
                                   <span className="min-w-0">
                                     <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">{option.type} · {option.size}</span>
-                                    <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                    <span className="mt-1 block text-xs text-neutral-500">
                                       {area} m² · {formatRate(ratePerSquareMetre)}/m² · {option.type === 'Standard' ? '2 staff passes' : '4 staff passes'}
                                     </span>
                                   </span>
@@ -326,6 +357,52 @@ export default function ApplyForStand() {
                           )}
                         </fieldset>
 
+                        <fieldset>
+                          <legend className="mb-1 text-[8px] font-bold leading-[10px] text-neutral-800">Add-on</legend>
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              aria-pressed={tablesAndChairsIncluded}
+                              onClick={() => setTablesAndChairsIncluded(current => !current)}
+                              className={`vendor-apply-addon-button flex min-h-14 w-full cursor-pointer items-center justify-between gap-1.5 rounded-md border bg-white px-2 py-2 text-left transition ${
+                                tablesAndChairsIncluded
+                                  ? 'border-rose-600 ring-1 ring-rose-600'
+                                  : 'border-neutral-200 hover:border-neutral-400'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">Tables and chairs</span>
+                                <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                  20 chairs · 4 tables · R2,000
+                                </span>
+                              </span>
+                              <span className={`h-3 w-3 shrink-0 rounded-full border ${
+                                tablesAndChairsIncluded ? 'border-[3px] border-rose-600' : 'border-neutral-300'
+                              }`} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-pressed={extensionCordIncluded}
+                              onClick={() => setExtensionCordIncluded(current => !current)}
+                              className={`vendor-apply-addon-button flex min-h-14 w-full cursor-pointer items-center justify-between gap-1.5 rounded-md border bg-white px-2 py-2 text-left transition ${
+                                extensionCordIncluded
+                                  ? 'border-rose-600 ring-1 ring-rose-600'
+                                  : 'border-neutral-200 hover:border-neutral-400'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">Extension cord</span>
+                                <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                  10 m · R100
+                                </span>
+                              </span>
+                              <span className={`h-3 w-3 shrink-0 rounded-full border ${
+                                extensionCordIncluded ? 'border-[3px] border-rose-600' : 'border-neutral-300'
+                              }`} />
+                            </button>
+                          </div>
+                        </fieldset>
+
                         <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                           What will you sell or show?
                           <textarea
@@ -343,11 +420,19 @@ export default function ApplyForStand() {
                         <div className="grid gap-1.5 sm:grid-cols-2">
                           <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                             Power needed
-                            <input value={powerNeeded} onChange={formEvent => setPowerNeeded(formEvent.target.value)} maxLength={300} placeholder="e.g. One 15A plug point" className={inputClassName} />
+                            <select value={powerNeeded} onChange={formEvent => setPowerNeeded(formEvent.target.value)} className={inputClassName}>
+                              <option value="">Select an option</option>
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
                           </label>
                           <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                             Handling food?
-                            <input value={foodHandling} onChange={formEvent => setFoodHandling(formEvent.target.value)} maxLength={300} placeholder="Yes · certificate on file" className={inputClassName} />
+                            <select value={foodHandling} onChange={formEvent => setFoodHandling(formEvent.target.value)} className={inputClassName}>
+                              <option value="">Select an option</option>
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
                           </label>
                         </div>
 
@@ -394,26 +479,50 @@ export default function ApplyForStand() {
                           </div>
                         </details>
 
-                        <div className="flex min-h-[36px] items-center justify-between gap-2 rounded-md bg-neutral-950 px-2.5 py-1.5 text-white">
+                        <div className="flex min-h-20 items-center justify-between gap-3 rounded-xl bg-neutral-950 px-5 py-4 text-white">
                           <div>
-                            <p className="text-[7px] leading-[9px] text-white/70">Your quote</p>
-                            <p className="mt-0.5 text-[7px] leading-[9px]">{standArea.toLocaleString()} m² × {formatRate(ratePerSquareMetre)} per m²</p>
+                            <p className="text-sm font-semibold text-white/70">Estimated stand fee</p>
+                            <p className="mt-1 text-sm">{standArea.toLocaleString()} m² × {formatRate(ratePerSquareMetre)} per m²</p>
+                            {tablesAndChairsIncluded && <p className="mt-0.5 text-[7px] leading-[9px]">Tables and chairs · R2,000</p>}
+                            {extensionCordIncluded && <p className="mt-0.5 text-[7px] leading-[9px]">Extension cord · R100</p>}
+                            {taxAmount !== null && <p className="mt-0.5 text-[7px] leading-[9px]">Tax ({taxRate}%) · {formatCurrency(taxAmount)}</p>}
                           </div>
-                          <p className="text-[16px] font-black leading-5">{formatCurrency(quote)}</p>
+                          <p className="text-[16px] font-black leading-5">{quote === null ? 'Tax rate unavailable' : formatCurrency(quote)}</p>
                         </div>
 
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}
                         {message && <p role="status" className="text-[8px] font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
                         <div className="flex justify-end gap-1.5">
-                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
-                          <Button type="submit" className="!min-h-10 !rounded !px-3 text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
+                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-11 items-center rounded-lg border border-neutral-200 px-5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
+                          <Button type="submit" className="!min-h-11 !rounded-lg !px-5 !text-sm bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
                             Send application
                           </Button>
                         </div>
                       </form>
                     )}
                   </section>
+                  <article className="col-span-full rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:px-7">
+                    <h3 className="text-base font-extrabold text-neutral-900">What happens next</h3>
+                    <p className="mt-2 text-sm text-neutral-600">The organizer reviews your application and will contact you with the outcome.</p>
+                    <button
+                      type="button"
+                      aria-expanded={showNextSteps}
+                      aria-controls="application-next-steps"
+                      onClick={() => setShowNextSteps(open => !open)}
+                      className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-800"
+                    >
+                      {showNextSteps ? 'Read less' : 'Read more'}
+                    </button>
+                    {showNextSteps && (
+                      <ol id="application-next-steps" className="mt-3 list-inside list-decimal space-y-2 text-sm text-neutral-600">
+                        <li>If approved, you get a stand number and an invoice.</li>
+                        <li>Pay within 7 days to keep your stand.</li>
+                        <li>Add your staff to get door passes.</li>
+                      </ol>
+                    )}
+                  </article>
                 </div>
+                </>
               )}
             </main>
           </div>
@@ -432,7 +541,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const inputClassName = 'mt-1 h-10 w-full rounded border border-neutral-300 bg-white px-2 py-0 text-[8px] font-normal text-neutral-800 outline-none focus:border-rose-500';
+const inputClassName = 'mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-neutral-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100';
 
 function formatCurrency(value: number) {
   const amount = new Intl.NumberFormat('en-ZA', {

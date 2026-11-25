@@ -12,8 +12,11 @@ import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/context/useAuth';
 import { getEventById } from '@/services/eventService';
 import { createBooking, getMyBookings } from '@/services/bookingService';
+import { downloadEventCalendar } from '@/utils/downloadEventCalendar';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
+import { getMyWaitlists, joinWaitlist } from '@/services/waitlistService';
+import type { WaitlistEntry } from '@/types/waitlist';
 
 interface BookingConfirmation {
   reference: string;
@@ -38,6 +41,10 @@ export default function EventDetail() {
   const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
   const [bookingError, setBookingError] = useState('');
+  const [myWaitlists, setMyWaitlists] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistMessage, setWaitlistMessage] = useState('');
+  const [showJoinWaitlistDialog, setShowJoinWaitlistDialog] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +79,9 @@ export default function EventDetail() {
       .catch(lookupError => {
         if (active) setBookingError(getErrorMessage(lookupError, 'Your existing booking could not be checked.'));
       });
+    getMyWaitlists().then(response => {
+      if (active) setMyWaitlists(response.data.data);
+    }).catch(() => undefined);
 
     return () => { active = false; };
   }, [event, user?.role]);
@@ -97,7 +107,10 @@ export default function EventDetail() {
       : 0;
     const start = new Date(event.startTime);
     const end = new Date(event.endTime);
-    const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+    const now = new Date();
+    const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+    const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+    const applicationsOpen = event.status === 'PUBLISHED' && start > now && registrationOpensAt <= now && registrationClosesAt > now;
     const vendorApproved = user.vendorProfileStatus === 'APPROVED';
     const vendorApprovalMessage = user.vendorProfileStatus === 'PENDING_REVIEW'
       ? 'Your business profile is awaiting administrator approval.'
@@ -138,7 +151,10 @@ export default function EventDetail() {
     : 0;
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
-  const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+  const now = new Date();
+  const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+  const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+  const applicationsOpen = event.status === 'PUBLISHED' && start > now && registrationOpensAt <= now && registrationClosesAt > now;
   const selectedTicket = event.ticketTypes.find(ticket => ticket.id === selectedTicketId) ?? event.ticketTypes[0];
   const activeTicketId = selectedTicket?.id ?? '';
   const maxQuantity = Math.max(0, Math.min(
@@ -147,7 +163,9 @@ export default function EventDetail() {
     100,
   ));
   const bookingQuantity = Math.min(Math.max(1, quantity), maxQuantity || 1);
-  const canRegister = event.status === 'PUBLISHED' && start > new Date() && maxQuantity > 0;
+  const canRegister = applicationsOpen && maxQuantity > 0;
+  const selectedTicketSoldOut = Boolean(selectedTicket && (selectedTicket.availableQuantity <= 0 || event.availableCapacity <= 0));
+  const eventSoldOut = event.availableCapacity <= 0;
   const eventBooking = existingBooking?.eventId === event.id ? existingBooking : null;
 
   const reserveTickets = (ticketCount: number, ticketId: string) => {
@@ -196,6 +214,27 @@ export default function EventDetail() {
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const joinSelectedWaitlist = () => {
+    if (!user) { navigate('/login', { state: { from: location } }); return; }
+    if (user.role !== 'ATTENDEE' || !selectedTicket || !applicationsOpen) return;
+    setBookingError('');
+    setShowJoinWaitlistDialog(true);
+  };
+
+  const confirmJoinWaitlist = async () => {
+    if (!selectedTicket) return;
+    setWaitlistLoading(true);
+    setBookingError('');
+    try {
+      const response = await joinWaitlist(event.id, selectedTicket.id);
+      setMyWaitlists(current => [response.data.data, ...current]);
+      setWaitlistMessage(`You have successfully joined the ${selectedTicket.name} waitlist. Your current position is #${response.data.data.position}.`);
+      setShowJoinWaitlistDialog(false);
+    } catch (requestError) {
+      setBookingError(getErrorMessage(requestError, 'You could not join this waitlist.'));
+    } finally { setWaitlistLoading(false); }
   };
 
   return (
@@ -280,6 +319,17 @@ export default function EventDetail() {
           </section>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-neutral-950">Registration window</h2>
+            <p className={`mt-1 text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-600'}`}>
+              {applicationsOpen ? 'Registration is open' : now < registrationOpensAt ? 'Registration has not opened yet' : 'Registration is closed'}
+            </p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div><dt className="text-neutral-500">Opens</dt><dd className="mt-0.5 font-medium text-neutral-800">{registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+              <div><dt className="text-neutral-500">Closes</dt><dd className="mt-0.5 font-medium text-neutral-800">{registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-neutral-200 bg-white p-4">
             <div className="mb-1 flex justify-between text-[10px] text-neutral-500">
               <span>{event.capacity - event.availableCapacity} registered</span>
               <span>{fillPercent}% full</span>
@@ -296,7 +346,8 @@ export default function EventDetail() {
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application status</dt><dd className={`mt-1 text-sm font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-600'}`}>{applicationsOpen ? 'Open' : 'Closed'}</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Available vendor spaces</dt><dd className="mt-1 text-sm text-neutral-700">{event.availableVendorStands} of {event.vendorStandsAvailable} stand{event.vendorStandsAvailable === 1 ? '' : 's'} available</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Participation requirements</dt><dd className="mt-1 text-sm text-neutral-700">Not specified by the organizer</dd></div>
-                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application deadline</dt><dd className="mt-1 text-sm text-neutral-700">Not provided</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Applications open</dt><dd className="mt-1 text-sm text-neutral-700">{new Date(event.registrationOpensAt ?? event.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Applications close</dt><dd className="mt-1 text-sm text-neutral-700">{new Date(event.registrationClosesAt ?? event.startTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
               </dl>
             </section>
           )}
@@ -309,7 +360,9 @@ export default function EventDetail() {
                   <div>
                     <p className="font-semibold text-neutral-800">{ticket.name}</p>
                     {ticket.description && <p className="mt-1 text-sm text-neutral-500">{ticket.description}</p>}
-                    <p className="mt-1 text-xs text-neutral-400">{ticket.availableQuantity} available</p>
+                    <p className={`mt-1 text-xs ${ticket.availableQuantity <= 0 || eventSoldOut ? 'font-semibold text-rose-700' : 'text-neutral-400'}`}>
+                      {ticket.availableQuantity <= 0 || eventSoldOut ? 'Sold out' : `${ticket.availableQuantity} available`}
+                    </p>
                   </div>
                   <p className="font-bold text-neutral-900">{ticket.price === 0 ? 'Free' : `R${ticket.price.toFixed(2)}`}</p>
                 </li>
@@ -353,9 +406,9 @@ export default function EventDetail() {
                 {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
                 {eventBooking.tickets.length > 0 ? (
                   <div className="mt-4 space-y-2">
-                    {eventBooking.tickets.map((ticket, index) => (
-                      <Link key={ticket.id} to={`/attendee/tickets/${ticket.id}`} className="block rounded-md border border-neutral-200 px-3 py-2 text-center text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
-                        View ticket {index + 1} · {ticket.referenceNumber}
+                    {eventBooking.tickets.map(ticket => (
+                      <Link key={ticket.id} to={`/attendee/tickets/${ticket.id}`} className="block rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white transition hover:from-rose-700 hover:to-orange-600">
+                        View Ticket
                       </Link>
                     ))}
                     {eventBooking.tickets.length > 1 && (
@@ -382,7 +435,7 @@ export default function EventDetail() {
                       <button
                         type="button"
                         aria-pressed={activeTicketId === ticket.id}
-                        disabled={ticket.availableQuantity <= 0 || event.availableCapacity <= 0}
+                        disabled={false}
                         onClick={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
                         className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                           activeTicketId === ticket.id
@@ -397,7 +450,7 @@ export default function EventDetail() {
                           <span className="min-w-0">
                             <span className="block truncate text-xs font-semibold text-neutral-900">{ticket.name}</span>
                             <span className="mt-0.5 block text-[9px] text-neutral-500">
-                              {ticket.availableQuantity > 0 ? `${ticket.availableQuantity} left` : 'Sold out'}
+                              {ticket.availableQuantity > 0 && event.availableCapacity > 0 ? `${ticket.availableQuantity} left` : 'Sold out'}
                             </span>
                           </span>
                         </span>
@@ -409,7 +462,7 @@ export default function EventDetail() {
                   ))}
                 </ul>
 
-                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
+                    {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
                   <div className="mt-3 space-y-3">
                     <label className="block text-xs font-medium text-neutral-700">
                       Quantity
@@ -437,11 +490,23 @@ export default function EventDetail() {
                 <>
                     {!canRegister && (
                       <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-center text-xs text-neutral-600">
-                        {event.availableCapacity <= 0 || maxQuantity <= 0 ? 'Sold out' : 'Registration is closed.'}
+                        {event.availableCapacity <= 0 || maxQuantity <= 0
+                          ? 'Sold out'
+                          : now < registrationOpensAt
+                            ? `Registration opens ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                            : now >= registrationClosesAt
+                              ? `Registration closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                              : 'Registration is closed.'}
                       </p>
                     )}
                     {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
-                    {user?.role === 'ATTENDEE' ? (
+                    {selectedTicket && applicationsOpen && selectedTicket.availableQuantity <= 0 ? (
+                      user?.role === 'ATTENDEE' ? (
+                        myWaitlists.some(entry => entry.ticketTypeId === selectedTicket.id && ['WAITING', 'OFFERED'].includes(entry.status)) ? (
+                          <Link to="/attendee" className="mt-3 block w-full rounded-md border border-rose-200 px-3 py-2.5 text-center text-xs font-bold text-rose-700">View Waitlist Status</Link>
+                        ) : <Button className="mt-3 w-full" loading={waitlistLoading} onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                      ) : user ? <p className="mt-3 text-center text-xs text-neutral-600">Waitlists are available to attendees.</p> : <Button className="mt-3 w-full" onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                    ) : user?.role === 'ATTENDEE' ? (
                       <Button
                         className="mt-3 w-full bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600"
                         loading={bookingLoading}
@@ -456,14 +521,21 @@ export default function EventDetail() {
                       </p>
                     ) : (
                       <div className="mt-3 space-y-2">
+                        {selectedTicketSoldOut && event.status === 'PUBLISHED' && start > new Date() ? (
+                          <Button className="w-full" onClick={() => navigate('/login', { state: { from: location } })}>
+                            Join Waitlist
+                          </Button>
+                        ) : (
                         <Button className="w-full bg-gradient-to-r from-rose-600 to-orange-500" disabled={!canRegister} onClick={handleRegister}>
                           Book my place
                         </Button>
+                        )}
                         <Link to="/register" state={{ from: location }} className="block text-center text-[10px] text-neutral-500 hover:text-neutral-800">
                           Create an attendee account
                         </Link>
                       </div>
                     )}
+                    {waitlistMessage && <p role="status" className="mt-2 text-xs text-emerald-700">{waitlistMessage}</p>}
                   </>
                 <p className="mt-2 text-center text-[9px] text-neutral-500">Free cancellation until the event starts</p>
               </>
@@ -529,11 +601,43 @@ export default function EventDetail() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => downloadCalendarEvent(event.title, event.venue, start, end)}
+                  onClick={() => downloadEventCalendar({
+                    id: event.id,
+                    title: event.title,
+                    description: event.description,
+                    startTime: start,
+                    endTime: end,
+                    venue: event.venue,
+                    meetingDetails: event.meetingDetails,
+                  })}
                   className="rounded-lg border border-neutral-300 px-3 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
                 >
                   Add to calendar
                 </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showJoinWaitlistDialog && selectedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget && !waitlistLoading) setShowJoinWaitlistDialog(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="join-waitlist-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 via-rose-600 to-orange-500 px-6 py-5 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">Waitlist registration</p>
+              <h2 id="join-waitlist-title" className="mt-1 text-xl font-bold">Join the {selectedTicket.name} waitlist?</h2>
+            </div>
+            <div className="p-6">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-950">A place on the waitlist is not a ticket.</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900">If a ticket becomes available, you may receive an opportunity to book it. Joining does not guarantee availability.</p>
+              </div>
+              <p className="mt-4 text-xs text-neutral-600"><span className="font-semibold text-neutral-900">Event:</span> {event.title}</p>
+              <p className="mt-1 text-xs text-neutral-600"><span className="font-semibold text-neutral-900">Pass:</span> {selectedTicket.name}</p>
+              {bookingError && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{bookingError}</p>}
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" disabled={waitlistLoading} onClick={() => setShowJoinWaitlistDialog(false)} className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+                <button type="button" disabled={waitlistLoading} onClick={() => void confirmJoinWaitlist()} className="rounded-lg bg-gradient-to-r from-rose-700 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-wait disabled:opacity-60">{waitlistLoading ? 'Joining waitlist…' : 'Confirm and join'}</button>
               </div>
             </div>
           </section>
@@ -560,31 +664,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return axios.isAxiosError(error)
     ? error.response?.data?.message ?? fallback
     : fallback;
-}
-
-function downloadCalendarEvent(title: string, venue: string, start: Date, end: Date) {
-  const escapeIcs = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-  const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const content = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//EventMS//Attendee Booking//EN',
-    'BEGIN:VEVENT',
-    `UID:${crypto.randomUUID()}@eventms`,
-    `DTSTAMP:${formatDate(new Date())}`,
-    `DTSTART:${formatDate(start)}`,
-    `DTEND:${formatDate(end)}`,
-    `SUMMARY:${escapeIcs(title)}`,
-    `LOCATION:${escapeIcs(venue)}`,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].join('\r\n');
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/calendar;charset=utf-8' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'event'}.ics`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function VendorEventLayout({ children, eventTitle }: { children: ReactNode; eventTitle?: string }) {
@@ -635,6 +714,9 @@ function VendorEventContent({
   vendorApproved: boolean;
   vendorApprovalMessage: string;
 }) {
+  const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+  const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+  const now = new Date();
   return (
     <>
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -712,7 +794,9 @@ function VendorEventContent({
             <div className="mt-2">
               {!applicationsOpen ? (
                 <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">
-                  Vendor applications are closed
+                  {now < registrationOpensAt
+                    ? `Applications open ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
+                    : `Applications closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`}
                 </div>
               ) : event.availableVendorStands <= 0 ? (
                 <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">

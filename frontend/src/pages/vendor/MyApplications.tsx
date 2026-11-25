@@ -8,14 +8,14 @@ import { getAllMyApplications } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import type { VendorApplication } from '@/types/vendor';
 
-type ApplicationTab = 'active' | 'past' | 'rejected';
+type ApplicationTab = 'all' | 'pending' | 'approved' | 'rejected' | 'past';
 
 const pageLoadTime = Date.now();
 
 export default function MyApplications() {
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<ApplicationTab>('active');
+  const [selectedTab, setSelectedTab] = useState<ApplicationTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,17 +51,21 @@ export default function MyApplications() {
       : applications;
 
     return {
-      active: matchingApplications.filter(application =>
-        application.status !== 'REJECTED' && !isEventInPast(application, pageLoadTime),
-      ),
-      past: matchingApplications.filter(application =>
-        application.status !== 'REJECTED' && isEventInPast(application, pageLoadTime),
-      ),
+      all: matchingApplications,
+      pending: matchingApplications.filter(application => application.status === 'PENDING_REVIEW'),
+      approved: matchingApplications.filter(application => application.status === 'APPROVED'),
       rejected: matchingApplications.filter(application => application.status === 'REJECTED'),
+      past: matchingApplications.filter(application => isEventInPast(application, pageLoadTime)),
     };
   }, [applications, searchQuery]);
 
   const visibleApplications = applicationGroups[selectedTab];
+  const counts = {
+    all: applications.length,
+    pending: applications.filter(application => application.status === 'PENDING_REVIEW').length,
+    approved: applications.filter(application => application.status === 'APPROVED').length,
+    rejected: applications.filter(application => application.status === 'REJECTED').length,
+  };
 
   return (
     <PageWrapper>
@@ -82,20 +86,42 @@ export default function MyApplications() {
             </header>
 
             <main className="px-4 pb-8 pt-5 sm:px-6 lg:px-8">
-              <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">My Applications</h1>
+                  <p className="mt-1 text-sm text-slate-500">Manage and track your event applications.</p>
+                </div>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Vendor</span>
+              </div>
+              <div className="mb-5 flex justify-end">
                 <Link
                   to="/vendor/events"
                   className="vendor-applications-action vendor-button inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Find events
+                  + Find Events
                 </Link>
               </div>
 
-              <div className="mb-4 flex flex-wrap items-center gap-2" role="tablist" aria-label="Application history">
+              <section className="mb-5" aria-labelledby="application-stats-heading">
+                <h2 id="application-stats-heading" className="mb-2 text-sm font-bold text-slate-800">Application statistics</h2>
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                  {([['Total', counts.all], ['Pending', counts.pending], ['Approved', counts.approved], ['Rejected', counts.rejected]] as const).map(([label, count]) => (
+                    <div key={label} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs text-slate-500">{label}</p>
+                      <p className="mt-1 text-xl font-bold text-slate-900">{loading ? '—' : count}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <h2 className="mb-2 text-sm font-bold text-slate-800">Filter applications</h2>
+              <div className="mb-3 flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter applications">
                 {([
-                  ['active', 'Active'],
-                  ['past', 'Past'],
+                  ['all', 'All'],
+                  ['pending', 'Pending'],
+                  ['approved', 'Approved'],
                   ['rejected', 'Rejected'],
+                  ['past', 'Past'],
                 ] as const).map(([tab, label]) => (
                   <button
                     key={tab}
@@ -103,12 +129,17 @@ export default function MyApplications() {
                     role="tab"
                     aria-selected={selectedTab === tab}
                     onClick={() => setSelectedTab(tab)}
-                    className="vendor-applications-action vendor-application-tab min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                    className={`vendor-applications-action vendor-application-tab min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition ${selectedTab === tab ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
                   >
-                    {label} <span className="ml-0.5 opacity-70">{applicationGroups[tab].length}</span>
+                    {label}
                   </button>
                 ))}
               </div>
+              <label className="mb-5 flex max-w-xl items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-400">
+                <span aria-hidden="true">⌕</span>
+                <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search applications or events..." className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" />
+              </label>
+              <h2 className="mb-3 text-sm font-bold text-slate-800">Your applications</h2>
 
               {loading ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500" role="status">
@@ -127,11 +158,12 @@ export default function MyApplications() {
                 <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">
                   <p className="text-xs font-bold text-slate-800">No {selectedTab} applications</p>
                   <p className="mt-1 text-[13px] text-slate-500">
-                    {selectedTab === 'active'
+                    {selectedTab === 'all'
                       ? 'New stand requests will appear here.'
                       : selectedTab === 'past'
                         ? 'Applications for completed events will appear here.'
-                        : 'Rejected applications will appear here.'}
+                        : selectedTab === 'pending' ? 'Applications awaiting review will appear here.'
+                          : selectedTab === 'approved' ? 'Approved applications will appear here.' : 'Rejected applications will appear here.'}
                   </p>
                 </div>
               ) : (
@@ -144,7 +176,7 @@ export default function MyApplications() {
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-2 md:hidden">
+                      <div className="space-y-3">
                         {visibleApplications.map((application, index) => (
                           <MobileApplicationCard
                             key={application.id}
@@ -153,7 +185,7 @@ export default function MyApplications() {
                           />
                         ))}
                       </div>
-                      <div className="hidden md:block">
+                      <div className="hidden">
                         <ApplicationsTable
                           applications={visibleApplications}
                           expandedApplicationId={expandedApplicationId}
@@ -165,7 +197,7 @@ export default function MyApplications() {
                     </>
                   )}
 
-                  {selectedTab === 'active' && applicationGroups.rejected.length > 0 && (
+                  {selectedTab === 'all' && applicationGroups.rejected.length > 0 && (
                     <section className="mt-2" aria-labelledby="rejected-applications-heading">
                       <div className="rounded-lg border border-[#e5e5e5] bg-white p-2">
                         <h2 id="rejected-applications-heading" className="mb-1 text-[11px] font-bold text-[#777]">
@@ -204,7 +236,7 @@ function ApplicationsTable({
         <div className="grid grid-cols-[minmax(200px,2fr)_minmax(90px,0.7fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(180px,1.3fr)_minmax(110px,0.8fr)] items-center gap-2 border-b border-[#ededed] bg-white px-3 py-2 text-[10px] font-bold text-[#777]">
           <span>Event</span>
           <span>Stand</span>
-          <span>Quote</span>
+          <span>Quote (excl. tax)</span>
           <span>Status</span>
           <span>Invoice</span>
           <span aria-hidden="true" />
@@ -256,7 +288,7 @@ function MobileApplicationCard({ application, index }: { application: VendorAppl
           <dd className="truncate font-semibold text-slate-700">{application.assignedStand ? `Stand ${application.assignedStand}` : 'Pending'}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-xs text-slate-500">Quote</dt>
+          <dt className="text-xs text-slate-500">Quote (excl. tax)</dt>
           <dd className="truncate font-semibold text-slate-700">{formatCurrency(application.quotedAmount)}</dd>
         </div>
         <div className="col-span-2 min-w-0 border-t border-slate-200 pt-2">

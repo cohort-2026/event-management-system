@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "dev": "npm --prefix ./frontend run dev",
+    "dev:backend": "npm --prefix ./backend run dev",
+    "db:migrate": "npm --prefix ./backend run db:migrate"
+  },
   "devDependencies": {
     "@types/node": "^26.6.6"
   }

@@ -43,7 +43,9 @@ import AttendeeDashboard from '@/pages/attendee/AttendeeDashboard';
 import AttendeeBookings from '@/pages/attendee/AttendeeBookings';
 import AttendeeTickets from '@/pages/attendee/AttendeeTickets';
 import AttendeeTicket from '@/pages/attendee/AttendeeTicket';
+import AttendeeNotifications from '@/pages/attendee/AttendeeNotifications';
 import SimulatedPayment from '@/pages/attendee/SimulatedPayment';
+import PublicTicketAccess from '@/pages/attendee/PublicTicketAccess';
 
 // Vendor
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
@@ -91,11 +93,13 @@ export default function App() {
           <Route path="/upcoming" element={<UpcomingPage />} />
           <Route path="/events"     element={<EventList />} />
           <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/ticket-access/:token" element={<PublicTicketAccess />} />
 
           {/* ── Attendee ── */}
           <Route element={<ProtectedRoute roles={['ATTENDEE']} />}> 
             <Route path="/attendee" element={<AttendeeDashboard />} />
             <Route path="/attendee/bookings" element={<AttendeeBookings />} />
+            <Route path="/attendee/notifications" element={<AttendeeNotifications />} />
             <Route path="/attendee/tickets" element={<AttendeeTickets />} />
             <Route path="/attendee/tickets/:ticketId" element={<AttendeeTicket />} />
             <Route path="/attendee/payment/simulate" element={<SimulatedPayment />} />
