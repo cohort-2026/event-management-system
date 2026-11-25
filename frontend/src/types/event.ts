@@ -40,7 +40,7 @@ export interface Event {
 }
 
 export type EventTicketTypeInput = Pick<EventTicketType, 'name' | 'price' | 'quantity'> & { description?: string };
-export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree'> & {
+export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 'venue' | 'date' | 'startTime' | 'endTime' | 'eventType' | 'capacity' | 'isFree' | 'vendorStandRatePerSqm'> & {
   categoryOther?: string;
   meetingDetails?: string;
   directions?: string;

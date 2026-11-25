@@ -36,6 +36,7 @@ interface EventForm {
   endTime: string;
   capacity: string;
   vendorStandsAvailable: string;
+  vendorStandRatePerSqm: string;
   bannerImageUrl: string;
   ticketTypes: TicketForm[];
 }
@@ -65,6 +66,7 @@ const EMPTY_FORM: EventForm = {
   endTime: '',
   capacity: '',
   vendorStandsAvailable: '0',
+  vendorStandRatePerSqm: '0',
   bannerImageUrl: '',
   ticketTypes: [{ ...EMPTY_TICKET }],
 };
@@ -112,6 +114,7 @@ const toForm = (event: Event): EventForm => ({
   endTime: asLocalDateTime(event.endTime),
   capacity: String(event.capacity),
   vendorStandsAvailable: String(event.vendorStandsAvailable ?? 0),
+  vendorStandRatePerSqm: String(event.vendorStandRatePerSqm ?? 0),
   bannerImageUrl: event.bannerImageUrl ?? '',
   ticketTypes: event.ticketTypes.map(ticket => ({
     name: ticket.name,
@@ -144,6 +147,7 @@ export default function CreateEvent() {
   const [notice, setNotice] = useState('');
   const [completed, setCompleted] = useState(false);
   const [step, setStep] = useState(0);
+  const [expandedTicketIndex, setExpandedTicketIndex] = useState(0);
   const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
@@ -228,6 +232,11 @@ export default function CreateEvent() {
       after: form.vendorStandsAvailable,
     },
     {
+      label: 'Stand rate per square metre',
+      before: `R ${Number(existingEvent.vendorStandRatePerSqm ?? 0).toFixed(2)}`,
+      after: `R ${Number(form.vendorStandRatePerSqm || 0).toFixed(2)}`,
+    },
+    {
       label: 'Ticket types',
       before: existingEvent.ticketTypes.map(ticket =>
         `${ticket.name} · ${ticket.price === 0 ? 'Free' : `R ${ticket.price.toFixed(2)}`} · ${ticket.quantity} places${ticket.description ? ` · ${ticket.description}` : ''}`,
@@ -305,6 +314,11 @@ export default function CreateEvent() {
     }
 
     setFieldErrors(errors);
+    if (step === 2) {
+      const ticketError = Object.keys(errors).find(key => /^ticket-(type|price|quantity)-\d+$/.test(key));
+      const ticketErrorIndex = ticketError ? Number(ticketError.match(/\d+$/)?.[0]) : undefined;
+      if (ticketErrorIndex !== undefined) setExpandedTicketIndex(ticketErrorIndex);
+    }
     const firstInvalid = controls.find(control => errors[control.id]);
     if (firstInvalid) {
       firstInvalid.focus({ preventScroll: true });
@@ -327,6 +341,7 @@ export default function CreateEvent() {
   };
 
   const addTicketType = () => {
+    setExpandedTicketIndex(form.ticketTypes.length);
     setForm(current => ({
       ...current,
       ticketTypes: [
@@ -334,6 +349,15 @@ export default function CreateEvent() {
         { ...EMPTY_TICKET, name: `Ticket type ${current.ticketTypes.length + 1}` },
       ],
     }));
+  };
+
+  const removeTicketType = (index: number) => {
+    setForm(current => ({
+      ...current,
+      ticketTypes: current.ticketTypes.filter((_, ticketIndex) => ticketIndex !== index),
+    }));
+    setExpandedTicketIndex(current => current === index ? Math.max(0, index - 1) : current > index ? current - 1 : current);
+    setFieldErrors({});
   };
 
   const handleBannerImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -465,6 +489,7 @@ export default function CreateEvent() {
         date: startTime.toISOString(),
         capacity,
         vendorStandsAvailable: Number(form.vendorStandsAvailable),
+        vendorStandRatePerSqm: Number(form.vendorStandRatePerSqm),
         isFree: ticketTypes.every(ticket => ticket.price === 0),
         bannerImageUrl,
         ticketTypes: ticketTypes.map(ticket => ({
@@ -540,10 +565,6 @@ export default function CreateEvent() {
         </div>
       </EventStatusPage>
     );
-  }
-
-  function PlusIcon() {
-    return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v14m7-7H5" /></svg>;
   }
 
   if (isEditing && error && !existingEvent) {
@@ -801,12 +822,12 @@ export default function CreateEvent() {
                   <section aria-labelledby="tickets-heading">
                     <div className="mb-6">
                       <h2 id="tickets-heading" className="text-xl font-bold text-neutral-900">Tickets</h2>
-                      <p className="mt-1 text-sm text-neutral-500">Set ticket prices and allocate the full event capacity across ticket types.</p>
+                      <p className="mt-1 text-sm text-neutral-500">Add a ticket type for each price or group. Free tickets still give attendees a QR code.</p>
                     </div>
                     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(17rem,0.8fr)]">
                       <div>
-                        <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                          <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                        <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                          <div className="mb-2 flex items-center justify-between gap-3 text-[10px]">
                             <span className="font-semibold text-neutral-800">
                               {form.capacity ? `${ticketQuantityTotal} of ${form.capacity} seats allocated` : `${ticketQuantityTotal} seats allocated`}
                             </span>
@@ -818,162 +839,169 @@ export default function CreateEvent() {
                             aria-valuemin={0}
                             aria-valuemax={100}
                             aria-valuenow={ticketAllocationPercent}
-                            className="h-2 overflow-hidden rounded-full bg-neutral-200"
+                            className="flex h-2 overflow-hidden rounded-full bg-neutral-200"
                           >
-                            <div
-                              className={`h-full rounded-full transition-all ${ticketQuantityTotal > capacityValue ? 'bg-rose-600' : 'bg-gradient-to-r from-rose-600 via-orange-500 to-amber-400'}`}
-                              style={{ width: `${ticketAllocationPercent}%` }}
-                            />
+                            {form.ticketTypes.map((ticket, index) => {
+                              const colorClasses = ['bg-rose-600', 'bg-orange-500', 'bg-amber-400', 'bg-neutral-900'];
+                              const quantity = Number(ticket.quantity) || 0;
+                              const width = capacityValue > 0 ? Math.min((quantity / capacityValue) * 100, 100) : 0;
+                              return <span key={index} aria-hidden="true" className={`h-full ${colorClasses[index % colorClasses.length]}`} style={{ width: `${width}%` }} />;
+                            })}
+                            {ticketQuantityTotal < capacityValue && <span aria-hidden="true" className="h-full flex-1 bg-neutral-900" />}
                           </div>
                           {form.capacity && ticketQuantityTotal !== capacityValue && (
-                            <p className="mt-2 text-xs font-medium text-rose-700">
+                            <p className="mt-2 text-[10px] font-medium text-rose-700">
                               Ticket quantities must total {form.capacity}.
                             </p>
                           )}
                         </div>
 
-                        <div className="flex flex-col gap-4">
-                          {form.ticketTypes.map((ticket, index) => (
-                            <article key={index} className="rounded-xl border border-neutral-200 p-4 sm:p-5">
-                              <div className="mb-4 flex items-center justify-between gap-3">
-                                <h3 className="font-semibold text-neutral-900">Ticket type {index + 1}</h3>
-                                {form.ticketTypes.length > 1 && (
-                                  <button
-                                    type="button"
-                                    disabled={ticket.soldQuantity > 0}
-                                    className="text-xs font-semibold text-rose-700 hover:underline disabled:cursor-not-allowed disabled:text-neutral-400 disabled:no-underline"
-                                    onClick={() => {
-                                      setForm(current => ({
-                                        ...current,
-                                        ticketTypes: current.ticketTypes.filter((_, ticketIndex) => ticketIndex !== index),
-                                      }));
-                                      setFieldErrors({});
-                                    }}
-                                    title={ticket.soldQuantity > 0 ? 'Ticket types with bookings cannot be removed.' : undefined}
-                                  >
-                                    Remove
+                        <div className="flex flex-col gap-2">
+                          {form.ticketTypes.map((ticket, index) => {
+                            const expanded = expandedTicketIndex === index;
+                            const markerClasses = ['bg-rose-600', 'bg-orange-500', 'bg-amber-400', 'bg-neutral-900'];
+                            const summaryPrice = ticket.isFree ? 'Free' : `R ${Number(ticket.price || 0).toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`;
+                            const summaryQuantity = Number(ticket.quantity) || 0;
+                            const availableQuantity = Math.max(0, summaryQuantity - ticket.soldQuantity);
+                            return (
+                              <article key={index} className={`overflow-hidden rounded-xl border ${expanded ? 'border-rose-400 bg-white' : 'border-neutral-200 bg-white'}`}>
+                                <div className="flex items-center gap-2 px-3 py-2.5">
+                                  <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-sm ${markerClasses[index % markerClasses.length]}`} />
+                                  <button type="button" aria-expanded={expanded} onClick={() => setExpandedTicketIndex(expanded ? -1 : index)} className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-neutral-900">
+                                    {ticket.name || `Ticket type ${index + 1}`}
                                   </button>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <Select
-                                  id={`ticket-type-${index}`}
-                                  label="Ticket type"
-                                  value={ticket.name}
-                                  error={fieldErrors[`ticket-type-${index}`]}
-                                  onChange={event => updateTicket(index, { name: event.target.value })}
-                                  disabled={ticket.soldQuantity > 0}
-                                  options={[
-                                    ...TICKET_TYPE_OPTIONS.map(name => ({ value: name, label: name })),
-                                    ...(ticket.name && !TICKET_TYPE_OPTIONS.includes(ticket.name)
-                                      ? [{ value: ticket.name, label: ticket.name }]
-                                      : []),
-                                  ]}
-                                  required
-                                />
-                                <div>
-                                  <span className="mb-1.5 block text-sm font-semibold text-neutral-700">Price type</span>
-                                  <div role="group" aria-label={`${ticket.name} price type`} className="inline-flex rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+                                  {expanded ? (
+                                    <div role="group" aria-label={`${ticket.name} price type`} className="inline-flex shrink-0 rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
+                                      <button
+                                        type="button"
+                                        aria-pressed={ticket.isFree}
+                                        onClick={() => {
+                                          updateTicket(index, { isFree: true, price: '0' });
+                                          setFieldErrors(current => {
+                                            const next = { ...current };
+                                            delete next[`ticket-price-${index}`];
+                                            return next;
+                                          });
+                                        }}
+                                        className={`rounded px-2 py-1 text-[9px] font-semibold ${ticket.isFree ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
+                                      >
+                                        Free
+                                      </button>
+                                      <button
+                                        type="button"
+                                        aria-pressed={!ticket.isFree}
+                                        onClick={() => updateTicket(index, {
+                                          isFree: false,
+                                          ...(Number(ticket.price) === 0 ? { price: '' } : {}),
+                                        })}
+                                        className={`rounded px-2 py-1 text-[9px] font-semibold ${!ticket.isFree ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
+                                      >
+                                        Paid
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="shrink-0 text-[10px] text-neutral-500">
+                                      {summaryPrice} · {summaryQuantity} · {availableQuantity} available
+                                    </span>
+                                  )}
+                                  {form.ticketTypes.length > 1 && expanded && (
                                     <button
                                       type="button"
-                                      aria-pressed={ticket.isFree}
-                                      onClick={() => {
-                                        updateTicket(index, { isFree: true });
-                                        setFieldErrors(current => {
-                                          const next = { ...current };
-                                          delete next[`ticket-price-${index}`];
-                                          return next;
-                                        });
-                                      }}
-                                      className={`rounded-md px-4 py-2 text-xs font-semibold ${ticket.isFree ? 'bg-white text-rose-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}
+                                      disabled={ticket.soldQuantity > 0}
+                                      aria-label={`Remove ${ticket.name || `ticket type ${index + 1}`}`}
+                                      className="shrink-0 px-1 text-xs text-neutral-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:text-neutral-300"
+                                      onClick={() => removeTicketType(index)}
+                                      title={ticket.soldQuantity > 0 ? 'Ticket types with bookings cannot be removed.' : undefined}
                                     >
-                                      Free
+                                      ×
                                     </button>
-                                    <button
-                                      type="button"
-                                      aria-pressed={!ticket.isFree}
-                                      onClick={() => updateTicket(index, {
-                                        isFree: false,
-                                        ...(Number(ticket.price) === 0 ? { price: '' } : {}),
-                                      })}
-                                      className={`rounded-md px-4 py-2 text-xs font-semibold ${!ticket.isFree ? 'bg-white text-rose-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}
-                                    >
-                                      Paid
-                                    </button>
-                                  </div>
+                                  )}
                                 </div>
-                                <Textarea id={`ticket-description-${index}`} label="Description (optional)" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
-                                {!ticket.isFree && (
-                                  <Input
-                                    id={`ticket-price-${index}`}
-                                    label="Price (ZAR)"
-                                    type="number"
-                                    min={0.01}
-                                    max={99_999_999.99}
-                                    step={0.01}
-                                    value={ticket.price}
-                                    error={fieldErrors[`ticket-price-${index}`]}
-                                    onChange={event => updateTicket(index, { price: event.target.value })}
-                                    required
-                                  />
+                                {expanded && (
+                                  <div className="grid grid-cols-1 gap-3 px-3 pb-3 sm:grid-cols-2">
+                                    <Select
+                                      id={`ticket-type-${index}`}
+                                      label="Ticket type"
+                                      value={ticket.name}
+                                      error={fieldErrors[`ticket-type-${index}`]}
+                                      onChange={event => updateTicket(index, { name: event.target.value })}
+                                      disabled={ticket.soldQuantity > 0}
+                                      options={[
+                                        ...TICKET_TYPE_OPTIONS.map(name => ({ value: name, label: name })),
+                                        ...(ticket.name && !TICKET_TYPE_OPTIONS.includes(ticket.name)
+                                          ? [{ value: ticket.name, label: ticket.name }]
+                                          : []),
+                                      ]}
+                                      required
+                                    />
+                                    <Input
+                                      id={`ticket-price-${index}`}
+                                      label="Price"
+                                      type={ticket.isFree ? 'text' : 'number'}
+                                      min={ticket.isFree ? undefined : 0.01}
+                                      max={ticket.isFree ? undefined : 99_999_999.99}
+                                      step={ticket.isFree ? undefined : 0.01}
+                                      value={ticket.isFree ? 'Free' : ticket.price}
+                                      error={fieldErrors[`ticket-price-${index}`]}
+                                      onChange={event => updateTicket(index, { price: event.target.value })}
+                                      disabled={ticket.isFree}
+                                      required={!ticket.isFree}
+                                    />
+                                    <Input
+                                      id={`ticket-quantity-${index}`}
+                                      label="Quantity"
+                                      type="number"
+                                      min={Math.max(1, ticket.soldQuantity)}
+                                      max={1_000_000}
+                                      step={1}
+                                      value={ticket.quantity}
+                                      error={fieldErrors[`ticket-quantity-${index}`]}
+                                      onChange={event => updateTicket(index, { quantity: event.target.value })}
+                                      helperText={ticket.soldQuantity > 0 ? `${ticket.soldQuantity} places already booked; quantity cannot be lower.` : undefined}
+                                      required
+                                    />
+                                    <details className="self-end pb-2 text-xs text-neutral-500">
+                                      <summary className="cursor-pointer font-medium">Description (optional)</summary>
+                                      <Textarea id={`ticket-description-${index}`} label="Description" rows={2} value={ticket.description} onChange={event => updateTicket(index, { description: event.target.value })} maxLength={500} />
+                                    </details>
+                                    {ticket.soldQuantity > 0 && (
+                                      <p className="text-[10px] text-neutral-500 sm:col-span-2">
+                                        This ticket type has bookings, so its name cannot be changed or removed.
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
-                                <Input
-                                  id={`ticket-quantity-${index}`}
-                                  label="Quantity"
-                                  type="number"
-                                  min={Math.max(1, ticket.soldQuantity)}
-                                  max={1_000_000}
-                                  step={1}
-                                  value={ticket.quantity}
-                                  error={fieldErrors[`ticket-quantity-${index}`]}
-                                  onChange={event => updateTicket(index, { quantity: event.target.value })}
-                                  helperText={ticket.soldQuantity > 0 ? `${ticket.soldQuantity} places already booked; quantity cannot be lower.` : undefined}
-                                  required
-                                />
-                              </div>
-                              {ticket.soldQuantity > 0 && (
-                                <p className="mt-3 text-xs text-neutral-500">
-                                  This ticket type has bookings, so its name cannot be changed or removed.
-                                </p>
-                              )}
-                            </article>
-                          ))}
+                              </article>
+                            );
+                          })}
                         </div>
-                        <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={addTicketType}>
-                          <PlusIcon />
+                        <Button type="button" variant="secondary" size="sm" className="mt-2 w-full border-dashed" onClick={addTicketType}>
+                          <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v14m7-7H5" />
+                          </svg>
                           Add ticket type
                         </Button>
                       </div>
 
-                      <aside className="h-fit overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm" aria-label="Live event preview">
-                        <div className="border-b border-neutral-100 px-4 py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Live preview</p>
-                          <h3 className="mt-1 font-bold text-neutral-900">Event page</h3>
-                        </div>
-                        <div className="aspect-[16/8] overflow-hidden bg-gradient-to-br from-rose-600 via-orange-500 to-amber-300">
-                          {(bannerPreviewUrl || form.bannerImageUrl) && (
-                            <img src={bannerPreviewUrl || form.bannerImageUrl} alt="" className="h-full w-full object-cover" />
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <h4 className="font-bold text-neutral-900">{form.title || 'Your event title'}</h4>
-                          <p className="mt-1 line-clamp-3 text-xs text-neutral-500">{form.description || 'Your event description will appear here.'}</p>
-                          <p className="mt-3 text-xs font-semibold text-neutral-700">
-                            {form.startTime ? new Date(form.startTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date and time'}
-                          </p>
-                          <p className="mt-1 text-xs text-neutral-500">{form.venue || (form.eventType === 'ONLINE' ? 'Online event' : 'Venue')}</p>
-                          <div className="mt-4 space-y-2">
+                      <aside className="h-fit" aria-label="Preview on your event page">
+                        <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-400">Preview on your event page</p>
+                        <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                          <h3 className="mb-2 text-xs font-bold text-neutral-900">Choose your ticket</h3>
+                          <div className="space-y-1">
                             {form.ticketTypes.map((ticket, index) => (
-                              <div key={index} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-100 px-3 py-2 text-xs">
-                                <span className="truncate font-medium text-neutral-700">{ticket.name || `Ticket ${index + 1}`}</span>
-                                <span className="shrink-0 font-semibold text-neutral-900">{ticket.isFree ? 'Free' : `R ${Number(ticket.price || 0).toFixed(2)}`}</span>
+                              <div key={index} className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-[10px] ${expandedTicketIndex === index ? 'border-rose-600 text-neutral-900' : 'border-neutral-200 text-neutral-700'}`}>
+                                <span className="truncate">{ticket.name || `Ticket ${index + 1}`}</span>
+                                <span className="shrink-0 font-semibold">{ticket.isFree ? 'Free' : `R${Number(ticket.price || 0).toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`}</span>
                               </div>
                             ))}
                           </div>
-                          <button type="button" disabled className="mt-4 w-full cursor-not-allowed rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-4 py-2.5 text-sm font-bold text-white opacity-70">
-                            Booking preview only
+                          <button type="button" disabled className="mt-2 w-full cursor-not-allowed rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-1.5 text-[10px] font-bold text-white">
+                            Book my place
                           </button>
                         </div>
+                        <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 p-2 text-[9px] leading-4 text-sky-900">
+                          <strong>Tip:</strong> Paid ticket types are shown to attendees but can only be booked once the simulated checkout is built.
+                        </p>
                       </aside>
                     </div>
                   </section>
@@ -997,6 +1025,19 @@ export default function CreateEvent() {
                           error={fieldErrors['vendor-stands-available']}
                           onChange={event => updateForm('vendorStandsAvailable', event.target.value)}
                           helperText="Informational only; this number does not limit vendor applications."
+                          required
+                        />
+                        <Input
+                          id="vendor-stand-rate"
+                          label="Stand rate (ZAR per m²)"
+                          type="number"
+                          min={0}
+                          max={99_999_999.99}
+                          step={0.01}
+                          value={form.vendorStandRatePerSqm}
+                          error={fieldErrors['vendor-stand-rate']}
+                          onChange={event => updateForm('vendorStandRatePerSqm', event.target.value)}
+                          helperText="Enter the price for each square metre. Quote total = area (m²) × rate (ZAR/m²)."
                           required
                         />
                         <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
