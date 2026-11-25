@@ -37,6 +37,7 @@ export default function ApplyForStand() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [showNextSteps, setShowNextSteps] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -184,7 +185,7 @@ export default function ApplyForStand() {
               </div>
             </header>
 
-            <main className="px-3.5 pb-4 pt-2">
+            <main className="mx-auto w-full max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
               {loading ? (
                 <p role="status" className="py-10 text-center text-[9px] text-neutral-500">Loading event and business profile…</p>
               ) : error && !event ? (
@@ -196,10 +197,19 @@ export default function ApplyForStand() {
                   <Link to="/vendor/profile" className="mt-2 inline-flex text-[8px] font-semibold text-brand-700 hover:text-brand-900">Open business profile</Link>
                 </div>
               ) : event && (
-                <div className="grid items-start gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <aside className="space-y-2">
-                    <article className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-                      <div className="relative h-[66px] overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
+                <>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-rose-700">Vendor application</p>
+                    <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-neutral-950">Apply for a stand</h1>
+                    <p className="mt-1 text-sm text-neutral-600">Tell the organizer about your business and the space you need.</p>
+                  </div>
+                  <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded-lg border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Back to events</Link>
+                </div>
+                <div className="grid items-start gap-5 lg:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.8fr)]">
+                  <aside className="space-y-4">
+                    <article className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+                      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-[#ff8c63] via-[#f14b2d] to-[#f97316]">
                         {event.bannerImageUrl && <img src={event.bannerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
                         {!event.bannerImageUrl && (
                           <>
@@ -208,22 +218,22 @@ export default function ApplyForStand() {
                             <span className="absolute right-2 -top-5 h-12 w-12 rounded-full bg-[#ffb46b]/70" />
                           </>
                         )}
-                        <div className="absolute left-1 top-1 flex min-h-10 min-w-10 flex-col items-center justify-center rounded-md bg-white text-[#222] shadow-sm">
-                          <span className="text-[6px] font-bold leading-[7px] text-rose-600">
+                        <div className="absolute left-3 top-3 flex min-h-14 min-w-14 flex-col items-center justify-center rounded-xl bg-white text-[#222] shadow-sm">
+                          <span className="text-xs font-bold leading-4 text-rose-600">
                             {new Date(event.startTime).toLocaleDateString('en-ZA', { month: 'short' }).toUpperCase()}
                           </span>
-                          <span className="text-[10px] font-extrabold leading-[10px]">
+                          <span className="text-xl font-extrabold leading-6">
                             {new Date(event.startTime).toLocaleDateString('en-ZA', { day: '2-digit' })}
                           </span>
                         </div>
                       </div>
-                      <div className="p-2">
-                        <h2 className="truncate text-[9px] font-extrabold leading-3 text-neutral-900">{event.title}</h2>
-                        <p className="mt-0.5 truncate text-[7px] leading-[9px] text-neutral-500">
+                      <div className="p-5">
+                        <h2 className="text-lg font-extrabold leading-6 text-neutral-900">{event.title}</h2>
+                        <p className="mt-1 text-sm text-neutral-500">
                           {new Date(event.startTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
                           {' · '}{event.venue}
                         </p>
-                        <dl className="mt-2 space-y-1 text-[7px] leading-[9px]">
+                        <dl className="mt-5 space-y-3 text-sm">
                           <InfoRow label="Expected" value={`${event.capacity.toLocaleString()} attendees`} />
                           <InfoRow label="Stands left" value={`${event.availableVendorStands} of ${event.vendorStandsAvailable}`} />
                           <InfoRow label="Rate" value={`${formatRate(ratePerSquareMetre)}/m²`} />
@@ -234,29 +244,20 @@ export default function ApplyForStand() {
                       </div>
                     </article>
 
-                    <article className="rounded-lg border border-neutral-200 bg-white p-2">
-                      <h3 className="text-[8px] font-extrabold leading-3 text-neutral-900">What happens next</h3>
-                      <ol className="mt-1 list-inside list-decimal space-y-0.5 text-[7px] leading-[9px] text-neutral-600">
-                        <li>The organizer reviews your application.</li>
-                        <li>If approved, you get a stand number and an invoice.</li>
-                        <li>Pay within 7 days to keep your stand.</li>
-                        <li>Add your staff to get door passes.</li>
-                      </ol>
-                    </article>
                   </aside>
 
-                  <section className="rounded-lg border border-neutral-200 bg-white p-2.5">
-                    <div className="mb-2">
-                      <h2 className="text-[11px] font-extrabold leading-4 text-neutral-900">Apply for a stand</h2>
-                      <p className="text-[7px] leading-[10px] text-neutral-500">
+                  <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-7">
+                    <div className="mb-5 border-b border-neutral-100 pb-4">
+                      <h2 className="text-lg font-extrabold text-neutral-900">Application details</h2>
+                      <p className="mt-1 text-sm text-neutral-500">
                         Applying as <span className="font-bold text-neutral-800">{profile.businessName}</span>
                         {profile.businessRegistrationNumber && ` · ${profile.businessRegistrationNumber}`}
                       </p>
                     </div>
 
                     {activeApplication ? (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                        <h3 className="text-[9px] font-semibold text-amber-950">
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <h3 className="text-sm font-semibold text-amber-950">
                           You already have a {activeApplication.status.toLowerCase().replace('_', ' ')} application for this event.
                         </h3>
                         {activeApplication.assignedStand && <p className="mt-1 text-[8px] text-amber-900">Assigned stand: {activeApplication.assignedStand}</p>}
@@ -269,11 +270,11 @@ export default function ApplyForStand() {
                           : `Applications closed ${registrationClosesAt?.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'for this event'}.`}
                       </div>
                     ) : event.availableVendorStands === 0 ? (
-                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[9px] text-neutral-700">
+                      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
                         All vendor stands for this event have been allocated.
                       </div>
                     ) : (
-                      <form onSubmit={submitApplication} className="space-y-2">
+                      <form onSubmit={submitApplication} className="space-y-6">
                         {rejectedApplication && (
                           <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-[8px] text-rose-800">
                             <h3 className="font-semibold">Update your rejected application</h3>
@@ -283,14 +284,14 @@ export default function ApplyForStand() {
                         )}
 
                         <fieldset>
-                          <legend className="mb-1 text-[8px] font-bold leading-[10px] text-neutral-800">Stand size</legend>
-                          <div className="grid gap-1.5 sm:grid-cols-2">
+                          <legend className="mb-3 text-sm font-bold text-neutral-800">Choose your stand size</legend>
+                          <div className="grid gap-3 sm:grid-cols-2">
                             {standOptions.map(option => {
                               const area = option.width * option.depth;
                               return (
                                 <label
                                   key={option.size}
-                                  className={`flex min-h-14 cursor-pointer items-center justify-between gap-1.5 rounded-md border px-2 py-2 transition ${
+                                  className={`flex min-h-24 cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 transition ${
                                     requestedStandSize === option.size
                                       ? 'border-rose-600 ring-1 ring-rose-600'
                                       : 'border-neutral-200 hover:border-neutral-400'
@@ -305,7 +306,7 @@ export default function ApplyForStand() {
                                   />
                                   <span className="min-w-0">
                                     <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">{option.type} · {option.size}</span>
-                                    <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                    <span className="mt-1 block text-xs text-neutral-500">
                                       {area} m² · {formatRate(ratePerSquareMetre)}/m² · {option.type === 'Standard' ? '2 staff passes' : '4 staff passes'}
                                     </span>
                                   </span>
@@ -407,10 +408,10 @@ export default function ApplyForStand() {
                           </div>
                         </details>
 
-                        <div className="flex min-h-[36px] items-center justify-between gap-2 rounded-md bg-neutral-950 px-2.5 py-1.5 text-white">
+                        <div className="flex min-h-20 items-center justify-between gap-3 rounded-xl bg-neutral-950 px-5 py-4 text-white">
                           <div>
-                            <p className="text-[7px] leading-[9px] text-white/70">Your quote</p>
-                            <p className="mt-0.5 text-[7px] leading-[9px]">{standArea.toLocaleString()} m² × {formatRate(ratePerSquareMetre)} per m²</p>
+                            <p className="text-sm font-semibold text-white/70">Estimated stand fee</p>
+                            <p className="mt-1 text-sm">{standArea.toLocaleString()} m² × {formatRate(ratePerSquareMetre)} per m²</p>
                           </div>
                           <p className="text-[16px] font-black leading-5">{formatCurrency(quote)}</p>
                         </div>
@@ -418,15 +419,36 @@ export default function ApplyForStand() {
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}
                         {message && <p role="status" className="text-[8px] font-medium text-emerald-700">{message} <Link to="/vendor/applications" className="underline">View my applications</Link></p>}
                         <div className="flex justify-end gap-1.5">
-                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-10 items-center rounded border border-neutral-200 px-3 text-[7px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
-                          <Button type="submit" className="!min-h-10 !rounded !px-3 text-[7px] bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
+                          <Link to="/vendor/events" className="vendor-button inline-flex min-h-11 items-center rounded-lg border border-neutral-200 px-5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</Link>
+                          <Button type="submit" className="!min-h-11 !rounded-lg !px-5 !text-sm bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600" loading={submitting} disabled={Boolean(message)}>
                             Send application
                           </Button>
                         </div>
                       </form>
                     )}
                   </section>
+                  <article className="col-span-full rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:px-7">
+                    <h3 className="text-base font-extrabold text-neutral-900">What happens next</h3>
+                    <p className="mt-2 text-sm text-neutral-600">The organizer reviews your application and will contact you with the outcome.</p>
+                    <button
+                      type="button"
+                      aria-expanded={showNextSteps}
+                      aria-controls="application-next-steps"
+                      onClick={() => setShowNextSteps(open => !open)}
+                      className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-800"
+                    >
+                      {showNextSteps ? 'Read less' : 'Read more'}
+                    </button>
+                    {showNextSteps && (
+                      <ol id="application-next-steps" className="mt-3 list-inside list-decimal space-y-2 text-sm text-neutral-600">
+                        <li>If approved, you get a stand number and an invoice.</li>
+                        <li>Pay within 7 days to keep your stand.</li>
+                        <li>Add your staff to get door passes.</li>
+                      </ol>
+                    )}
+                  </article>
                 </div>
+                </>
               )}
             </main>
           </div>
@@ -445,7 +467,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const inputClassName = 'mt-1 h-10 w-full rounded border border-neutral-300 bg-white px-2 py-0 text-[8px] font-normal text-neutral-800 outline-none focus:border-rose-500';
+const inputClassName = 'mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-neutral-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100';
 
 function formatCurrency(value: number) {
   const amount = new Intl.NumberFormat('en-ZA', {

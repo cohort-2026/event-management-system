@@ -406,9 +406,9 @@ export default function EventDetail() {
                 {bookingError && <p role="alert" className="mt-2 text-xs text-rose-700">{bookingError}</p>}
                 {eventBooking.tickets.length > 0 ? (
                   <div className="mt-4 space-y-2">
-                    {eventBooking.tickets.map((ticket, index) => (
-                      <Link key={ticket.id} to={`/attendee/tickets/${ticket.id}`} className="block rounded-md border border-neutral-200 px-3 py-2 text-center text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
-                        View ticket {index + 1} · {ticket.referenceNumber}
+                    {eventBooking.tickets.map(ticket => (
+                      <Link key={ticket.id} to={`/attendee/tickets/${ticket.id}`} className="block rounded-lg bg-gradient-to-r from-rose-600 to-orange-500 px-3 py-2.5 text-center text-xs font-bold text-white transition hover:from-rose-700 hover:to-orange-600">
+                        View Ticket
                       </Link>
                     ))}
                     {eventBooking.tickets.length > 1 && (

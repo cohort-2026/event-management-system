@@ -169,9 +169,9 @@ export default function AttendeeBookings() {
               const canPay = booking.status === 'PENDING' && booking.paymentStatus === 'PENDING';
 
               return (
-                <article key={booking.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:gap-4 sm:p-4">
+                <article key={booking.id} className="relative flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:gap-4 sm:p-4">
                   <BookingDate date={new Date(booking.event.startTime)} />
-                  <EventArtwork title={booking.event.title} bannerImageUrl={booking.event.bannerImageUrl} className="h-10 w-14 shrink-0 rounded-lg" />
+                  <EventArtwork title="" category={booking.event.category} bannerImageUrl={booking.event.bannerImageUrl} className="h-14 w-16 shrink-0 rounded-lg" />
                   <div className="min-w-[180px] flex-1">
                     <Link to={`/events/${booking.eventId}`} className="block truncate text-sm font-bold text-neutral-950 hover:text-rose-700">
                       {booking.event.title}
@@ -205,7 +205,6 @@ export default function AttendeeBookings() {
                         <p className="text-xs font-bold text-neutral-800">
                           {booking.tickets.length} {booking.tickets.length === 1 ? 'ticket' : 'tickets'}
                         </p>
-                        <span className="text-[10px] text-neutral-500">Each ticket has its own entry code</span>
                       </div>
                       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {booking.tickets.map((ticket, index) => (
@@ -220,17 +219,54 @@ export default function AttendeeBookings() {
                             </div>
                             <Link
                               to={`/attendee/tickets/${ticket.id}`}
-                              className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-neutral-800"
+                              className="shrink-0 rounded-md bg-gradient-to-r from-rose-600 to-orange-500 px-2.5 py-1.5 text-[10px] font-bold text-white transition hover:from-rose-700 hover:to-orange-600"
                               aria-label={`View ticket ${index + 1}, ${ticket.referenceNumber}`}
                             >
-                              View
+                              View Ticket
                             </Link>
+                            {index === booking.tickets.length - 1 && (
+                              <div className="relative shrink-0">
+                                <button
+                                  type="button"
+                                  aria-label={`More actions for ${booking.event.title}`}
+                                  aria-expanded={menuId === booking.id}
+                                  onClick={() => setMenuId(current => current === booking.id ? null : booking.id)}
+                                  className="rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+                                >
+                                  ⋯
+                                </button>
+                                {menuId === booking.id && (
+                                  <div className="absolute right-0 top-full z-20 mt-1 min-w-40 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
+                                    <button
+                                      type="button"
+                                      onClick={() => { setMenuId(null); void shareEvent(booking); }}
+                                      className="block w-full rounded px-3 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+                                    >
+                                      Share event
+                                    </button>
+                                    {canCancel && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setCancellationReason('');
+                                          setConfirmingId(booking.id);
+                                          setMenuId(null);
+                                        }}
+                                        className="block w-full rounded px-3 py-2 text-left text-xs font-medium text-rose-700 hover:bg-rose-50"
+                                      >
+                                        Cancel booking
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  <div className="relative">
+                  <div className={booking.tickets.length ? 'hidden' : 'absolute right-3 top-14 z-10 sm:right-4'}>
                     <button
                       type="button"
                       aria-label={`More actions for ${booking.event.title}`}
