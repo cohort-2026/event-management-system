@@ -40,7 +40,8 @@ interface EventForm {
 
 const EMPTY_TICKET: TicketForm = { name: 'General admission', description: '', price: '0', quantity: '', isFree: true, soldQuantity: 0 };
 const MAX_BANNER_IMAGE_BYTES = 5 * 1024 * 1024;
-const BANNER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const BANNER_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.webp']);
+const BANNER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const EVENT_CATEGORIES = [
   'Networking', 'Workshop', 'Training', 'Company Activities', 'other',
 ];
@@ -333,7 +334,8 @@ export default function CreateEvent() {
   const handleBannerImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!BANNER_IMAGE_TYPES.includes(file.type)) {
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!BANNER_IMAGE_EXTENSIONS.has(extension) && !BANNER_IMAGE_TYPES.has(file.type)) {
       setError('Choose a JPG, PNG, or WebP image.');
       event.target.value = '';
       return;

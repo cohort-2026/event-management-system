@@ -7,6 +7,7 @@ import TicketQrCode from '@/components/attendee/TicketQrCode';
 import Spinner from '@/components/legacy/Spinner';
 import { useAuth } from '@/context/useAuth';
 import { getTicketById } from '@/services/ticketService';
+import { downloadEventCalendar } from '@/utils/downloadEventCalendar';
 import type { Ticket } from '@/types/ticket';
 
 export default function AttendeeTicket() {
@@ -170,7 +171,15 @@ export default function AttendeeTicket() {
         <button
           type="button"
           disabled={cancelled}
-          onClick={() => downloadCalendarEvent(event.title, event.venue, eventStart, eventEnd)}
+          onClick={() => downloadEventCalendar({
+            id: event.id,
+            title: event.title,
+            description: event.description ?? '',
+            startTime: eventStart,
+            endTime: eventEnd,
+            venue: event.venue,
+            meetingDetails: event.meetingDetails,
+          })}
           className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Add to calendar
@@ -197,7 +206,6 @@ export default function AttendeeTicket() {
     </AttendeeLayout>
   );
 }
-
 function TicketDetail({ label, value, mono = false, wide = false }: {
   label: string;
   value: string;
@@ -210,29 +218,4 @@ function TicketDetail({ label, value, mono = false, wide = false }: {
       <dd className={`mt-0.5 break-words font-medium text-neutral-900 ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
     </div>
   );
-}
-
-function downloadCalendarEvent(title: string, venue: string, start: Date, end: Date) {
-  const escapeIcs = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-  const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const content = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//EventMS//Attendee Ticket//EN',
-    'BEGIN:VEVENT',
-    `UID:${crypto.randomUUID()}@eventms`,
-    `DTSTAMP:${formatDate(new Date())}`,
-    `DTSTART:${formatDate(start)}`,
-    `DTEND:${formatDate(end)}`,
-    `SUMMARY:${escapeIcs(title)}`,
-    `LOCATION:${escapeIcs(venue)}`,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].join('\r\n');
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/calendar;charset=utf-8' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'event'}.ics`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }

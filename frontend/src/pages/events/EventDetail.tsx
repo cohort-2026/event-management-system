@@ -12,6 +12,7 @@ import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/context/useAuth';
 import { getEventById } from '@/services/eventService';
 import { createBooking, getMyBookings } from '@/services/bookingService';
+import { downloadEventCalendar } from '@/utils/downloadEventCalendar';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
 
@@ -529,7 +530,15 @@ export default function EventDetail() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => downloadCalendarEvent(event.title, event.venue, start, end)}
+                  onClick={() => downloadEventCalendar({
+                    id: event.id,
+                    title: event.title,
+                    description: event.description,
+                    startTime: start,
+                    endTime: end,
+                    venue: event.venue,
+                    meetingDetails: event.meetingDetails,
+                  })}
                   className="rounded-lg border border-neutral-300 px-3 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
                 >
                   Add to calendar
@@ -560,31 +569,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return axios.isAxiosError(error)
     ? error.response?.data?.message ?? fallback
     : fallback;
-}
-
-function downloadCalendarEvent(title: string, venue: string, start: Date, end: Date) {
-  const escapeIcs = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-  const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const content = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//EventMS//Attendee Booking//EN',
-    'BEGIN:VEVENT',
-    `UID:${crypto.randomUUID()}@eventms`,
-    `DTSTAMP:${formatDate(new Date())}`,
-    `DTSTART:${formatDate(start)}`,
-    `DTEND:${formatDate(end)}`,
-    `SUMMARY:${escapeIcs(title)}`,
-    `LOCATION:${escapeIcs(venue)}`,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].join('\r\n');
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/calendar;charset=utf-8' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'event'}.ics`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function VendorEventLayout({ children, eventTitle }: { children: ReactNode; eventTitle?: string }) {
