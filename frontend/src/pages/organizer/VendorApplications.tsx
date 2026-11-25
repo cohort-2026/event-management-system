@@ -11,7 +11,6 @@ import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import { getMyEvents } from '@/services/eventService';
 import type { Event } from '@/types/event';
 import type { VendorApplication } from '@/types/vendor';
-import type { Event } from '@/types/event';
 
 const statusVariant: Record<VendorApplication['status'], BadgeVariant> = {
   APPROVED: 'success',
@@ -77,7 +76,6 @@ const downloadApplicationsCsv = (applications: VendorApplication[]) => {
 export default function VendorApplications() {
   const { id: eventId } = useParams<{ id: string }>();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
-  const [organizerEvents, setOrganizerEvents] = useState<Event[]>([]);
   const [organizerEvents, setOrganizerEvents] = useState<Event[]>([]);
   const [assignedStands, setAssignedStands] = useState<Record<string, string>>({});
   const [applicationRates, setApplicationRates] = useState<Record<string, string>>({});
