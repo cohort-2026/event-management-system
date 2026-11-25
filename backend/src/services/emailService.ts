@@ -234,7 +234,7 @@ export const sendVendorStandInvoice = async (details: {
   text(60, 555, 'SALESPERSON', 7, '1 1 1');
   text(190, 555, 'P.O. #', 7, '1 1 1');
   text(285, 555, 'EVENT DATE', 7, '1 1 1');
-  text(385, 555, 'F.O.B.', 7, '1 1 1');
+  text(385, 555, 'SHIPPING VENUE', 7, '1 1 1');
   text(475, 555, 'TERMS', 7, '1 1 1');
   text(60, 537, issuerName.slice(0, 17), 7);
   text(190, 537, details.invoiceNumber.slice(-10), 7);

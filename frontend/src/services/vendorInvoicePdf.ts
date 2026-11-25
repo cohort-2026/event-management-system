@@ -76,7 +76,7 @@ export function downloadInvoicePdf(application: VendorApplication) {
   text(60, 555, 'SALESPERSON', 7, '1 1 1');
   text(155, 555, 'P.O. #', 7, '1 1 1');
   text(231, 555, 'SHIP DATE', 7, '1 1 1');
-  text(405, 555, 'F.O.B.', 7, '1 1 1');
+  text(405, 555, 'SHIPPING VENUE', 7, '1 1 1');
   text(482, 555, 'TERMS', 7, '1 1 1');
   text(60, 537, 'Event organizer', 7);
   text(155, 537, invoice.invoiceNumber.slice(-10), 7);

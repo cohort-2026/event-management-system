@@ -75,6 +75,8 @@ test('invoice email includes a downloadable PDF, payment reference, amount and d
   assert.match(pdf, /vendor@example\.test/);
   assert.match(pdf, /Sample Event/);
   assert.match(pdf, /Convention Centre/);
+  assert.match(pdf, /SHIPPING VENUE/);
+  assert.doesNotMatch(pdf, /F\.O\.B\./);
   assert.match(pdf, /Assigned stand: A-01/);
   assert.match(pdf, /Retail stand - 3m x 3m/);
   assert.ok(pdf.includes(`Due date: ${dueAt.toLocaleDateString('en-ZA')}`));
@@ -140,7 +142,8 @@ test('downloaded invoice lists selected add-ons separately from the stand', asyn
   let pdf = await blob.text();
   assert.doesNotMatch(pdf, /SHIP VIA/);
   assert.match(pdf, /SHIP DATE/);
-  assert.match(pdf, /F\.O\.B\./);
+  assert.match(pdf, /SHIPPING VENUE/);
+  assert.doesNotMatch(pdf, /F\.O\.B\./);
   assert.match(pdf, /Vendor Company/);
   assert.match(pdf, /1 Market Street/);
   assert.match(pdf, /Sample Event/);
