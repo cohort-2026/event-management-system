@@ -224,6 +224,8 @@ model Event {
   endTime           DateTime    @map("end_time")
   eventType         EventType   @default(IN_PERSON) @map("event_type")
   meetingDetails    String?     @map("meeting_details")
+  directions        String?
+  parkingInformation String?    @map("parking_information")
   bannerImageUrl    String?     @map("banner_image_url")
   vendorStandsAvailable Int     @default(0) @map("vendor_stands_available")
   capacity          Int
@@ -243,6 +245,7 @@ model Event {
   vendorApplications VendorApplication[]
   ticketTypes        EventTicketType[]
   waitlistEntries    WaitlistEntry[]
+  reminderDeliveries EventReminderDelivery[]
 
   @@map("events")
 }
@@ -319,10 +322,33 @@ model Booking {
   payment    Payment?
   waitlistEntryId String? @unique @map("waitlist_entry_id")
   waitlistEntry WaitlistEntry? @relation(fields: [waitlistEntryId], references: [id], onDelete: SetNull)
+  reminderDelivery EventReminderDelivery?
 
   @@index([attendeeId, createdAt])
   @@index([cancelledAt])
   @@map("bookings")
+}
+
+enum ReminderDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model EventReminderDelivery {
+  id            String                 @id @default(uuid())
+  bookingId     String                 @unique @map("booking_id")
+  eventId       String                 @map("event_id")
+  status        ReminderDeliveryStatus @default(PENDING)
+  attemptedAt   DateTime               @default(now()) @map("attempted_at")
+  sentAt        DateTime?              @map("sent_at")
+  failureReason String?                @map("failure_reason")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  booking       Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  event         Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@map("event_reminder_deliveries")
 }
 
 model Ticket {

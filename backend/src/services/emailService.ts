@@ -116,6 +116,34 @@ export const sendEventChangeNotification = async (email: string, eventTitle: str
   });
 };
 
+export const sendAttendeeEventReminder = async (details: {
+  email: string;
+  firstname: string;
+  eventTitle: string;
+  startsAt: Date;
+  venue: string;
+  directions: string | null;
+  parkingInformation: string | null;
+  ticketUrl: string;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `Reminder: ${details.eventTitle} is tomorrow`,
+    text: [
+      `Hello ${details.firstname},`,
+      '',
+      `This is a reminder that ${details.eventTitle} is coming up.`,
+      `Date and time: ${details.startsAt.toLocaleString('en-ZA', { dateStyle: 'full', timeStyle: 'short' })}`,
+      `Venue: ${details.venue || 'Online event'}`,
+      `Directions: ${details.directions || 'No directions were provided by the organizer.'}`,
+      `Parking: ${details.parkingInformation || 'No parking information was provided by the organizer.'}`,
+      '',
+      `Access your ticket: ${details.ticketUrl}`,
+    ].join('\n'),
+  });
+};
+
 export const sendEventCancellationNotification = async (email: string, eventTitle: string, reason: string): Promise<void> => {
   await transporter.sendMail({
     from: config.mailFrom,

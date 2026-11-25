@@ -1551,7 +1551,7 @@ const decideVendorApplication = async (
 
 	const decidedAt = new Date();
 	const invoiceNumber = `EVMS-${decidedAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
-	const dueAt = new Date(decidedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+	const dueAt = new Date(decidedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 	try {
 		const updated = await prisma.$transaction(async transaction => {
 			if (decision.status === 'APPROVED') {
@@ -1661,7 +1661,7 @@ const decideVendorApplication = async (
 		return res.json({
 			success: true,
 			message: decision.status === 'APPROVED' ? 'Stand request approved and invoice issued' : 'Stand request rejected',
-			...(decision.status === 'APPROVED' ? { invoiceEmailSent } : { decisionEmailSent }),
+			...(decision.status === 'APPROVED' ? { invoiceEmailSent, invoiceNumber, dueAt: dueAt.toISOString() } : { decisionEmailSent }),
 		});
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

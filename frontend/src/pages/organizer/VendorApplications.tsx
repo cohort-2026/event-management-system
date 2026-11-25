@@ -10,6 +10,7 @@ import { approveApplication, getEventApplications, markVendorInvoicePaid, reject
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import { getMyEvents } from '@/services/eventService';
 import type { VendorApplication } from '@/types/vendor';
+import type { Event } from '@/types/event';
 
 const statusVariant: Record<VendorApplication['status'], BadgeVariant> = {
   APPROVED: 'success',
@@ -21,15 +22,6 @@ const responseMessage = (error: unknown, fallback: string): string => (
   axios.isAxiosError<{ message?: string }>(error) ? error.response?.data.message ?? fallback : fallback
 );
 
-const formatRelativeTime = (value: string): string => {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
-  if (!Number.isFinite(minutes)) return '';
-  if (minutes < 60) return `${minutes || 1}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-};
-
 const safeDocumentUrl = (value: string): string | null => {
   try {
     const url = new URL(value);
@@ -38,6 +30,10 @@ const safeDocumentUrl = (value: string): string | null => {
     return null;
   }
 };
+
+const standCode = (index: number): string => `${String.fromCharCode(65 + Math.floor(index / 5))}${(index % 5) + 1}`;
+const money = (value: number | string | null | undefined): string => `R${Number(value ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const moneyFixed = (value: number | string | null | undefined): string => `R ${Number(value ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const downloadApplicationsCsv = (applications: VendorApplication[]) => {
   const columns = [
@@ -70,6 +66,7 @@ const downloadApplicationsCsv = (applications: VendorApplication[]) => {
 export default function VendorApplications() {
   const { id: eventId } = useParams<{ id: string }>();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
+  const [organizerEvents, setOrganizerEvents] = useState<Event[]>([]);
   const [assignedStands, setAssignedStands] = useState<Record<string, string>>({});
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -78,7 +75,9 @@ export default function VendorApplications() {
   const [payingId, setPayingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [activeStatus, setActiveStatus] = useState<'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'INACTIVE'>('APPROVED');
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [showRejectReason, setShowRejectReason] = useState(false);
+  const [activeStatus, setActiveStatus] = useState<'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'INACTIVE'>('PENDING_REVIEW');
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
   const vendorDirectory = applications;
@@ -92,22 +91,33 @@ export default function VendorApplications() {
     ? vendorDirectory.filter(application => application.vendor?.isActive === false)
     : vendorDirectory.filter(application => application.status === activeStatus && application.vendor?.isActive !== false);
   const selectedApplication = visibleApplications.find(application => application.id === selectedApplicationId) ?? visibleApplications[0];
+  const selectedEvent = selectedApplication
+    ? organizerEvents.find(event => event.id === selectedApplication.eventId)
+    : eventId ? organizerEvents.find(event => event.id === eventId) : undefined;
+  const standCount = selectedEvent?.vendorStandsAvailable ?? 0;
+  const allocatedStandCodes = new Set(applications
+    .filter(application => application.eventId === selectedApplication?.eventId && application.status === 'APPROVED' && application.assignedStand)
+    .map(application => application.assignedStand));
+  const allocatedCount = applications.filter(application => application.status === 'APPROVED').length;
+  const invoicedTotal = applications.filter(application => application.invoice).reduce((sum, application) => sum + Number(application.invoice?.amount ?? 0), 0);
+  const paidTotal = applications.filter(application => application.invoice?.status === 'PAID').reduce((sum, application) => sum + Number(application.invoice?.amount ?? 0), 0);
 
   const refresh = useCallback(async () => {
     setError('');
     try {
+      const eventsResponse = await getMyEvents();
+      const events = eventsResponse.data.data;
+      setOrganizerEvents(events);
       if (eventId) {
         const response = await getEventApplications(eventId);
         setApplications(response.data.data);
       } else {
-        const eventsResponse = await getMyEvents();
-        const organizerEvents = eventsResponse.data.data;
-        const eventResults = await Promise.allSettled(organizerEvents.map(event => getEventApplications(event.id)));
+        const eventResults = await Promise.allSettled(events.map(event => getEventApplications(event.id)));
         const loadedApplications: VendorApplication[] = [];
         let failedEvents = 0;
         eventResults.forEach((result, index) => {
           if (result.status === 'fulfilled') {
-            const event = organizerEvents[index];
+            const event = events[index];
             loadedApplications.push(...result.value.data.data.map(application => ({
               ...application,
               event: { id: event.id, title: event.title, date: event.date, venue: event.venue },
@@ -145,19 +155,24 @@ export default function VendorApplications() {
     }
   };
 
-  const approve = async (event: FormEvent<HTMLFormElement>, applicationId: string) => {
-    event.preventDefault();
+  const approve = async (applicationId: string) => {
     const assignedStand = assignedStands[applicationId]?.trim() ?? '';
+    if (!assignedStand) {
+      setError('Choose an available stand before allocating.');
+      return;
+    }
     setError('');
     setNotice('');
     setApprovingId(applicationId);
     try {
       const response = await approveApplication(applicationId, assignedStand);
       setNotice(response.data.invoiceEmailSent === false
-        ? 'Stand approved and invoice issued. Email delivery failed; the vendor can view it in My Applications.'
-        : 'Stand approved, assigned, and invoiced.');
+        ? `Stand ${assignedStand} approved. Invoice ${response.data.invoiceNumber} is due ${new Date(response.data.dueAt).toLocaleDateString('en-ZA')}. Email delivery failed; the vendor can view it in My Applications.`
+        : `Stand ${assignedStand} approved. Invoice ${response.data.invoiceNumber} is due ${new Date(response.data.dueAt).toLocaleDateString('en-ZA')}; the vendor was emailed and notified in-app.`);
       setActiveStatus('APPROVED');
       setSelectedApplicationId(applicationId);
+      setApprovalDialogOpen(false);
+      setShowRejectReason(false);
       await refresh();
     } catch (decisionError) {
       setError(responseMessage(decisionError, 'Stand request could not be approved.'));
@@ -175,6 +190,8 @@ export default function VendorApplications() {
     try {
       await rejectApplication(applicationId, reason);
       setNotice('Stand request rejected. The vendor has been notified.');
+      setApprovalDialogOpen(false);
+      setShowRejectReason(false);
       await refresh();
     } catch (decisionError) {
       setError(responseMessage(decisionError, 'Stand request could not be rejected.'));
@@ -189,10 +206,16 @@ export default function VendorApplications() {
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
           <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-6 bg-white shadow-sm sm:-mx-6 sm:-mt-6">
-            <OrganizerTopBar title="Vendors" showTitle={false} headingEyebrow="Organizer" heading="Vendor" headingDetail="In application for a stand." />
+            <OrganizerTopBar title="Stand requests" showTitle={false} headingEyebrow="My events" heading={selectedEvent?.title || 'Stand requests'} headingDetail="Review vendor applications and allocate stands." />
           </div>
-          <h1 className="sr-only">Vendors</h1>
-          <div className="mb-2 flex justify-end">
+          <h1 className="mb-1 text-2xl font-bold text-neutral-900">Stand requests</h1>
+          <p className="mb-5 text-sm text-neutral-500">{standCount} stands · {money(selectedEvent?.vendorStandRatePerSqm)}/m²</p>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4"><p className="text-xs text-neutral-500">Allocated</p><p className="mt-1 text-2xl font-bold text-neutral-900">{allocatedCount}<span className="ml-1 text-sm font-normal text-neutral-400">/ {eventId ? standCount : organizerEvents.reduce((sum, event) => sum + event.vendorStandsAvailable, 0)}</span></p></div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4"><p className="text-xs text-neutral-500">Invoiced</p><p className="mt-1 text-2xl font-bold text-neutral-900">{money(invoicedTotal)}</p></div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4"><p className="text-xs text-neutral-500">Paid</p><p className="mt-1 text-2xl font-bold text-neutral-900">{money(paidTotal)}</p><p className="mt-1 text-xs text-orange-700">{applications.filter(application => application.invoice?.status === 'ISSUED').length} invoices outstanding</p></div>
+          </div>
+          <div className="mb-3 flex justify-end">
             <Button type="button" variant="secondary" disabled={applications.length === 0} onClick={() => downloadApplicationsCsv(applications)}>
               Export
             </Button>
@@ -227,6 +250,9 @@ export default function VendorApplications() {
           ) : (
             <div className="grid min-h-[560px] grid-cols-1 gap-5 lg:grid-cols-[minmax(300px,1.2fr)_minmax(0,1.7fr)]">
               <section aria-label="Vendors in selected status" className="rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 border-b border-neutral-100 px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                  <span>Business</span><span>Stand</span><span>Quote</span>
+                </div>
                 <div className="space-y-2">
                   {visibleApplications.map(application => {
                     const vendorName = application.vendor?.vendorProfile?.businessName || application.companyName;
@@ -234,12 +260,13 @@ export default function VendorApplications() {
                     const selected = selectedApplication?.id === application.id;
                     return (
                       <button key={application.id} type="button" onClick={() => setSelectedApplicationId(application.id)} aria-pressed={selected} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${selected ? 'border-slate-200 bg-slate-100' : 'border-transparent bg-white hover:bg-slate-50'}`}>
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#dd2349] text-sm font-normal text-white">{initials}</span>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-700">{initials}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block break-words text-sm font-normal text-slate-900">{vendorName}</span>
-                          <span className="mt-1 block truncate text-sm text-slate-500">{application.event?.title || application.vendor?.vendorProfile?.productsServices?.[0] || 'Vendor'} · {application.vendor?.vendorProfile?.supportingDocumentUrls?.length ?? 0} documents</span>
+                          <span className="block break-words text-sm font-semibold text-neutral-900">{vendorName}</span>
+                          <span className="mt-1 block truncate text-[10px] text-neutral-500">{application.registrationNumber} · {application.requestedStandType}</span>
                         </span>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{formatRelativeTime(application.createdAt)}</span>
+                        <span className="shrink-0 text-xs text-neutral-700">{application.requestedStandSize}</span>
+                        <span className="flex flex-col items-end gap-1"><span className="text-xs font-medium text-neutral-800">{money(application.quotedAmount)}</span><span className="rounded bg-neutral-950 px-2.5 py-1 text-[10px] font-semibold text-white">{selected ? 'Selected' : 'Review'}</span></span>
                       </button>
                     );
                   })}
@@ -309,21 +336,18 @@ export default function VendorApplications() {
                     </div>
 
                     {application.status === 'PENDING_REVIEW' && application.vendor?.isActive !== false ? (
-                      <div className="mt-5 grid gap-5 border-t border-neutral-100 pt-5 md:grid-cols-2">
-                        <form className="space-y-3" onSubmit={event => void approve(event, application.id)}>
-                          <label className="block text-sm font-medium text-neutral-700">
-                            Assign stand identifier
-                            <input required maxLength={80} value={assignedStands[application.id] ?? ''} onChange={event => setAssignedStands(current => ({ ...current, [application.id]: event.target.value }))} placeholder="e.g. A-12" className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
-                          </label>
-                          <Button type="submit" size="sm" className="min-h-20 w-full max-w-40 rounded-xl bg-black px-6 text-base font-bold leading-6 text-white shadow-sm hover:bg-neutral-900" loading={approvingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Approve vendor</Button>
-                        </form>
-                        <form className="space-y-3" onSubmit={event => void reject(event, application.id)}>
-                          <label className="block text-sm font-medium text-neutral-700">
-                            Rejection reason (required)
-                            <textarea required minLength={5} maxLength={1000} rows={2} value={rejectionReasons[application.id] ?? ''} onChange={event => setRejectionReasons(current => ({ ...current, [application.id]: event.target.value }))} placeholder="Explain what the vendor should change." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
-                          </label>
-                          <Button type="submit" variant="secondary" size="sm" className="min-h-20 w-full max-w-48 rounded-xl border border-[#d9e0ea] px-6 text-base font-bold leading-6 text-[#26354b] shadow-none hover:bg-neutral-50" loading={rejectingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Reject with reason...</Button>
-                        </form>
+                      <div className="mt-5 border-t border-neutral-100 pt-5">
+                        <Button
+                          type="button"
+                          className="w-full rounded-lg bg-neutral-950 px-4 py-3 text-sm font-bold text-white hover:bg-neutral-800"
+                          disabled={Boolean(approvingId || rejectingId)}
+                          onClick={() => {
+                            setShowRejectReason(false);
+                            setApprovalDialogOpen(true);
+                          }}
+                        >
+                          Allocate a stand
+                        </Button>
                       </div>
                     ) : (
                       <div className="mt-5 border-t border-neutral-100 pt-4 text-sm">
@@ -355,6 +379,67 @@ export default function VendorApplications() {
           )}
         </section>
       </div>
+      {approvalDialogOpen && selectedApplication?.status === 'PENDING_REVIEW' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={event => {
+          if (event.target === event.currentTarget && !approvingId && !rejectingId) setApprovalDialogOpen(false);
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="allocate-stand-title" className="w-full max-w-sm overflow-hidden rounded-xl bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-3 px-4 pt-4">
+              <div>
+                <h2 id="allocate-stand-title" className="text-sm font-bold text-neutral-900">Allocate a stand</h2>
+                <p className="mt-1 text-[10px] text-neutral-600">
+                  {selectedApplication.vendor?.vendorProfile?.businessName || selectedApplication.companyName}
+                  {selectedApplication.vendor ? ` · ${selectedApplication.vendor.firstname} ${selectedApplication.vendor.lastname}` : ''}
+                </p>
+              </div>
+              <button type="button" aria-label="Close allocation dialog" disabled={Boolean(approvingId || rejectingId)} onClick={() => setApprovalDialogOpen(false)} className="text-neutral-400 hover:text-neutral-700 disabled:opacity-50">×</button>
+            </header>
+            <div className="space-y-3 p-4 pt-3">
+              <dl className="space-y-1.5 rounded-lg bg-neutral-50 p-3 text-[10px]">
+                <div className="flex justify-between gap-3"><dt className="text-neutral-600">Size</dt><dd className="text-right font-semibold text-neutral-900">{selectedApplication.requestedStandSize} = {Number(selectedApplication.standAreaSqm).toLocaleString('en-ZA', { maximumFractionDigits: 2 })} m²</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-neutral-600">Rate</dt><dd className="text-right font-semibold text-neutral-900">{money(selectedApplication.standRatePerSqm)} / m²</dd></div>
+                <div className="flex justify-between gap-3 border-t border-neutral-200 pt-1.5"><dt className="font-semibold text-neutral-900">Invoice total</dt><dd className="text-right text-xs font-bold text-neutral-900">{moneyFixed(selectedApplication.quotedAmount)}</dd></div>
+              </dl>
+              <div>
+                <p className="mb-2 text-[10px] font-semibold text-neutral-800">Choose a stand</p>
+                {standCount > 0 ? (
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {Array.from({ length: standCount }, (_, index) => {
+                      const code = standCode(index);
+                      const taken = allocatedStandCodes.has(code);
+                      const chosen = assignedStands[selectedApplication.id] === code;
+                      return (
+                        <button key={code} type="button" disabled={taken || Boolean(approvingId || rejectingId)} aria-pressed={chosen} onClick={() => setAssignedStands(current => ({ ...current, [selectedApplication.id]: code }))} className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition-colors ${taken ? 'cursor-not-allowed border-neutral-200 bg-neutral-100 text-neutral-400' : chosen ? 'border-rose-600 bg-rose-600 text-white' : 'border-neutral-300 bg-white text-neutral-800 hover:border-neutral-500'}`}>
+                          {code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : <p className="rounded-lg bg-amber-50 p-2 text-[10px] text-amber-800">Set the number of vendor stands in the event form before allocating.</p>}
+                <p className="mt-2 text-[9px] text-neutral-500">Grey = taken. {Math.max(0, standCount - allocatedStandCodes.size)} stands free.</p>
+              </div>
+              <p className="rounded-lg border border-sky-200 bg-sky-50 p-2.5 text-[9px] leading-4 text-sky-900">
+                Allocating issues an invoice (number generated on approval) due 7 days from approval, emails {selectedApplication.vendor?.email || 'the vendor'}, and sends an in-app notification.
+              </p>
+              {showRejectReason && (
+                <form className="space-y-2" onSubmit={event => void reject(event, selectedApplication.id)}>
+                  <label className="block text-[10px] font-medium text-neutral-700">
+                    Rejection reason
+                    <textarea required minLength={5} maxLength={1000} rows={2} value={rejectionReasons[selectedApplication.id] ?? ''} onChange={event => setRejectionReasons(current => ({ ...current, [selectedApplication.id]: event.target.value }))} placeholder="Explain what the vendor should change." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-xs" />
+                  </label>
+                  <Button type="submit" variant="secondary" size="sm" loading={rejectingId === selectedApplication.id} disabled={Boolean(approvingId || rejectingId)}>Confirm rejection</Button>
+                </form>
+              )}
+            </div>
+            <footer className="flex gap-2 border-t border-neutral-100 px-4 pb-4">
+              <Button type="button" variant="secondary" size="sm" className="flex-1 rounded-lg" disabled={Boolean(approvingId || rejectingId)} onClick={() => setShowRejectReason(true)}>Reject...</Button>
+              <Button type="button" size="sm" className="flex-1 rounded-lg bg-black text-white hover:bg-neutral-800" loading={approvingId === selectedApplication.id} disabled={Boolean(approvingId || rejectingId || !assignedStands[selectedApplication.id])} onClick={() => void approve(selectedApplication.id)}>
+                Allocate {assignedStands[selectedApplication.id] || 'stand'}
+              </Button>
+            </footer>
+          </section>
+        </div>
+      )}
     </PageWrapper>
   );
 }
