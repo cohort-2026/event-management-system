@@ -11,7 +11,15 @@ const categoryColors: Record<string, string> = {
 export default function EventCard({ event, vendorView = false, vendorApproved = false, vendorPublicView = false }: { event: Event; vendorView?: boolean; vendorApproved?: boolean; vendorPublicView?: boolean }) {
   const date = new Date(event.startTime ?? event.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const time = new Date(event.startTime).toLocaleTimeString('en-ZA', { hour: 'numeric', minute: '2-digit' });
-  const applicationsOpen = event.status === 'PUBLISHED' && new Date(event.startTime) > new Date();
+  const now = new Date();
+  const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+  const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+  const applicationsOpen = event.status === 'PUBLISHED' && now >= registrationOpensAt && now < registrationClosesAt && new Date(event.startTime) > now;
+  const registrationWindowLabel = now < registrationOpensAt
+    ? `Registration opens ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
+    : now < registrationClosesAt
+      ? `Registration closes ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
+      : `Registration closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`;
   const catColor = categoryColors[event.category] ?? 'bg-neutral-100 text-neutral-600';
   const filled = event.capacity - event.availableCapacity;
   const fillPct = Math.round((filled / event.capacity) * 100);
@@ -56,12 +64,15 @@ export default function EventCard({ event, vendorView = false, vendorApproved = 
               </svg>
               <span className="truncate">{event.venue}</span>
             </div>
+            <p className="text-xs text-neutral-500">{registrationWindowLabel}</p>
           </div>
 
           {vendorView && (
             <p className={`text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-500'}`}>
               {!applicationsOpen
-                ? 'Vendor applications closed'
+                ? now < registrationOpensAt
+                  ? `Vendor applications open ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
+                  : `Vendor applications closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
                 : event.availableVendorStands === 0
                   ? 'No vendor stands available'
                   : vendorApproved

@@ -941,6 +941,14 @@ export default function OrganizerDashboard() {
                                     <p className="mt-0.5 truncate text-xs text-neutral-600">
                                       {formatEventDate(event.startTime)} · {event.venue}
                                     </p>
+                                    <p className="mt-0.5 truncate text-xs text-neutral-500">
+                                      Registration {formatDate(event.registrationOpensAt ?? event.createdAt)} – {formatDate(event.registrationClosesAt ?? event.startTime)}
+                                    </p>
+                                    {event.status === 'COMPLETED' && event.closedAt && (
+                                      <p className="mt-0.5 text-xs text-neutral-500">
+                                        Closed {formatDate(event.closedAt)}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </td>

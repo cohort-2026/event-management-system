@@ -41,6 +41,8 @@ interface EventInput {
   vendorStandsAvailable: number;
   startTime: Date;
   endTime: Date;
+  registrationOpensAt: Date;
+  registrationClosesAt: Date;
   capacity: number;
   isFree: boolean;
   price: number | null;
@@ -110,6 +112,12 @@ const parseEventInput = (body: Record<string, unknown>):
   const rawBannerImageUrl = text(body.bannerImageUrl);
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
+  const registrationOpensAt = body.registrationOpensAt === undefined
+    ? new Date()
+    : typeof body.registrationOpensAt === 'string' ? new Date(body.registrationOpensAt) : new Date(Number.NaN);
+  const registrationClosesAt = body.registrationClosesAt === undefined
+    ? startTime
+    : typeof body.registrationClosesAt === 'string' ? new Date(body.registrationClosesAt) : new Date(Number.NaN);
   const capacity = body.capacity;
   const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
   const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined ? 0 : body.vendorStandRatePerSqm;
@@ -137,6 +145,12 @@ const parseEventInput = (body: Record<string, unknown>):
   }
   if (!Number.isFinite(endTime.getTime()) || endTime <= startTime) {
     return { error: 'Event end date and time must be after the start date and time' };
+  }
+  if (!Number.isFinite(registrationOpensAt.getTime()) || !Number.isFinite(registrationClosesAt.getTime())) {
+    return { error: 'Enter valid registration opening and closing dates and times' };
+  }
+  if (registrationOpensAt >= registrationClosesAt || registrationClosesAt > startTime) {
+    return { error: 'Registration must close after it opens and no later than the event start time' };
   }
   if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { error: `Event capacity must be a whole number between 1 and ${MAX_CAPACITY}` };
@@ -238,6 +252,8 @@ const parseEventInput = (body: Record<string, unknown>):
       vendorStandsAvailable,
       startTime,
       endTime,
+      registrationOpensAt,
+      registrationClosesAt,
       capacity,
       isFree,
       price,
@@ -335,6 +351,8 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         date: data.startTime,
         startTime: data.startTime,
         endTime: data.endTime,
+        registrationOpensAt: data.registrationOpensAt,
+        registrationClosesAt: data.registrationClosesAt,
         eventType: data.eventType,
         meetingDetails: data.meetingDetails,
         directions: data.directions,
@@ -443,6 +461,8 @@ const updateEventRecord = async (
           date: data.startTime,
           startTime: data.startTime,
           endTime: data.endTime,
+          registrationOpensAt: data.registrationOpensAt,
+          registrationClosesAt: data.registrationClosesAt,
           eventType: data.eventType,
           meetingDetails: data.meetingDetails,
           directions: data.directions,
@@ -622,6 +642,8 @@ export const patchEvent = async (req: Request, res: Response, next: NextFunction
       vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
       startTime: event.startTime.toISOString(),
       endTime: event.endTime.toISOString(),
+      registrationOpensAt: (event.registrationOpensAt ?? event.createdAt).toISOString(),
+      registrationClosesAt: (event.registrationClosesAt ?? event.startTime).toISOString(),
       capacity: event.capacity,
       ticketTypes: event.ticketTypes.map(ticket => ({
         name: ticket.name,
@@ -1095,7 +1117,7 @@ export const completeEvent = async (req: Request, res: Response, next: NextFunct
 
     const updated = await prisma.event.updateMany({
       where: { id: eventId, organizerId: req.user!.id, status: EventStatus.PUBLISHED, endTime: { lte: new Date() } },
-      data: { status: EventStatus.COMPLETED },
+      data: { status: EventStatus.COMPLETED, closedAt: new Date() },
     });
     if (updated.count !== 1) {
       res.status(409).json({ success: false, message: 'Event status changed; reload and try again' });

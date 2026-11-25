@@ -19,6 +19,8 @@ export interface Event {
   date: Date;
   startTime: Date;
   endTime: Date;
+  registrationOpensAt?: Date | null;
+  registrationClosesAt?: Date | null;
   eventType: EventType;
   meetingDetails?: string | null;
   directions?: string | null;
@@ -45,6 +47,8 @@ export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 
   bannerImageUrl?: string;
   vendorStandsAvailable: number;
   vendorStandRatePerSqm: number;
+  registrationOpensAt: Date;
+  registrationClosesAt: Date;
   ticketTypes: EventTicketTypeInput[];
 };
 export type UpdateEventDto = Partial<CreateEventDto>;

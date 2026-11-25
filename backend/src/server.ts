@@ -4,6 +4,7 @@ import { provisionInitialAdmin } from './services/adminProvisioning';
 import { disconnectPrisma, prisma } from './lib/prisma';
 import { expireWaitlistOffers, recoverAvailableWaitlistOffers } from './services/waitlistService';
 import { startEventReminderJob } from './services/eventReminderJob';
+import { startEventCompletionJob } from './services/eventCompletion';
 
 async function startServer(): Promise<void> {
   await prisma.$connect();
@@ -21,6 +22,7 @@ async function startServer(): Promise<void> {
   expirationTimer.unref();
 
   const eventReminderTimer = startEventReminderJob();
+  const eventCompletionJob = startEventCompletionJob();
   const server = app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);
   });
@@ -31,6 +33,7 @@ async function startServer(): Promise<void> {
     shuttingDown = true;
     clearInterval(expirationTimer);
     clearInterval(eventReminderTimer);
+    clearInterval(eventCompletionJob);
     server.close(() => {
       disconnectPrisma().then(
         () => { process.exitCode = 0; },

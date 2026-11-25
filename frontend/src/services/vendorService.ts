@@ -66,7 +66,8 @@ export const getVendorInvoices  = (params?: { page?: number; limit?: number })  
 export const getVendorInvoice   = (id: string)                                   => api.get<ApiResponse<VendorInvoice>>(`/vendors/invoices/${encodeURIComponent(id)}`);
 export const getMyStaffMembers  = ()                                               => api.get<ApiResponse<VendorStaffWithEvent[]>>('/vendors/staff');
 export const getEventApplications = (eventId: string)                             => api.get<ApiResponse<VendorApplication[]>>(`/events/${eventId}/vendors`);
-export const approveApplication = (id: string, assignedStand: string)             => api.patch<{ success: boolean; message: string; invoiceEmailSent?: boolean; invoiceNumber: string; dueAt: string }>(`/vendors/${id}/approve`, { assignedStand });
+export const approveApplication = (id: string, assignedStand: string, standRatePerSqm: number) =>
+	api.patch<{ success: boolean; message: string; invoiceEmailSent?: boolean; invoiceNumber: string; dueAt: string }>(`/vendors/${id}/approve`, { assignedStand, standRatePerSqm });
 export const markVendorInvoicePaid = (applicationId: string) => api.patch<ApiResponse<null>>(`/vendors/${encodeURIComponent(applicationId)}/invoice/paid`);
 export const rejectApplication  = (id: string, reason: string)                    => api.patch(`/vendors/${id}/reject`, { reason });
 export const addStaffMember     = (applicationId: string, data: AddStaffMemberDto) =>
@@ -87,6 +88,8 @@ export interface VendorEvent {
 	startTime: string;
 	endTime: string;
 	applicationDeadline: string;
+	registrationOpensAt: string;
+	registrationClosesAt: string;
 	applicationRequirements: null;
 	availableVendorStands: number;
 }

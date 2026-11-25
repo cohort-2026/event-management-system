@@ -107,7 +107,10 @@ export default function EventDetail() {
       : 0;
     const start = new Date(event.startTime);
     const end = new Date(event.endTime);
-    const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+    const now = new Date();
+    const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+    const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+    const applicationsOpen = event.status === 'PUBLISHED' && start > now && registrationOpensAt <= now && registrationClosesAt > now;
     const vendorApproved = user.vendorProfileStatus === 'APPROVED';
     const vendorApprovalMessage = user.vendorProfileStatus === 'PENDING_REVIEW'
       ? 'Your business profile is awaiting administrator approval.'
@@ -148,7 +151,10 @@ export default function EventDetail() {
     : 0;
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
-  const applicationsOpen = event.status === 'PUBLISHED' && start > new Date();
+  const now = new Date();
+  const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+  const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+  const applicationsOpen = event.status === 'PUBLISHED' && start > now && registrationOpensAt <= now && registrationClosesAt > now;
   const selectedTicket = event.ticketTypes.find(ticket => ticket.id === selectedTicketId) ?? event.ticketTypes[0];
   const activeTicketId = selectedTicket?.id ?? '';
   const maxQuantity = Math.max(0, Math.min(
@@ -157,7 +163,7 @@ export default function EventDetail() {
     100,
   ));
   const bookingQuantity = Math.min(Math.max(1, quantity), maxQuantity || 1);
-  const canRegister = event.status === 'PUBLISHED' && start > new Date() && maxQuantity > 0;
+  const canRegister = applicationsOpen && maxQuantity > 0;
   const selectedTicketSoldOut = Boolean(selectedTicket && (selectedTicket.availableQuantity <= 0 || event.availableCapacity <= 0));
   const eventSoldOut = event.availableCapacity <= 0;
   const eventBooking = existingBooking?.eventId === event.id ? existingBooking : null;
@@ -313,6 +319,17 @@ export default function EventDetail() {
           </section>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-neutral-950">Registration window</h2>
+            <p className={`mt-1 text-xs font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-600'}`}>
+              {applicationsOpen ? 'Registration is open' : now < registrationOpensAt ? 'Registration has not opened yet' : 'Registration is closed'}
+            </p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div><dt className="text-neutral-500">Opens</dt><dd className="mt-0.5 font-medium text-neutral-800">{registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+              <div><dt className="text-neutral-500">Closes</dt><dd className="mt-0.5 font-medium text-neutral-800">{registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-neutral-200 bg-white p-4">
             <div className="mb-1 flex justify-between text-[10px] text-neutral-500">
               <span>{event.capacity - event.availableCapacity} registered</span>
               <span>{fillPercent}% full</span>
@@ -329,7 +346,8 @@ export default function EventDetail() {
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application status</dt><dd className={`mt-1 text-sm font-semibold ${applicationsOpen ? 'text-emerald-700' : 'text-neutral-600'}`}>{applicationsOpen ? 'Open' : 'Closed'}</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Available vendor spaces</dt><dd className="mt-1 text-sm text-neutral-700">{event.availableVendorStands} of {event.vendorStandsAvailable} stand{event.vendorStandsAvailable === 1 ? '' : 's'} available</dd></div>
                 <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Participation requirements</dt><dd className="mt-1 text-sm text-neutral-700">Not specified by the organizer</dd></div>
-                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Application deadline</dt><dd className="mt-1 text-sm text-neutral-700">Not provided</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Applications open</dt><dd className="mt-1 text-sm text-neutral-700">{new Date(event.registrationOpensAt ?? event.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Applications close</dt><dd className="mt-1 text-sm text-neutral-700">{new Date(event.registrationClosesAt ?? event.startTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
               </dl>
             </section>
           )}
@@ -472,7 +490,13 @@ export default function EventDetail() {
                 <>
                     {!canRegister && (
                       <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-center text-xs text-neutral-600">
-                        {event.availableCapacity <= 0 || maxQuantity <= 0 ? 'Sold out' : 'Registration is closed.'}
+                        {event.availableCapacity <= 0 || maxQuantity <= 0
+                          ? 'Sold out'
+                          : now < registrationOpensAt
+                            ? `Registration opens ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                            : now >= registrationClosesAt
+                              ? `Registration closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                              : 'Registration is closed.'}
                       </p>
                     )}
                     {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
@@ -690,6 +714,9 @@ function VendorEventContent({
   vendorApproved: boolean;
   vendorApprovalMessage: string;
 }) {
+  const registrationOpensAt = new Date(event.registrationOpensAt ?? event.createdAt);
+  const registrationClosesAt = new Date(event.registrationClosesAt ?? event.startTime);
+  const now = new Date();
   return (
     <>
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -767,7 +794,9 @@ function VendorEventContent({
             <div className="mt-2">
               {!applicationsOpen ? (
                 <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">
-                  Vendor applications are closed
+                  {now < registrationOpensAt
+                    ? `Applications open ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`
+                    : `Applications closed ${registrationClosesAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`}
                 </div>
               ) : event.availableVendorStands <= 0 ? (
                 <div className="flex min-h-[21px] items-center justify-center rounded-md bg-[#f1f1f1] px-2 text-center text-[7px] font-semibold text-[#888]">

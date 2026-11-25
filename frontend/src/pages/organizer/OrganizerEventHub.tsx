@@ -320,6 +320,20 @@ export default function OrganizerEventHub() {
                       <dd className="mt-1 font-semibold text-neutral-800">{formatDate(event.endTime)}</dd>
                     </div>
                     <div>
+                      <dt className="text-xs text-neutral-500">Registration opens</dt>
+                      <dd className="mt-1 font-semibold text-neutral-800">{formatDate(event.registrationOpensAt ?? event.createdAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-neutral-500">Registration closes</dt>
+                      <dd className="mt-1 font-semibold text-neutral-800">{formatDate(event.registrationClosesAt ?? event.startTime)}</dd>
+                    </div>
+                    {event.status === 'COMPLETED' && event.closedAt && (
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Closed</dt>
+                        <dd className="mt-1 font-semibold text-neutral-800">{formatDate(event.closedAt)}</dd>
+                      </div>
+                    )}
+                    <div>
                       <dt className="text-xs text-neutral-500">Location</dt>
                       <dd className="mt-1 font-semibold text-neutral-800">{event.venue}</dd>
                     </div>

@@ -9,6 +9,7 @@ import Button from '@/components/legacy/Button';
 import { approveApplication, getEventApplications, markVendorInvoicePaid, rejectApplication } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import { getMyEvents } from '@/services/eventService';
+import type { Event } from '@/types/event';
 import type { VendorApplication } from '@/types/vendor';
 import type { Event } from '@/types/event';
 
@@ -31,9 +32,19 @@ const safeDocumentUrl = (value: string): string | null => {
   }
 };
 
-const standCode = (index: number): string => `${String.fromCharCode(65 + Math.floor(index / 5))}${(index % 5) + 1}`;
-const money = (value: number | string | null | undefined): string => `R${Number(value ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-const moneyFixed = (value: number | string | null | undefined): string => `R ${Number(value ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const standRowLabel = (row: number): string => {
+  let value = row + 1;
+  let label = '';
+  while (value > 0) {
+    value -= 1;
+    label = String.fromCharCode(65 + value % 26) + label;
+    value = Math.floor(value / 26);
+  }
+  return label;
+};
+
+const standLabel = (index: number): string => `${standRowLabel(Math.floor(index / 5))}${(index % 5) + 1}`;
+const money = (amount: number | string): string => `R${Number(amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const downloadApplicationsCsv = (applications: VendorApplication[]) => {
   const columns = [
@@ -67,7 +78,9 @@ export default function VendorApplications() {
   const { id: eventId } = useParams<{ id: string }>();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [organizerEvents, setOrganizerEvents] = useState<Event[]>([]);
+  const [organizerEvents, setOrganizerEvents] = useState<Event[]>([]);
   const [assignedStands, setAssignedStands] = useState<Record<string, string>>({});
+  const [applicationRates, setApplicationRates] = useState<Record<string, string>>({});
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -79,6 +92,8 @@ export default function VendorApplications() {
   const [showRejectReason, setShowRejectReason] = useState(false);
   const [activeStatus, setActiveStatus] = useState<'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'INACTIVE'>('PENDING_REVIEW');
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const [allocationApplicationId, setAllocationApplicationId] = useState<string | null>(null);
+  const [visibleStandCount, setVisibleStandCount] = useState(100);
 
   const vendorDirectory = applications;
   const statusTabs = [
@@ -91,16 +106,27 @@ export default function VendorApplications() {
     ? vendorDirectory.filter(application => application.vendor?.isActive === false)
     : vendorDirectory.filter(application => application.status === activeStatus && application.vendor?.isActive !== false);
   const selectedApplication = visibleApplications.find(application => application.id === selectedApplicationId) ?? visibleApplications[0];
-  const selectedEvent = selectedApplication
-    ? organizerEvents.find(event => event.id === selectedApplication.eventId)
-    : eventId ? organizerEvents.find(event => event.id === eventId) : undefined;
-  const standCount = selectedEvent?.vendorStandsAvailable ?? 0;
-  const allocatedStandCodes = new Set(applications
-    .filter(application => application.eventId === selectedApplication?.eventId && application.status === 'APPROVED' && application.assignedStand)
-    .map(application => application.assignedStand));
-  const allocatedCount = applications.filter(application => application.status === 'APPROVED').length;
-  const invoicedTotal = applications.filter(application => application.invoice).reduce((sum, application) => sum + Number(application.invoice?.amount ?? 0), 0);
-  const paidTotal = applications.filter(application => application.invoice?.status === 'PAID').reduce((sum, application) => sum + Number(application.invoice?.amount ?? 0), 0);
+  const allocationApplication = applications.find(application => application.id === allocationApplicationId);
+  const allocationEvent = allocationApplication
+    ? organizerEvents.find(event => event.id === allocationApplication.eventId)
+    : undefined;
+  const allocationRate = allocationApplication
+    ? Number(applicationRates[allocationApplication.id] ?? allocationApplication.standRatePerSqm ?? 0)
+    : 0;
+  const allocationQuote = allocationApplication
+    ? Math.round(Number(allocationApplication.standAreaSqm) * allocationRate * 100) / 100
+    : 0;
+  const occupiedStands = new Set(applications
+    .filter(application => application.eventId === allocationApplication?.eventId && application.status === 'APPROVED' && application.assignedStand)
+    .map(application => application.assignedStand!.trim().toUpperCase()));
+  const standCount = allocationEvent?.vendorStandsAvailable ?? 0;
+  const standLabels = Array.from({ length: Math.min(standCount, visibleStandCount) }, (_, index) => standLabel(index));
+  const eventApplications = allocationApplication
+    ? applications.filter(application => application.eventId === allocationApplication.eventId)
+    : [];
+  const eventApproved = eventApplications.filter(application => application.status === 'APPROVED');
+  const invoicedAmount = eventApproved.reduce((sum, application) => sum + Number(application.quotedAmount || 0), 0);
+  const paidAmount = eventApproved.reduce((sum, application) => sum + Number(application.invoice?.status === 'PAID' ? application.quotedAmount : 0), 0);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -109,10 +135,14 @@ export default function VendorApplications() {
       const events = eventsResponse.data.data;
       setOrganizerEvents(events);
       if (eventId) {
-        const response = await getEventApplications(eventId);
+        const [response, eventsResponse] = await Promise.all([getEventApplications(eventId), getMyEvents()]);
         setApplications(response.data.data);
+        setOrganizerEvents(eventsResponse.data.data);
       } else {
-        const eventResults = await Promise.allSettled(events.map(event => getEventApplications(event.id)));
+        const eventsResponse = await getMyEvents();
+        const organizerEvents = eventsResponse.data.data;
+        setOrganizerEvents(organizerEvents);
+        const eventResults = await Promise.allSettled(organizerEvents.map(event => getEventApplications(event.id)));
         const loadedApplications: VendorApplication[] = [];
         let failedEvents = 0;
         eventResults.forEach((result, index) => {
@@ -155,24 +185,27 @@ export default function VendorApplications() {
     }
   };
 
-  const approve = async (applicationId: string) => {
-    const assignedStand = assignedStands[applicationId]?.trim() ?? '';
+  const approve = async (applicationId: string, selectedStand: string, standRatePerSqm: number) => {
+    const assignedStand = selectedStand.trim();
     if (!assignedStand) {
-      setError('Choose an available stand before allocating.');
+      setError('Choose an available stand before approving this request.');
+      return;
+    }
+    if (!Number.isFinite(standRatePerSqm) || standRatePerSqm < 0 || standRatePerSqm > 99_999_999.99 || Math.round(standRatePerSqm * 100) !== standRatePerSqm * 100) {
+      setError('Enter a valid stand rate with no more than two decimal places.');
       return;
     }
     setError('');
     setNotice('');
     setApprovingId(applicationId);
     try {
-      const response = await approveApplication(applicationId, assignedStand);
+      const response = await approveApplication(applicationId, assignedStand, standRatePerSqm);
       setNotice(response.data.invoiceEmailSent === false
         ? `Stand ${assignedStand} approved. Invoice ${response.data.invoiceNumber} is due ${new Date(response.data.dueAt).toLocaleDateString('en-ZA')}. Email delivery failed; the vendor can view it in My Applications.`
         : `Stand ${assignedStand} approved. Invoice ${response.data.invoiceNumber} is due ${new Date(response.data.dueAt).toLocaleDateString('en-ZA')}; the vendor was emailed and notified in-app.`);
       setActiveStatus('APPROVED');
       setSelectedApplicationId(applicationId);
-      setApprovalDialogOpen(false);
-      setShowRejectReason(false);
+      setAllocationApplicationId(null);
       await refresh();
     } catch (decisionError) {
       setError(responseMessage(decisionError, 'Stand request could not be approved.'));
@@ -336,18 +369,24 @@ export default function VendorApplications() {
                     </div>
 
                     {application.status === 'PENDING_REVIEW' && application.vendor?.isActive !== false ? (
-                      <div className="mt-5 border-t border-neutral-100 pt-5">
-                        <Button
-                          type="button"
-                          className="w-full rounded-lg bg-neutral-950 px-4 py-3 text-sm font-bold text-white hover:bg-neutral-800"
-                          disabled={Boolean(approvingId || rejectingId)}
-                          onClick={() => {
-                            setShowRejectReason(false);
-                            setApprovalDialogOpen(true);
-                          }}
-                        >
-                          Allocate a stand
-                        </Button>
+                      <div className="mt-5 grid gap-5 border-t border-neutral-100 pt-5 md:grid-cols-2">
+                        <div className="space-y-3">
+                          <p className="text-sm text-neutral-600">Choose an available stand before approving this request.</p>
+                          <Button type="button" size="sm" className="w-full rounded-lg bg-black px-4 py-3 font-bold text-white hover:bg-neutral-900" onClick={() => {
+                            setApplicationRates(current => ({ ...current, [application.id]: current[application.id] ?? String(application.standRatePerSqm ?? 0) }));
+                            setAllocationApplicationId(application.id);
+                            setVisibleStandCount(100);
+                          }} disabled={Boolean(approvingId || rejectingId)}>
+                            Allocate a stand
+                          </Button>
+                        </div>
+                        <form className="space-y-3" onSubmit={event => void reject(event, application.id)}>
+                          <label className="block text-sm font-medium text-neutral-700">
+                            Rejection reason (required)
+                            <textarea required minLength={5} maxLength={1000} rows={2} value={rejectionReasons[application.id] ?? ''} onChange={event => setRejectionReasons(current => ({ ...current, [application.id]: event.target.value }))} placeholder="Explain what the vendor should change." className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2" />
+                          </label>
+                          <Button type="submit" variant="secondary" size="sm" className="min-h-20 w-full max-w-48 rounded-xl border border-[#d9e0ea] px-6 text-base font-bold leading-6 text-[#26354b] shadow-none hover:bg-neutral-50" loading={rejectingId === application.id} disabled={Boolean(approvingId || rejectingId)}>Reject with reason...</Button>
+                        </form>
                       </div>
                     ) : (
                       <div className="mt-5 border-t border-neutral-100 pt-4 text-sm">
@@ -375,6 +414,86 @@ export default function VendorApplications() {
                   </article>
                 );
               })()}
+            </div>
+          )}
+          {allocationApplication && (
+            <div className="fixed inset-0 z-50 bg-black/25" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setAllocationApplicationId(null); }}>
+              <aside role="dialog" aria-modal="true" aria-labelledby="allocate-stand-title" className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white shadow-2xl">
+                <header className="flex items-start justify-between border-b border-neutral-200 px-5 py-4">
+                  <div>
+                    <h2 id="allocate-stand-title" className="text-lg font-bold text-neutral-950">Allocate a stand</h2>
+                    <p className="mt-1 text-sm text-neutral-600">{allocationApplication.companyName} · {allocationApplication.vendor?.firstname} {allocationApplication.vendor?.lastname}</p>
+                  </div>
+                  <button type="button" onClick={() => setAllocationApplicationId(null)} aria-label="Close stand allocation" className="rounded p-1 text-xl leading-none text-neutral-500 hover:bg-neutral-100">×</button>
+                </header>
+                <div className="flex-1 overflow-y-auto px-5 py-4">
+                  <div className="rounded-xl bg-neutral-50 p-4 text-sm">
+                    <div className="flex justify-between gap-4 py-1"><span className="text-neutral-600">Size</span><strong>{allocationApplication.requestedStandSize} = {Number(allocationApplication.standAreaSqm).toLocaleString('en-ZA')} m²</strong></div>
+                    <label className="mt-2 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 text-sm">
+                      <span className="font-semibold">Stand rate per m²</span>
+                      <span className="flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2">
+                        <span className="text-neutral-500">R</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={99_999_999.99}
+                          step="0.01"
+                          required
+                          aria-label="Stand rate per square metre in ZAR"
+                          value={applicationRates[allocationApplication.id] ?? String(allocationApplication.standRatePerSqm ?? 0)}
+                          onChange={event => setApplicationRates(current => ({ ...current, [allocationApplication.id]: event.target.value }))}
+                          className="w-28 border-0 bg-transparent py-1 text-right font-bold text-neutral-900 outline-none focus:ring-0"
+                        />
+                        <span className="text-neutral-500">/ m²</span>
+                      </span>
+                    </label>
+                    <div className="mt-2 flex justify-between gap-4 border-t border-neutral-200 pt-3"><span className="font-semibold">Invoice total</span><strong>{money(allocationQuote)}</strong></div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-neutral-200 p-3"><p className="text-[11px] text-neutral-500">Allocated</p><p className="mt-1 text-lg font-bold">{eventApproved.length} / {standCount}</p></div>
+                    <div className="rounded-lg border border-neutral-200 p-3"><p className="text-[11px] text-neutral-500">Invoiced</p><p className="mt-1 truncate text-lg font-bold">{money(invoicedAmount)}</p></div>
+                    <div className="rounded-lg border border-neutral-200 p-3"><p className="text-[11px] text-neutral-500">Paid</p><p className="mt-1 truncate text-lg font-bold">{money(paidAmount)}</p></div>
+                  </div>
+                  <div className="mt-6 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-bold text-neutral-900">Choose a stand</h3>
+                    <span className="text-xs text-neutral-500">{standCount - occupiedStands.size} available</span>
+                  </div>
+                  {standCount < 1 ? (
+                    <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">This event has no stand spaces configured.</p>
+                  ) : (
+                    <div className="mt-3 grid max-h-72 grid-cols-5 gap-2 overflow-y-auto pr-1">
+                      {standLabels.map(stand => {
+                        const occupied = occupiedStands.has(stand);
+                        const selected = assignedStands[allocationApplication.id] === stand;
+                        return (
+                          <button
+                            key={stand}
+                            type="button"
+                            disabled={occupied}
+                            aria-pressed={selected}
+                            aria-label={`${stand}${occupied ? ', allocated' : selected ? ', selected' : ', available'}`}
+                            onClick={() => setAssignedStands(current => ({ ...current, [allocationApplication.id]: stand }))}
+                            className={`min-h-10 rounded-md border text-xs font-semibold transition-colors ${occupied ? 'cursor-not-allowed border-neutral-200 bg-neutral-200 text-neutral-400' : selected ? 'border-rose-600 bg-rose-600 text-white' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-500'}`}
+                          >{stand}</button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {standCount > standLabels.length && (
+                    <button type="button" onClick={() => setVisibleStandCount(count => count + 100)} className="mt-3 text-xs font-semibold text-brand-700 hover:underline">
+                      Show more stands ({standLabels.length} of {standCount})
+                    </button>
+                  )}
+                  <p className="mt-2 text-xs text-neutral-500">Grey stands are already allocated. Selected stand: <strong>{assignedStands[allocationApplication.id] || 'none'}</strong></p>
+                  {allocationEvent && <p className="mt-3 text-xs text-neutral-500">This rate will be saved with the approved application and used for its invoice.</p>}
+                </div>
+                <footer className="grid grid-cols-2 gap-2 border-t border-neutral-200 p-5">
+                  <Button type="button" variant="secondary" onClick={() => setAllocationApplicationId(null)}>Cancel</Button>
+                  <Button type="button" loading={approvingId === allocationApplication.id} disabled={!assignedStands[allocationApplication.id] || !Number.isFinite(allocationRate) || Boolean(approvingId || rejectingId)} onClick={() => void approve(allocationApplication.id, assignedStands[allocationApplication.id], allocationRate)}>
+                    Allocate {assignedStands[allocationApplication.id] || 'stand'}
+                  </Button>
+                </footer>
+              </aside>
             </div>
           )}
         </section>

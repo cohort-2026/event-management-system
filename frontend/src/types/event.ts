@@ -19,6 +19,8 @@ export interface Event {
   date: string;
   startTime: string;
   endTime: string;
+  registrationOpensAt?: string | null;
+  registrationClosesAt?: string | null;
   eventType: EventType;
   meetingDetails?: string | null;
   directions?: string | null;
@@ -32,6 +34,7 @@ export interface Event {
   price?: number | null;
   vendorStandRatePerSqm: number;
   status: EventStatus;
+  closedAt?: string | null;
   organizerId: string;
   organizer?: { firstname: string; lastname: string; email: string };
   ticketTypes: EventTicketType[];
@@ -47,6 +50,9 @@ export type CreateEventDto = Pick<Event, 'title' | 'description' | 'category' | 
   parkingInformation?: string;
   bannerImageUrl?: string;
   vendorStandsAvailable: number;
+  vendorStandRatePerSqm: number;
+  registrationOpensAt: string;
+  registrationClosesAt: string;
   ticketTypes: EventTicketTypeInput[];
 };
 export type UpdateEventDto = Partial<CreateEventDto>;

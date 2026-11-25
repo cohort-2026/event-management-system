@@ -34,6 +34,8 @@ interface EventForm {
   parkingInformation: string;
   startTime: string;
   endTime: string;
+  registrationOpensAt: string;
+  registrationClosesAt: string;
   capacity: string;
   vendorStandsAvailable: string;
   vendorStandRatePerSqm: string;
@@ -65,6 +67,8 @@ const EMPTY_FORM: EventForm = {
   parkingInformation: '',
   startTime: '',
   endTime: '',
+  registrationOpensAt: '',
+  registrationClosesAt: '',
   capacity: '',
   vendorStandsAvailable: '0',
   vendorStandRatePerSqm: '0',
@@ -113,6 +117,8 @@ const toForm = (event: Event): EventForm => ({
   parkingInformation: event.parkingInformation ?? '',
   startTime: asLocalDateTime(event.startTime),
   endTime: asLocalDateTime(event.endTime),
+  registrationOpensAt: asLocalDateTime(event.registrationOpensAt ?? event.createdAt),
+  registrationClosesAt: asLocalDateTime(event.registrationClosesAt ?? event.startTime),
   capacity: String(event.capacity),
   vendorStandsAvailable: String(event.vendorStandsAvailable ?? 0),
   vendorStandRatePerSqm: String(event.vendorStandRatePerSqm ?? 0),
@@ -226,6 +232,8 @@ export default function CreateEvent() {
     },
     { label: 'Starts', before: formatReviewDate(existingEvent.startTime), after: formatReviewDate(form.startTime) },
     { label: 'Ends', before: formatReviewDate(existingEvent.endTime), after: formatReviewDate(form.endTime) },
+    { label: 'Registration opens', before: formatReviewDate(existingEvent.registrationOpensAt ?? existingEvent.createdAt), after: formatReviewDate(form.registrationOpensAt) },
+    { label: 'Registration closes', before: formatReviewDate(existingEvent.registrationClosesAt ?? existingEvent.startTime), after: formatReviewDate(form.registrationClosesAt) },
     { label: 'Capacity', before: String(existingEvent.capacity), after: form.capacity },
     {
       label: 'Vendor stands',
@@ -283,6 +291,18 @@ export default function CreateEvent() {
       }
       if (!errors['end-date-and-time'] && !errors['start-date-and-time'] && (!Number.isFinite(endTime.getTime()) || endTime <= startTime)) {
         errors['end-date-and-time'] = 'Event end date and time must be after the start date and time.';
+      }
+      const registrationOpensAt = new Date(form.registrationOpensAt);
+      const registrationClosesAt = new Date(form.registrationClosesAt);
+      if (!Number.isFinite(registrationOpensAt.getTime())) {
+        errors['registration-opens-at'] = 'Choose when registration opens.';
+      }
+      if (!Number.isFinite(registrationClosesAt.getTime())) {
+        errors['registration-closes-at'] = 'Choose when registration closes.';
+      } else if (Number.isFinite(registrationOpensAt.getTime()) && registrationClosesAt <= registrationOpensAt) {
+        errors['registration-closes-at'] = 'Registration must close after it opens.';
+      } else if (Number.isFinite(startTime.getTime()) && registrationClosesAt > startTime) {
+        errors['registration-closes-at'] = 'Registration must close no later than the event start.';
       }
       const minimumCapacity = existingEvent
         ? Math.max(1, existingEvent.capacity - existingEvent.availableCapacity)
@@ -409,6 +429,12 @@ export default function CreateEvent() {
       showEarlierStepError(1, 'end-date-and-time', 'Event end date and time must be after the start date and time.');
       return;
     }
+    const registrationOpensAt = new Date(form.registrationOpensAt);
+    const registrationClosesAt = new Date(form.registrationClosesAt);
+    if (!Number.isFinite(registrationOpensAt.getTime()) || !Number.isFinite(registrationClosesAt.getTime()) || registrationOpensAt >= registrationClosesAt || registrationClosesAt > startTime) {
+      showEarlierStepError(1, 'registration-closes-at', 'Set a valid registration window that closes by the event start time.');
+      return;
+    }
     const capacity = Number(form.capacity);
     const ticketTypes = form.ticketTypes.map(ticket => ({
       name: ticket.name.trim(),
@@ -488,10 +514,12 @@ export default function CreateEvent() {
         parkingInformation: form.parkingInformation.trim() || undefined,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
+        registrationOpensAt: registrationOpensAt.toISOString(),
+        registrationClosesAt: registrationClosesAt.toISOString(),
         date: startTime.toISOString(),
         capacity,
         vendorStandsAvailable: Number(form.vendorStandsAvailable),
-        vendorStandRatePerSqm: Number(form.vendorStandRatePerSqm),
+        vendorStandRatePerSqm: Number(existingEvent?.vendorStandRatePerSqm ?? 0),
         isFree: ticketTypes.every(ticket => ticket.price === 0),
         bannerImageUrl,
         ticketTypes: ticketTypes.map(ticket => ({
@@ -790,18 +818,17 @@ export default function CreateEvent() {
                           <Textarea label="Online meeting details" value={form.meetingDetails} onChange={event => updateForm('meetingDetails', event.target.value)} error={fieldErrors['online-meeting-details']} maxLength={2000} required helperText="Add the meeting URL or access instructions." />
                         </div>
                       )}
-                      {form.eventType !== 'ONLINE' && (
-                        <div className="md:col-span-2">
-                          <Textarea label="Directions" value={form.directions} onChange={event => updateForm('directions', event.target.value)} maxLength={2000} helperText="Add directions attendees can follow to reach the venue." />
-                        </div>
-                      )}
-                      {form.eventType !== 'ONLINE' && (
-                        <div className="md:col-span-2">
-                          <Textarea label="Parking information" value={form.parkingInformation} onChange={event => updateForm('parkingInformation', event.target.value)} maxLength={2000} helperText="Share parking availability, access, or fees." />
-                        </div>
-                      )}
-                      <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => updateForm('startTime', event.target.value)} error={fieldErrors['start-date-and-time']} required />
+                      <Input label="Start date and time" type="datetime-local" value={form.startTime} onChange={event => {
+                        const value = event.target.value;
+                        setForm(current => ({
+                          ...current,
+                          startTime: value,
+                          registrationClosesAt: !current.registrationClosesAt || current.registrationClosesAt === current.startTime ? value : current.registrationClosesAt,
+                        }));
+                      }} error={fieldErrors['start-date-and-time']} required />
                       <Input label="End date and time" type="datetime-local" min={form.startTime} value={form.endTime} onChange={event => updateForm('endTime', event.target.value)} error={fieldErrors['end-date-and-time']} required />
+                      <Input id="registration-opens-at" label="Registration opens" type="datetime-local" value={form.registrationOpensAt} onChange={event => updateForm('registrationOpensAt', event.target.value)} error={fieldErrors['registration-opens-at']} helperText="Attendees and vendors can register or apply from this time." required />
+                      <Input id="registration-closes-at" label="Registration closes" type="datetime-local" min={form.registrationOpensAt} max={form.startTime} value={form.registrationClosesAt} onChange={event => updateForm('registrationClosesAt', event.target.value)} error={fieldErrors['registration-closes-at']} helperText="Registration closes before the event begins." required />
                       <div className="md:col-span-2">
                         <Input
                           label="Event capacity"
@@ -1026,8 +1053,8 @@ export default function CreateEvent() {
                           value={form.vendorStandsAvailable}
                           error={fieldErrors['vendor-stands-available']}
                           onChange={event => updateForm('vendorStandsAvailable', event.target.value)}
-                          helperText="Informational only; this number does not limit vendor applications."
-                          required
+                          helperText="Number of stand spaces available for allocation to approved vendors."
+                          required 
                         />
                         <Input
                           id="vendor-stand-rate"

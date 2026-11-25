@@ -94,6 +94,11 @@ export default function ApplyForStand() {
   const standArea = standWidth * standDepth;
   const ratePerSquareMetre = Number(event?.vendorStandRatePerSqm ?? 0);
   const quote = Math.round(standArea * ratePerSquareMetre * 100) / 100;
+  const registrationOpensAt = event ? new Date(event.registrationOpensAt ?? event.createdAt) : null;
+  const registrationClosesAt = event ? new Date(event.registrationClosesAt ?? event.startTime) : null;
+  const now = new Date();
+  const registrationOpen = Boolean(event && event.status === 'PUBLISHED' && registrationOpensAt && registrationClosesAt &&
+    registrationOpensAt <= now && registrationClosesAt > now && new Date(event.startTime) > now);
   const selectedPreset = standOptions.find(option => option.size === requestedStandSize && option.type === requestedStandType);
   const customSize = !selectedPreset;
 
@@ -223,6 +228,8 @@ export default function ApplyForStand() {
                           <InfoRow label="Stands left" value={`${event.availableVendorStands} of ${event.vendorStandsAvailable}`} />
                           <InfoRow label="Rate" value={`${formatRate(ratePerSquareMetre)}/m²`} />
                           <InfoRow label="Event time" value={`${formatTime(event.startTime)} – ${formatTime(event.endTime)}`} />
+                          <InfoRow label="Applications open" value={new Date(event.registrationOpensAt ?? event.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
+                          <InfoRow label="Applications close" value={new Date(event.registrationClosesAt ?? event.startTime).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })} />
                         </dl>
                       </div>
                     </article>
@@ -254,6 +261,12 @@ export default function ApplyForStand() {
                         </h3>
                         {activeApplication.assignedStand && <p className="mt-1 text-[8px] text-amber-900">Assigned stand: {activeApplication.assignedStand}</p>}
                         <Link to="/vendor/applications" className="mt-1 inline-flex text-[8px] font-semibold text-brand-700 underline">View your applications</Link>
+                      </div>
+                    ) : !registrationOpen ? (
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[9px] text-neutral-700">
+                        {registrationOpensAt && now < registrationOpensAt
+                          ? `Applications open ${registrationOpensAt.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                          : `Applications closed ${registrationClosesAt?.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'for this event'}.`}
                       </div>
                     ) : event.availableVendorStands === 0 ? (
                       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[9px] text-neutral-700">

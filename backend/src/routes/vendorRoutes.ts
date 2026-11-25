@@ -1036,6 +1036,8 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 				organizerId: true,
 				status: true,
 				startTime: true,
+				registrationOpensAt: true,
+				registrationClosesAt: true,
 				vendorStandsAvailable: true,
 				vendorStandRatePerSqm: true,
 				organizer: { select: { id: true, firstname: true, email: true } },
@@ -1043,7 +1045,12 @@ const submitVendorApplication = async (req: Request, res: Response) => {
 			},
 		});
 		if (!event) return { error: 'not_found' as const };
-		if (event.status !== 'PUBLISHED' || event.startTime <= new Date()) return { error: 'closed' as const };
+		const now = new Date();
+		if (
+			event.status !== 'PUBLISHED' || event.startTime <= now ||
+			(event.registrationOpensAt && event.registrationOpensAt > now) ||
+			(event.registrationClosesAt && event.registrationClosesAt <= now)
+		) return { error: 'closed' as const };
 		if (event.vendorStandsAvailable - event._count.vendorApplications <= 0) return { error: 'full' as const };
 
 		const profile = await transaction.vendorProfile.findUnique({
@@ -1216,6 +1223,8 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 			date: Date;
 			startTime: Date;
 			endTime: Date;
+			registrationOpensAt: Date;
+			registrationClosesAt: Date;
 			availableVendorStands: number;
 		}>>(Prisma.sql`
 			SELECT
@@ -1227,6 +1236,8 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 				e."date",
 				e."start_time" AS "startTime",
 				e."end_time" AS "endTime",
+				COALESCE(e."registration_opens_at", e."created_at") AS "registrationOpensAt",
+				COALESCE(e."registration_closes_at", e."start_time") AS "registrationClosesAt",
 				(e."vendor_stands_available" - (
 					SELECT COUNT(*) FROM "vendor_applications" va
 					WHERE va."event_id" = e."id" AND va."status" = 'APPROVED'::"VendorApplicationStatus"
@@ -1243,7 +1254,7 @@ router.get('/events', requireAuth, requireRole('VENDOR'), async (req, res) => {
 		data: events.map(event => ({
 			...event,
 			location: event.venue,
-			applicationDeadline: event.startTime,
+			applicationDeadline: event.registrationClosesAt,
 			applicationRequirements: null,
 		})),
 		pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -1508,8 +1519,16 @@ router.delete('/staff/:id', requireAuth, requireRole('VENDOR'), async (req, res)
 });
 
 type VendorApplicationDecision =
-	| { status: 'APPROVED'; assignedStand: string }
+	| { status: 'APPROVED'; assignedStand: string; standRatePerSqm: number }
 	| { status: 'REJECTED'; rejectionReason: string };
+
+const standIndexFromLabel = (stand: string): number | null => {
+	const match = /^([A-Z]+)([1-5])$/.exec(stand);
+	if (!match) return null;
+	let row = 0;
+	for (const character of match[1]) row = row * 26 + character.charCodeAt(0) - 64;
+	return (row - 1) * 5 + Number(match[2]) - 1;
+};
 
 const decideVendorApplication = async (
 	req: Request,
@@ -1545,6 +1564,12 @@ const decideVendorApplication = async (
 	if (application.event.organizerId !== userId) {
 		return res.status(403).json({ success: false, message: 'You can only review requests for events you organize' });
 	}
+	const finalStandRatePerSqm = decision.status === 'APPROVED'
+		? decision.standRatePerSqm
+		: Number(application.standRatePerSqm);
+	const finalQuotedAmount = new Prisma.Decimal(application.standAreaSqm)
+		.mul(finalStandRatePerSqm)
+		.toDecimalPlaces(2);
 	if (application.status !== 'PENDING_REVIEW') {
 		return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
 	}
@@ -1570,8 +1595,20 @@ const decideVendorApplication = async (
 						_count: { select: { vendorApplications: { where: { status: 'APPROVED' } } } },
 					},
 				});
-				if (event && (event.status !== 'PUBLISHED' || event.startTime <= new Date())) return 'event_closed' as const;
-				if (!event || event._count.vendorApplications >= event.vendorStandsAvailable) return 'no_stands' as const;
+				if (!event) return 'no_stands' as const;
+				if (event.status !== 'PUBLISHED' || event.startTime <= new Date()) return 'event_closed' as const;
+				const standIndex = standIndexFromLabel(decision.assignedStand);
+				if (standIndex === null || standIndex >= event.vendorStandsAvailable) return 'invalid_stand' as const;
+				const occupiedStand = await transaction.vendorApplication.findFirst({
+					where: {
+						eventId: application.event.id,
+						status: 'APPROVED',
+						assignedStand: { equals: decision.assignedStand, mode: 'insensitive' },
+					},
+					select: { id: true },
+				});
+				if (occupiedStand) return 'stand_taken' as const;
+				if (event._count.vendorApplications >= event.vendorStandsAvailable) return 'no_stands' as const;
 			}
 
 			const result = await transaction.vendorApplication.updateMany({
@@ -1579,6 +1616,10 @@ const decideVendorApplication = async (
 				data: {
 					status: decision.status,
 					assignedStand: decision.status === 'APPROVED' ? decision.assignedStand : null,
+					...(decision.status === 'APPROVED' ? {
+						standRatePerSqm: finalStandRatePerSqm,
+						quotedAmount: finalQuotedAmount,
+					} : {}),
 					decidedById: userId,
 					decidedAt,
 					rejectionReason: decision.status === 'REJECTED' ? decision.rejectionReason : null,
@@ -1588,7 +1629,7 @@ const decideVendorApplication = async (
 
 			if (decision.status === 'APPROVED') {
 				const invoice = await transaction.vendorInvoice.create({
-					data: { invoiceNumber, amount: application.quotedAmount, dueAt },
+					data: { invoiceNumber, amount: finalQuotedAmount, dueAt },
 				});
 				await transaction.vendorApplication.update({
 					where: { id: applicationId },
@@ -1597,7 +1638,7 @@ const decideVendorApplication = async (
 			}
 
 			const message = decision.status === 'APPROVED'
-				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${Number(application.quotedAmount).toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
+				? `Your stand request for ${application.event.title} was approved. Your assigned stand is ${decision.assignedStand}. Invoice ${invoiceNumber} for ZAR ${Number(finalQuotedAmount).toFixed(2)} is due ${dueAt.toLocaleDateString('en-ZA')}.`
 				: `Your stand request for ${application.event.title} was rejected. Reason: ${decision.rejectionReason}. You can update your request and submit it again.`;
 			await transaction.notification.create({
 				data: {
@@ -1622,6 +1663,12 @@ const decideVendorApplication = async (
 		if (updated === 'event_closed') {
 			return res.status(409).json({ success: false, message: 'Applications cannot be approved after the event starts or is cancelled' });
 		}
+		if (updated === 'invalid_stand') {
+			return res.status(409).json({ success: false, message: 'Choose a stand configured for this event' });
+		}
+		if (updated === 'stand_taken') {
+			return res.status(409).json({ success: false, message: 'That stand has already been allocated. Choose another stand.' });
+		}
 		if (updated === 'already_decided') {
 			return res.status(409).json({ success: false, message: 'This stand request has already been decided' });
 		}
@@ -1634,12 +1681,12 @@ const decideVendorApplication = async (
 					firstname: application.vendor.firstname,
 					eventTitle: application.event.title,
 					invoiceNumber,
-					amount: Number(application.quotedAmount),
+					amount: Number(finalQuotedAmount),
 					dueAt,
 					assignedStand: decision.assignedStand,
 					requestedStandSize: application.requestedStandSize,
 					areaSqm: Number(application.standAreaSqm),
-					ratePerSqm: Number(application.standRatePerSqm),
+					ratePerSqm: finalStandRatePerSqm,
 				});
 			} catch (emailError) {
 				console.error('Vendor stand invoice email failed:', emailError);
@@ -1722,11 +1769,15 @@ router.patch('/:id/invoice/paid', requireAuth, requireRole('ORGANIZER'), require
 });
 
 router.patch('/:id/approve', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
-	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim() : '';
+	const assignedStand = typeof req.body?.assignedStand === 'string' ? req.body.assignedStand.trim().toUpperCase() : '';
+	const standRatePerSqm = req.body?.standRatePerSqm;
 	if (assignedStand.length < 1 || assignedStand.length > 80) {
 		return res.status(400).json({ success: false, message: 'Assigned stand must be between 1 and 80 characters' });
 	}
-	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand });
+	if (typeof standRatePerSqm !== 'number' || !Number.isFinite(standRatePerSqm) || standRatePerSqm < 0 || standRatePerSqm > 99_999_999.99 || Math.abs(standRatePerSqm - Math.round(standRatePerSqm * 100) / 100) > 1e-8) {
+		return res.status(400).json({ success: false, message: 'Stand rate must be a valid amount with no more than two decimal places' });
+	}
+	return decideVendorApplication(req, res, { status: 'APPROVED', assignedStand, standRatePerSqm });
 });
 
 router.patch('/:id/reject', requireAuth, requireRole('ORGANIZER'), requireApprovedOrganizerProfile, async (req, res) => {
