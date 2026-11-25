@@ -73,16 +73,16 @@ export interface VendorApplication {
     isActive?: boolean;
     vendorProfile?: {
       businessName: string;
-      businessType: string;
+      businessType?: string;
       businessAddress: string;
-      businessDescription: string;
-      businessRegistrationNumber: string;
-      contactPerson: string;
-      contactEmail: string;
+      businessDescription?: string;
+      businessRegistrationNumber?: string;
+      contactPerson?: string;
+      contactEmail?: string;
       contactPhone: string;
-      productsServices: string[];
-      supportingDocumentUrls: string[];
-      logoUrl: string | null;
+      productsServices?: string[];
+      supportingDocumentUrls?: string[];
+      logoUrl?: string | null;
     } | null;
   };
   decidedBy?: {

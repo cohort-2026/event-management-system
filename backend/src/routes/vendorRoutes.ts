@@ -1171,7 +1171,20 @@ router.get('/applications/me', requireAuth, requireRole('VENDOR'), async (req, r
 	const [applications, total] = await Promise.all([
 		prisma.vendorApplication.findMany({
 			where,
-			include: vendorApplicationView,
+			include: {
+				...vendorApplicationView,
+				vendor: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						email: true,
+						vendorProfile: {
+							select: { businessName: true, businessAddress: true, contactPhone: true },
+						},
+					},
+				},
+			},
 			orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
 			skip: (page - 1) * limit,
 			take: limit,

@@ -52,6 +52,23 @@ const prisma = {
     findFirst: async ({ where }) =>
       where.id === application.id && where.event?.is?.organizerId === organizerId ? application : null,
     findUnique: async ({ where }) => where.id === application.id ? application : null,
+    findMany: async ({ where, include }) => {
+      if (where.vendorId !== vendorId) return [];
+      const vendor = include.vendor?.select;
+      return [{
+        ...application,
+        vendor: vendor ? {
+          id: vendorId,
+          firstname: application.vendor.firstname,
+          lastname: 'Vendor',
+          email: vendor.email ? application.vendor.email : undefined,
+          vendorProfile: vendor.vendorProfile?.select?.businessAddress
+            ? application.vendor.vendorProfile
+            : null,
+        } : undefined,
+      }];
+    },
+    count: async ({ where }) => where.vendorId === vendorId ? 1 : 0,
     findUniqueOrThrow: async () => ({ vendorId }),
     create: async ({ data }) => { createdApplication = data; return { id: applicationId, ...data }; },
     updateMany: async ({ where, data }) => {
@@ -316,6 +333,17 @@ test('invoice application is accessible only to its vendor and event organizer',
   assert.equal((await getAs(otherOrganizerId, 'ORGANIZER', applicationUrl)).status, 404);
   assert.equal((await getAs(vendorId, 'VENDOR', `/vendors/invoices/${invoiceId}`)).status, 200);
   assert.equal((await getAs(otherVendorId, 'VENDOR', `/vendors/invoices/${invoiceId}`)).status, 404);
+});
+
+test('vendor application list includes the billing address for downloaded invoices', async () => {
+  const token = jwt.sign({ sub: vendorId, role: 'VENDOR' }, secret, { expiresIn: '1h' });
+  const response = await fetch(`${baseUrl}/vendors/applications/me`, {
+    headers: { Cookie: `auth_token=${token}` },
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data[0].vendor.vendorProfile.businessAddress, '123 Test Street');
+  assert.equal(body.data[0].vendor.email, 'vendor@example.test');
 });
 
 test('invoice tax is rounded to the nearest cent', async () => {

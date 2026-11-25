@@ -138,6 +138,9 @@ test('downloaded invoice lists selected add-ons separately from the stand', asyn
   };
   exports.downloadInvoicePdf(application);
   let pdf = await blob.text();
+  assert.doesNotMatch(pdf, /SHIP VIA/);
+  assert.match(pdf, /SHIP DATE/);
+  assert.match(pdf, /F\.O\.B\./);
   assert.match(pdf, /Vendor Company/);
   assert.match(pdf, /1 Market Street/);
   assert.match(pdf, /Sample Event/);

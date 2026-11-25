@@ -76,16 +76,14 @@ export function downloadInvoicePdf(application: VendorApplication) {
   text(60, 555, 'SALESPERSON', 7, '1 1 1');
   text(155, 555, 'P.O. #', 7, '1 1 1');
   text(231, 555, 'SHIP DATE', 7, '1 1 1');
-  text(314, 555, 'SHIP VIA', 7, '1 1 1');
   text(405, 555, 'F.O.B.', 7, '1 1 1');
   text(482, 555, 'TERMS', 7, '1 1 1');
   text(60, 537, 'Event organizer', 7);
   text(155, 537, invoice.invoiceNumber.slice(-10), 7);
   text(231, 537, eventDate, 7);
-  text(314, 537, 'Event stand', 7);
   text(405, 537, fit(venue, 13) || '-', 7);
   text(482, 537, 'Net 14', 7);
-  [148, 224, 307, 398, 475].forEach(x => line(x, 530, x, 566));
+  [148, 224, 398, 475].forEach(x => line(x, 530, x, 566));
   line(54, 530, 558, 530);
 
   rect(54, 503, 504, 18, headerBlue);
