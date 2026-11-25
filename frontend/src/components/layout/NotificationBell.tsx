@@ -89,6 +89,10 @@ export default function NotificationBell({
 
     setOpen(false);
     onClose?.();
+    if (user?.role === 'ATTENDEE') {
+      navigate('/attendee/notifications', { state: { selectedNotificationId: notification.id } });
+      return;
+    }
     if (appearance === 'header' && user?.role === 'VENDOR') {
       navigate('/vendor/notifications', { state: { selectedNotificationId: notification.id } });
       return;
@@ -203,9 +207,9 @@ export default function NotificationBell({
                 ))}
               </ul>
             )}
-            {user?.role === 'VENDOR' && (
+            {(user?.role === 'VENDOR' || user?.role === 'ATTENDEE') && (
               <div className="border-t border-neutral-100 p-3 text-right">
-                <button type="button" onClick={() => { setOpen(false); navigate('/vendor/notifications'); }} className="text-xs font-semibold text-rose-700 hover:underline">
+                <button type="button" onClick={() => { setOpen(false); navigate(user?.role === 'VENDOR' ? '/vendor/notifications' : '/attendee/notifications'); }} className="text-xs font-semibold text-rose-700 hover:underline">
                   View all notifications
                 </button>
               </div>

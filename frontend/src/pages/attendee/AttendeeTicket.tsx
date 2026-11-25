@@ -63,22 +63,31 @@ export default function AttendeeTicket() {
   const canShowQr = !cancelled && !checkedIn && !unavailable && Boolean(ticket.qrPayload);
   const eventStart = new Date(event.startTime);
   const eventEnd = new Date(event.endTime);
+  const daysUntilEvent = Math.ceil((new Date(eventStart.toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) / 86_400_000);
+  const timingLabel = cancelled
+    ? 'CANCELLED'
+    : daysUntilEvent < 0
+      ? 'EVENT PASSED'
+      : daysUntilEvent === 0
+        ? 'TODAY'
+        : `UP NEXT · ${daysUntilEvent} ${daysUntilEvent === 1 ? 'DAY' : 'DAYS'}`;
 
   return (
-    <AttendeeLayout mainClassName="mx-auto w-full max-w-[820px] px-4 py-6 sm:px-6 sm:py-8">
+    <AttendeeLayout mainClassName="mx-auto w-full max-w-[960px] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mb-4">
         <Link to="/attendee/tickets" className="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
           ← My tickets
         </Link>
       </div>
 
-      <article className={`overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm ${cancelled ? 'opacity-80' : ''}`}>
+      <article className={`flex flex-col overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-lg shadow-rose-950/5 sm:flex-row ${cancelled ? 'opacity-80' : ''}`}>
         <EventArtwork
           title={event.title}
           bannerImageUrl={event.bannerImageUrl}
-          className={`h-28 sm:h-32 ${cancelled ? 'grayscale' : ''}`}
+          className={`h-28 shrink-0 sm:h-auto sm:min-h-0 sm:w-44 ${cancelled ? 'grayscale' : ''}`}
         />
 
+        <div className="min-w-0 flex-1">
         {checkedIn && (
           <div className="bg-violet-600 px-6 py-5 text-center text-white">
             <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl font-bold text-violet-600">✓</span>
@@ -92,7 +101,7 @@ export default function AttendeeTicket() {
           </div>
         )}
 
-        <div className="p-5 sm:p-7">
+        <div className="p-4 sm:p-5">
           {cancelled && (
             <div className="mb-5 rounded-lg bg-neutral-100 px-4 py-3">
               <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-neutral-600">Cancelled</span>
@@ -109,10 +118,13 @@ export default function AttendeeTicket() {
 
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-rose-600">
+                {timingLabel}
+              </p>
+              <p className="mt-3 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-rose-800">
                 {ticket.ticketType ?? ticket.type}
               </p>
-              <h1 className="mt-1 text-xl font-extrabold tracking-tight text-neutral-950">{event.title}</h1>
+              <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-neutral-950 sm:text-3xl">{event.title}</h1>
             </div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
               cancelled || unavailable ? 'bg-neutral-100 text-neutral-600' : checkedIn ? 'bg-violet-100 text-violet-800' : 'bg-emerald-50 text-emerald-700'
@@ -121,31 +133,29 @@ export default function AttendeeTicket() {
             </span>
           </div>
 
-          <dl className="mt-5 grid gap-4 border-b border-dashed border-neutral-200 pb-5 text-sm sm:grid-cols-2">
-            <TicketDetail label="Date" value={eventStart.toLocaleDateString('en-ZA', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })} />
-            <TicketDetail label="Doors" value={eventStart.toLocaleTimeString('en-ZA', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })} />
-            <TicketDetail label="Venue" value={event.venue || 'Online event'} wide />
-            <TicketDetail label="Name" value={`${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim() || 'Attendee'} />
-            <TicketDetail label="Ticket reference" value={ticket.referenceNumber} mono />
-            {ticket.bookingReference && <TicketDetail label="Booking reference" value={ticket.bookingReference} mono />}
-          </dl>
-
-          {canShowQr && (
-            <div className="py-6 text-center">
-              <TicketQrCode payload={ticket.qrPayload!} />
-              <p className="mt-3 font-mono text-lg font-bold tracking-widest text-neutral-950">
-                {ticket.referenceNumber}
-              </p>
-              <p className="mt-1 text-xs text-neutral-500">Turn your brightness up at the door</p>
-            </div>
-          )}
+          <div className="mt-4 grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <dl className="grid gap-3 rounded-2xl bg-neutral-50 p-4 text-sm sm:grid-cols-2">
+              <TicketDetail label="Date" value={eventStart.toLocaleDateString('en-ZA', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              })} />
+              <TicketDetail label="Doors" value={eventStart.toLocaleTimeString('en-ZA', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })} />
+              <TicketDetail label="Venue" value={event.venue || 'Online event'} wide />
+              <TicketDetail label="Name" value={`${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim() || 'Attendee'} />
+              <TicketDetail label="Ticket reference" value={ticket.referenceNumber} mono />
+              {ticket.bookingReference && <TicketDetail label="Booking reference" value={ticket.bookingReference} mono />}
+            </dl>
+            {canShowQr && (
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-3 text-center">
+                <TicketQrCode payload={ticket.qrPayload!} className="!max-w-[160px]" />
+                <p className="mt-2 break-all font-mono text-[10px] font-bold tracking-wide text-neutral-900">{ticket.referenceNumber}</p>
+              </div>
+            )}
+          </div>
 
           {!cancelled && !checkedIn && !unavailable && !ticket.qrPayload && (
             <p role="alert" className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -163,6 +173,7 @@ export default function AttendeeTicket() {
               </p>
             </div>
           )}
+        </div>
         </div>
       </article>
 
