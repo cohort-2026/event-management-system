@@ -281,6 +281,7 @@ model WaitlistEntry {
   event             Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   ticketType        EventTicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
   attendee          User           @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+  booking           Booking?
 
   @@index([eventId, ticketTypeId, status, position, createdAt, id])
   @@index([attendeeId, createdAt])
@@ -313,6 +314,8 @@ model Booking {
   cancelledBy User?   @relation("BookingCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   tickets    Ticket[]
   payment    Payment?
+  waitlistEntryId String? @unique @map("waitlist_entry_id")
+  waitlistEntry WaitlistEntry? @relation(fields: [waitlistEntryId], references: [id], onDelete: SetNull)
 
   @@index([attendeeId, createdAt])
   @@index([cancelledAt])

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { isUuid } from '../middleware/requestValidation';
-import { cancelWaitlistEntry, getPosition, joinWaitlist } from '../services/waitlistService';
+import { cancelWaitlistEntry, claimWaitlistOffer, getPosition, joinWaitlist } from '../services/waitlistService';
 
 export const createWaitlistEntry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim() : '';
@@ -35,6 +35,7 @@ export const listMyWaitlists = async (req: Request, res: Response, next: NextFun
       include: {
         event: { select: { id: true, title: true, date: true, startTime: true, endTime: true, venue: true, bannerImageUrl: true } },
         ticketType: { select: { id: true, name: true } },
+        booking: { select: { id: true, reference: true, status: true, paymentStatus: true } },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     });
@@ -55,6 +56,43 @@ export const listMyWaitlists = async (req: Request, res: Response, next: NextFun
       return { ...entry, position: queue.indexOf(entry.id) >= 0 ? queue.indexOf(entry.id) + 1 : entry.position };
     }) });
   } catch (error) { next(error); }
+};
+
+
+export const listMyWaitlistOffers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const offers = await prisma.waitlistEntry.findMany({
+      where: { attendeeId: req.user!.id, status: { in: ['OFFERED', 'CLAIMED', 'EXPIRED'] } },
+      include: {
+        event: { select: { id: true, title: true, date: true, startTime: true, endTime: true, venue: true, bannerImageUrl: true } },
+        ticketType: { select: { id: true, name: true, price: true } },
+        booking: { select: { id: true, reference: true, status: true, paymentStatus: true } },
+      },
+      orderBy: [{ offeredAt: 'desc' }, { createdAt: 'desc' }],
+    });
+    res.json({ success: true, data: offers });
+  } catch (error) { next(error); }
+};
+
+export const claimWaitlistOfferController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await claimWaitlistOffer(req.params.id, req.user!.id);
+    if (result.kind === 'missing') { res.status(404).json({ success: false, message: 'Waitlist offer not found' }); return; }
+    if (result.kind === 'forbidden') { res.status(403).json({ success: false, message: 'This offer does not belong to you' }); return; }
+    if (result.kind === 'expired') { res.status(409).json({ success: false, message: 'This waitlist offer has expired' }); return; }
+    if (result.kind === 'inactive') { res.status(409).json({ success: false, message: 'This waitlist offer is no longer available' }); return; }
+    if (result.kind === 'event_unavailable') { res.status(409).json({ success: false, message: 'This event is no longer available' }); return; }
+    if (result.kind === 'claimed') { res.json({ success: true, data: result.booking, message: 'This offer has already been claimed' }); return; }
+    if (result.kind === 'pending_payment') { res.json({ success: true, data: result.booking, message: 'Continue to payment to complete your claim', paymentRequired: true }); return; }
+    if (result.kind === 'payment_required') { res.status(201).json({ success: true, data: result.booking, message: 'Offer reserved. Continue to payment to complete your claim.', paymentRequired: true }); return; }
+    res.status(409).json({ success: false, message: 'The offer could not be claimed. Refresh and try again.' });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      res.status(409).json({ success: false, message: 'The offer changed while you were claiming it. Refresh and try again.' });
+      return;
+    }
+    next(error);
+  }
 };
 
 export const getWaitlistEntry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

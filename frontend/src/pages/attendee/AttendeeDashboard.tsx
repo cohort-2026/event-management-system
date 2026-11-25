@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AttendeeLayout from '@/components/attendee/AttendeeLayout';
 import EventArtwork from '@/components/attendee/EventArtwork';
 import Spinner from '@/components/legacy/Spinner';
@@ -11,7 +11,7 @@ import { getMyTickets } from '@/services/ticketService';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
 import type { Ticket } from '@/types/ticket';
-import { cancelWaitlist, getMyWaitlists } from '@/services/waitlistService';
+import { cancelWaitlist, claimWaitlistOffer, getMyWaitlists } from '@/services/waitlistService';
 import type { WaitlistEntry } from '@/types/waitlist';
 
 type DateFilter = 'month' | 'week' | null;
@@ -78,6 +78,7 @@ function filterButtonClass(active: boolean) {
 
 export default function AttendeeDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -95,6 +96,7 @@ export default function AttendeeDashboard() {
   const [selectedWaitlist, setSelectedWaitlist] = useState<WaitlistEntry | null>(null);
   const [pendingLeave, setPendingLeave] = useState<WaitlistEntry | null>(null);
   const [leavingWaitlist, setLeavingWaitlist] = useState(false);
+  const [claimingWaitlistId, setClaimingWaitlistId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -129,6 +131,25 @@ export default function AttendeeDashboard() {
     } catch (error) {
       setBookingsError(axios.isAxiosError(error) ? error.response?.data?.message ?? 'Could not leave this waitlist.' : 'Could not leave this waitlist.');
     } finally { setLeavingWaitlist(false); }
+  };
+
+  const claimOffer = async (entry: WaitlistEntry) => {
+    if (claimingWaitlistId) return;
+    setClaimingWaitlistId(entry.id);
+    setBookingsError('');
+    try {
+      const response = await claimWaitlistOffer(entry.id);
+      const booking = response.data.data;
+      if (response.data.paymentRequired && booking.id) {
+        navigate(`/attendee/payment/simulate?bookingId=${encodeURIComponent(booking.id)}`);
+        return;
+      }
+      setWaitlists(current => current.map(item => item.id === entry.id ? { ...item, status: 'CLAIMED', claimedAt: new Date().toISOString(), booking } : item));
+      setSelectedWaitlist(null);
+    } catch (claimError) {
+      setBookingsError(axios.isAxiosError(claimError) ? claimError.response?.data?.message ?? 'Could not claim this offer.' : 'Could not claim this offer.');
+      getMyWaitlists().then(result => setWaitlists(result.data.data)).catch(() => undefined);
+    } finally { setClaimingWaitlistId(null); }
   };
 
   useEffect(() => {
@@ -409,11 +430,11 @@ export default function AttendeeDashboard() {
             <EventArtwork title={entry.event.title} bannerImageUrl={entry.event.bannerImageUrl} className="h-14 w-14 shrink-0 rounded-lg" />
             <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-neutral-900">{entry.event.title}</p><p className="mt-1 text-[10px] text-neutral-500">{entry.ticketType.name} · {new Date(entry.event.startTime).toLocaleDateString('en-ZA')} · {entry.event.venue}</p></div>
             <div className="text-right"><p className="text-xs font-bold">{['WAITING', 'OFFERED'].includes(entry.status) ? `#${entry.position}` : entry.status}</p><p className="text-[10px] text-neutral-500">{entry.status.toLowerCase()}</p></div>
-            <div className="flex gap-2"><Link to={`/events/${entry.event.id}`} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">View Event</Link><button type="button" onClick={() => setSelectedWaitlist(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">Details</button>{['WAITING', 'OFFERED'].includes(entry.status) && <button type="button" onClick={() => setPendingLeave(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-rose-700">Leave</button>}</div>
+            <div className="flex gap-2"><Link to={`/events/${entry.event.id}`} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">View Event</Link><button type="button" onClick={() => setSelectedWaitlist(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold">Details</button>{entry.status === 'OFFERED' && <button type="button" disabled={claimingWaitlistId === entry.id || !entry.expiresAt || new Date(entry.expiresAt) <= new Date()} onClick={() => void claimOffer(entry)} className="rounded-md bg-rose-700 px-2 py-1.5 text-[10px] font-semibold text-white disabled:opacity-50">{claimingWaitlistId === entry.id ? 'Claiming…' : 'Claim Ticket'}</button>}{['WAITING', 'OFFERED'].includes(entry.status) && <button type="button" onClick={() => setPendingLeave(entry)} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-rose-700">Leave</button>}</div>
           </li>)}</ul>}
       </section>
 
-      {selectedWaitlist && <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedWaitlist(null); }}><section role="dialog" aria-modal="true" aria-labelledby="waitlist-details-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl"><div className="bg-gradient-to-r from-rose-700 to-orange-500 px-5 py-4 text-white"><p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Attendee dashboard</p><h2 id="waitlist-details-title" className="mt-1 text-lg font-bold">Waitlist details</h2></div><div className="p-5"><p className="text-sm font-semibold text-neutral-900">{selectedWaitlist.event.title}</p><p className="mt-1 text-xs text-neutral-600">{selectedWaitlist.ticketType.name}</p><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-lg bg-neutral-50 p-3"><p className="text-[10px] text-neutral-500">Position</p><p className="mt-1 text-sm font-bold">{['WAITING', 'OFFERED'].includes(selectedWaitlist.status) ? `#${selectedWaitlist.position}` : '—'}</p></div><div className="rounded-lg bg-neutral-50 p-3"><p className="text-[10px] text-neutral-500">Status</p><p className="mt-1 text-sm font-bold capitalize">{selectedWaitlist.status.toLowerCase()}</p></div></div><p className="mt-3 text-xs text-neutral-600">Joined {new Date(selectedWaitlist.createdAt).toLocaleDateString('en-ZA')}</p><p className="mt-4 rounded-lg border border-neutral-200 p-3 text-xs leading-relaxed text-neutral-600">If a ticket becomes available, waitlist offers will be handled by the event team. Joining does not guarantee a ticket.</p><button type="button" onClick={() => setSelectedWaitlist(null)} className="mt-5 w-full rounded-lg bg-neutral-950 px-3 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800">Close</button></div></section></div>}
+      {selectedWaitlist && <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedWaitlist(null); }}><section role="dialog" aria-modal="true" aria-labelledby="waitlist-details-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl"><div className="bg-gradient-to-r from-rose-700 to-orange-500 px-5 py-4 text-white"><p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Attendee dashboard</p><h2 id="waitlist-details-title" className="mt-1 text-lg font-bold">Waitlist details</h2></div><div className="p-5"><p className="text-sm font-semibold text-neutral-900">{selectedWaitlist.event.title}</p><p className="mt-1 text-xs text-neutral-600">{selectedWaitlist.ticketType.name}</p><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-lg bg-neutral-50 p-3"><p className="text-[10px] text-neutral-500">Position</p><p className="mt-1 text-sm font-bold">{['WAITING', 'OFFERED'].includes(selectedWaitlist.status) ? `#${selectedWaitlist.position}` : '—'}</p></div><div className="rounded-lg bg-neutral-50 p-3"><p className="text-[10px] text-neutral-500">Status</p><p className="mt-1 text-sm font-bold capitalize">{selectedWaitlist.status.toLowerCase()}</p></div></div><p className="mt-3 text-xs text-neutral-600">Joined {new Date(selectedWaitlist.createdAt).toLocaleDateString('en-ZA')}</p>{selectedWaitlist.expiresAt && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Offer expires: {new Date(selectedWaitlist.expiresAt).toLocaleString('en-ZA')}</p>}{selectedWaitlist.booking && <p className="mt-2 text-xs text-emerald-700">Booking reference: {selectedWaitlist.booking.reference}</p>}<p className="mt-4 rounded-lg border border-neutral-200 p-3 text-xs leading-relaxed text-neutral-600">{selectedWaitlist.status === 'OFFERED' ? 'A ticket is reserved for you. Claim it before the expiry time.' : selectedWaitlist.status === 'CLAIMED' ? 'You have claimed this waitlist offer.' : selectedWaitlist.status === 'EXPIRED' ? 'This offer has expired.' : 'If a ticket becomes available, you may receive a time-limited offer.'}</p>{selectedWaitlist.status === 'OFFERED' && <button type="button" disabled={claimingWaitlistId === selectedWaitlist.id} onClick={() => void claimOffer(selectedWaitlist)} className="mt-3 w-full rounded-lg bg-rose-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{claimingWaitlistId === selectedWaitlist.id ? 'Claiming…' : 'Claim Ticket'}</button>}<button type="button" onClick={() => setSelectedWaitlist(null)} className="mt-5 w-full rounded-lg bg-neutral-950 px-3 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800">Close</button></div></section></div>}
 
       {pendingLeave && <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget && !leavingWaitlist) setPendingLeave(null); }}><section role="dialog" aria-modal="true" aria-labelledby="leave-waitlist-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl"><div className="px-5 pt-5"><span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-700" aria-hidden="true">!</span><h2 id="leave-waitlist-title" className="mt-3 text-lg font-bold text-neutral-950">Leave this waitlist?</h2><p className="mt-2 text-sm text-neutral-600">You will leave the <span className="font-semibold text-neutral-900">{pendingLeave.ticketType.name}</span> waitlist for <span className="font-semibold text-neutral-900">{pendingLeave.event.title}</span>. You can join again later if registration remains open.</p><p className="mt-3 text-xs text-neutral-500">Your current place will be released.</p></div><div className="mt-5 flex flex-col-reverse gap-2 border-t border-neutral-100 bg-neutral-50 px-5 py-4 sm:flex-row sm:justify-end"><button type="button" disabled={leavingWaitlist} onClick={() => setPendingLeave(null)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Keep my place</button><button type="button" disabled={leavingWaitlist} onClick={() => void leaveWaitlist()} className="rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60">{leavingWaitlist ? 'Leaving…' : 'Leave waitlist'}</button></div></section></div>}
 
