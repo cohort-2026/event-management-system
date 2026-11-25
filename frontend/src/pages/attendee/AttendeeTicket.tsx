@@ -144,6 +144,7 @@ export default function AttendeeTicket() {
                 {ticket.referenceNumber}
               </p>
               <p className="mt-1 text-xs text-neutral-500">Turn your brightness up at the door</p>
+              <p className="mt-2 text-xs text-neutral-600">Ticket check-in opens 30 minutes before the event start time.</p>
             </div>
           )}
 

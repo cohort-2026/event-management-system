@@ -616,6 +616,29 @@ export default function OrganizerReports() {
         <OrganizerSidebar />
         <section className="min-w-0 flex-1 p-4 sm:p-6">
           <DashboardHeader title="Reports" topBarSubtitle="Insights across your events and registrations." showNavigation={false} />
+          {events && (
+            <section aria-labelledby="completed-event-reports" className="mb-5 rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 id="completed-event-reports" className="text-lg font-bold text-neutral-900">Final event reports</h2>
+                  <p className="mt-1 text-sm text-neutral-500">Review final attendance, vendor, and revenue figures for completed events.</p>
+                </div>
+              </div>
+              {events.some(event => event.status === 'COMPLETED') ? (
+                <ul className="mt-4 divide-y divide-neutral-100">
+                  {events.filter(event => event.status === 'COMPLETED').map(event => (
+                    <li key={event.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div>
+                        <p className="font-semibold text-neutral-900">{event.title}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{new Date(event.startTime).toLocaleDateString('en-ZA', { dateStyle: 'long' })} · {event.venue}</p>
+                      </div>
+                      <Link to={`/organizer/reports/events/${event.id}`} className="rounded-lg bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">View final report</Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm text-neutral-500">A final report will be available when an event is completed.</p>}
+            </section>
+          )}
           {error ? (
             <div role="alert" className="rounded-xl bg-rose-50 p-5 text-rose-800">
               <p>{error}</p><Button type="button" className="mt-3" onClick={retry}>Try again</Button>

@@ -38,7 +38,7 @@ const checkInResponse = (result: TicketCheckInResult, res: Response): void => {
     return;
   }
   if (result.kind === 'event_not_in_progress') {
-    res.status(409).json({ success: false, message: 'Tickets can only be checked in while the event is in progress' });
+    res.status(409).json({ success: false, message: 'Ticket check-in opens 30 minutes before the published event start time and closes when the event ends' });
     return;
   }
   res.json({

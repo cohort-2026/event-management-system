@@ -1,5 +1,6 @@
 import api from '@/services/api';
 import type { Event, CreateEventDto, UpdateEventDto } from '@/types/event';
+import type { FinalEventReport } from '@/types/eventReport';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -39,6 +40,9 @@ export const getAdminEventReportSummary = () => api.get<{
   success: boolean;
   data: { summary: AdminEventReportSummary };
 }>('/reports/events', { params: { page: 1, limit: 1 } });
+
+export const getFinalEventReport = (id: string) =>
+  api.get<ApiResponse<FinalEventReport>>(`/reports/events/${encodeURIComponent(id)}/final`);
 
 export const getEvents       = ()                                    => api.get<ApiResponse<Event[]>>('/events');
 export const getEventById    = (id: string)                          => api.get<ApiResponse<Event>>(`/events/${id}`);

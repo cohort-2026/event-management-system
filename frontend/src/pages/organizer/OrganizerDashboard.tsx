@@ -230,6 +230,7 @@ export default function OrganizerDashboard() {
   const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [completedReportEventId, setCompletedReportEventId] = useState<string | null>(null);
   const [standRequests, setStandRequests] = useState<VendorApplication[]>([]);
   const [standRequestsLoading, setStandRequestsLoading] = useState(true);
   const [standRequestsError, setStandRequestsError] = useState('');
@@ -357,6 +358,7 @@ export default function OrganizerDashboard() {
   const publish = async (eventId: string) => {
     setError('');
     setNotice('');
+    setCompletedReportEventId(null);
     setSubmittingId(eventId);
     try {
       const response = await publishEvent(eventId);
@@ -380,6 +382,7 @@ export default function OrganizerDashboard() {
 
     setError('');
     setNotice('');
+    setCompletedReportEventId(null);
     setCancellingId(event.id);
     try {
       const response = await cancelEvent(event.id, reason);
@@ -399,10 +402,12 @@ export default function OrganizerDashboard() {
   const complete = async (event: Event) => {
     setError('');
     setNotice('');
+    setCompletedReportEventId(null);
     setCompletingId(event.id);
     try {
       const response = await completeEvent(event.id);
-      setNotice(response.data.message ?? 'Event marked as completed.');
+      setNotice(response.data.message ?? 'Event marked as completed. Your final report is ready.');
+      setCompletedReportEventId(event.id);
       await refreshEvents();
     } catch (completeError) {
       setError(axios.isAxiosError(completeError)
@@ -510,7 +515,16 @@ export default function OrganizerDashboard() {
               <Button variant="secondary" size="sm" onClick={retryLoad}>Try again</Button>
             </div>
           )}
-          {notice && <p role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">{notice}</p>}
+          {notice && (
+            <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm !text-emerald-800">
+              <span>{notice}</span>
+              {completedReportEventId && (
+                <Link to={`/organizer/reports/events/${completedReportEventId}`} className="shrink-0 font-semibold underline underline-offset-2">
+                  View final report
+                </Link>
+              )}
+            </div>
+          )}
 
           {isNotificationsPage && (
             <div className="space-y-5">

@@ -31,6 +31,7 @@ import OrganizerDashboard from '@/pages/organizer/OrganizerDashboard';
 import OrganizerEventHub from '@/pages/organizer/OrganizerEventHub';
 import OrganizerProfile from '@/pages/organizer/OrganizerProfile';
 import OrganizerReports from '@/pages/organizer/OrganizerReports';
+import OrganizerEventFinalReport from '@/pages/organizer/OrganizerEventFinalReportDashboard';
 import CreateEvent from '@/pages/organizer/CreateEvent';
 import EditEvent from '@/pages/organizer/EditEvent';
 import EventRegistrations from '@/pages/organizer/EventRegistrations';
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/organizer/check-in"                   element={<CheckInEvents />} />
             <Route path="/organizer/vendors"                     element={<VendorApplications />} />
             <Route path="/organizer/reports"                     element={<OrganizerReports />} />
+            <Route path="/organizer/reports/events/:id"          element={<OrganizerEventFinalReport />} />
             <Route path="/organizer/notifications"               element={<OrganizerDashboard />} />
             <Route path="/organizer/events/:id"                  element={<OrganizerEventHub />} />
             <Route path="/organizer/profile"                      element={<OrganizerProfile />} />

@@ -38,7 +38,7 @@ export default function CheckInEvents() {
   const now = Date.now();
   const liveEvents = events.filter(event =>
     event.status === 'PUBLISHED' &&
-    new Date(event.startTime).getTime() <= now &&
+    new Date(event.startTime).getTime() - 30 * 60 * 1000 <= now &&
     new Date(event.endTime).getTime() >= now,
   );
 
@@ -72,7 +72,7 @@ export default function CheckInEvents() {
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-neutral-900">Live events</h2>
-              <p className="mt-1 text-sm text-neutral-500">Only events currently open for check-in are shown.</p>
+              <p className="mt-1 text-sm text-neutral-500">Events appear 30 minutes before their published start time and remain available through the end time.</p>
             </div>
             <Link to="/organizer/events" className="shrink-0 text-sm font-semibold text-rose-700 hover:text-rose-800">My events</Link>
           </div>
@@ -93,7 +93,7 @@ export default function CheckInEvents() {
                   <article className="flex h-full flex-col justify-between gap-5 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-center">
                     <div className="min-w-0">
                       <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" /> Live now
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" /> Check-in open
                       </span>
                       <h3 className="mt-3 truncate text-base font-bold text-neutral-900">{event.title}</h3>
                       <p className="mt-1 truncate text-sm text-neutral-600">{event.venue}</p>
@@ -120,7 +120,7 @@ export default function CheckInEvents() {
                 </svg>
               </div>
               <h2 className="mt-4 text-base font-bold text-neutral-900">No events are open for check-in</h2>
-              <p className="mx-auto mt-1 max-w-md text-sm text-neutral-500">When one of your published events is in progress, it will appear here. You can review your event schedule in My events.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-neutral-500">A published event appears here starting 30 minutes before its start time. You can review your event schedule in My events.</p>
               <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button type="button" onClick={() => { setLoading(true); setRetry(value => value + 1); }} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Refresh live events</button>
                 <Link to="/organizer/events" className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">View my events</Link>

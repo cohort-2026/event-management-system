@@ -104,9 +104,10 @@ export const checkInTicketForOrganizer = async (
       ticket.booking.payment?.status !== PaymentStatus.PAID)
   ) return { kind: 'payment_not_completed' };
   const now = new Date();
+  const checkInOpensAt = new Date(ticket.event.startTime.getTime() - 30 * 60 * 1000);
   if (
     ticket.event.status !== EventStatus.PUBLISHED ||
-    ticket.event.startTime > now ||
+    checkInOpensAt > now ||
     ticket.event.endTime < now
   ) {
     return { kind: 'event_not_in_progress' };
