@@ -208,3 +208,26 @@ export const sendVendorApplicationRejected = async (details: {
     text: `Hello ${details.firstname},\n\nYour stand application for "${details.eventTitle}" was not approved.\n\nReason: ${details.rejectionReason}\n\nYou may update the application and submit it again.`,
   });
 };
+
+export const sendWaitlistOfferNotification = async (details: {
+  email: string;
+  firstname: string;
+  eventTitle: string;
+  ticketType: string;
+  expiresAt: Date;
+}): Promise<void> => {
+  await transporter.sendMail({
+    from: config.mailFrom,
+    to: details.email,
+    subject: `A ticket is available: ${details.eventTitle}`,
+    text: [
+      `Hello ${details.firstname},`,
+      '',
+      `A ${details.ticketType} ticket is now available for ${details.eventTitle}.`,
+      `Claim your offer before ${details.expiresAt.toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })}.`,
+      'Sign in to your EventMS attendee dashboard and open My Waitlist Offers to claim it.',
+      '',
+      'This offer expires automatically after the stated deadline.',
+    ].join('\n'),
+  });
+};

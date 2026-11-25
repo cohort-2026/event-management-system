@@ -15,6 +15,8 @@ import { createBooking, getMyBookings } from '@/services/bookingService';
 import { downloadEventCalendar } from '@/utils/downloadEventCalendar';
 import type { Booking } from '@/types/booking';
 import type { Event } from '@/types/event';
+import { getMyWaitlists, joinWaitlist } from '@/services/waitlistService';
+import type { WaitlistEntry } from '@/types/waitlist';
 
 interface BookingConfirmation {
   reference: string;
@@ -39,6 +41,10 @@ export default function EventDetail() {
   const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
   const [bookingError, setBookingError] = useState('');
+  const [myWaitlists, setMyWaitlists] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistMessage, setWaitlistMessage] = useState('');
+  const [showJoinWaitlistDialog, setShowJoinWaitlistDialog] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -73,6 +79,9 @@ export default function EventDetail() {
       .catch(lookupError => {
         if (active) setBookingError(getErrorMessage(lookupError, 'Your existing booking could not be checked.'));
       });
+    getMyWaitlists().then(response => {
+      if (active) setMyWaitlists(response.data.data);
+    }).catch(() => undefined);
 
     return () => { active = false; };
   }, [event, user?.role]);
@@ -199,6 +208,27 @@ export default function EventDetail() {
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const joinSelectedWaitlist = () => {
+    if (!user) { navigate('/login', { state: { from: location } }); return; }
+    if (user.role !== 'ATTENDEE' || !selectedTicket || !applicationsOpen) return;
+    setBookingError('');
+    setShowJoinWaitlistDialog(true);
+  };
+
+  const confirmJoinWaitlist = async () => {
+    if (!selectedTicket) return;
+    setWaitlistLoading(true);
+    setBookingError('');
+    try {
+      const response = await joinWaitlist(event.id, selectedTicket.id);
+      setMyWaitlists(current => [response.data.data, ...current]);
+      setWaitlistMessage(`You have successfully joined the ${selectedTicket.name} waitlist. Your current position is #${response.data.data.position}.`);
+      setShowJoinWaitlistDialog(false);
+    } catch (requestError) {
+      setBookingError(getErrorMessage(requestError, 'You could not join this waitlist.'));
+    } finally { setWaitlistLoading(false); }
   };
 
   return (
@@ -387,7 +417,7 @@ export default function EventDetail() {
                       <button
                         type="button"
                         aria-pressed={activeTicketId === ticket.id}
-                        disabled={ticket.availableQuantity <= 0 || event.availableCapacity <= 0}
+                        disabled={false}
                         onClick={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
                         className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                           activeTicketId === ticket.id
@@ -414,7 +444,7 @@ export default function EventDetail() {
                   ))}
                 </ul>
 
-                {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
+                    {user?.role === 'ATTENDEE' && selectedTicket && canRegister && (
                   <div className="mt-3 space-y-3">
                     <label className="block text-xs font-medium text-neutral-700">
                       Quantity
@@ -446,14 +476,13 @@ export default function EventDetail() {
                       </p>
                     )}
                     {bookingError && <p role="alert" className="mt-3 text-xs text-rose-700">{bookingError}</p>}
-                    {user?.role === 'ATTENDEE' ? selectedTicketSoldOut && event.status === 'PUBLISHED' && start > new Date() ? (
-                      <Button
-                        className="mt-3 w-full"
-                        onClick={() => navigate('/attendee/bookings?tab=waitlist')}
-                      >
-                        Join Waitlist
-                      </Button>
-                    ) : (
+                    {selectedTicket && applicationsOpen && selectedTicket.availableQuantity <= 0 ? (
+                      user?.role === 'ATTENDEE' ? (
+                        myWaitlists.some(entry => entry.ticketTypeId === selectedTicket.id && ['WAITING', 'OFFERED'].includes(entry.status)) ? (
+                          <Link to="/attendee" className="mt-3 block w-full rounded-md border border-rose-200 px-3 py-2.5 text-center text-xs font-bold text-rose-700">View Waitlist Status</Link>
+                        ) : <Button className="mt-3 w-full" loading={waitlistLoading} onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                      ) : user ? <p className="mt-3 text-center text-xs text-neutral-600">Waitlists are available to attendees.</p> : <Button className="mt-3 w-full" onClick={joinSelectedWaitlist}>Join Waitlist</Button>
+                    ) : user?.role === 'ATTENDEE' ? (
                       <Button
                         className="mt-3 w-full bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-700 hover:to-orange-600"
                         loading={bookingLoading}
@@ -482,6 +511,7 @@ export default function EventDetail() {
                         </Link>
                       </div>
                     )}
+                    {waitlistMessage && <p role="status" className="mt-2 text-xs text-emerald-700">{waitlistMessage}</p>}
                   </>
                 <p className="mt-2 text-center text-[9px] text-neutral-500">Free cancellation until the event starts</p>
               </>
@@ -560,6 +590,30 @@ export default function EventDetail() {
                 >
                   Add to calendar
                 </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showJoinWaitlistDialog && selectedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget && !waitlistLoading) setShowJoinWaitlistDialog(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="join-waitlist-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 via-rose-600 to-orange-500 px-6 py-5 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">Waitlist registration</p>
+              <h2 id="join-waitlist-title" className="mt-1 text-xl font-bold">Join the {selectedTicket.name} waitlist?</h2>
+            </div>
+            <div className="p-6">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-950">A place on the waitlist is not a ticket.</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900">If a ticket becomes available, you may receive an opportunity to book it. Joining does not guarantee availability.</p>
+              </div>
+              <p className="mt-4 text-xs text-neutral-600"><span className="font-semibold text-neutral-900">Event:</span> {event.title}</p>
+              <p className="mt-1 text-xs text-neutral-600"><span className="font-semibold text-neutral-900">Pass:</span> {selectedTicket.name}</p>
+              {bookingError && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{bookingError}</p>}
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" disabled={waitlistLoading} onClick={() => setShowJoinWaitlistDialog(false)} className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+                <button type="button" disabled={waitlistLoading} onClick={() => void confirmJoinWaitlist()} className="rounded-lg bg-gradient-to-r from-rose-700 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-wait disabled:opacity-60">{waitlistLoading ? 'Joining waitlist…' : 'Confirm and join'}</button>
               </div>
             </div>
           </section>

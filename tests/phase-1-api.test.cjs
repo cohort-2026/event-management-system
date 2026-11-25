@@ -951,11 +951,34 @@ if (!testDatabaseUrl) {
       where: { id: ticketId },
       data: { status: 'ACTIVE', checkedInAt: null },
     });
-    assert.equal((await request(`/api/bookings/${booking.data.data.id}/cancel`, {
+    const cancellation = await request(`/api/bookings/${booking.data.data.id}/cancel`, {
       method: 'PATCH',
       cookie: accounts.attendee.cookie,
       body: { reason: 'I can no longer attend.' },
-    })).response.status, 200, 'attendee cancels their own booking');
+    });
+    assert.equal(cancellation.response.status, 200, 'attendee cancels their own booking');
+    assert.equal(cancellation.data.data.status, 'CANCELLED');
+    assert.ok(cancellation.data.data.cancelledAt, 'cancellation timestamp is returned');
+    assert.equal(cancellation.data.data.cancellationReason, 'I can no longer attend.');
+    assert.deepEqual(cancellation.data.data.inventoryRelease, {
+      eventId: bookableEventId,
+      ticketTypeId: freeTicketTypeId,
+      quantity: 1,
+    });
+    const cancellationAudit = await prisma.auditLog.findFirst({
+      where: { actorId: booking.data.data.attendeeId, action: 'BOOKING_CANCELLED' },
+      orderBy: { createdAt: 'desc' },
+    });
+    assert.equal(cancellationAudit.metadata.bookingId, booking.data.data.id);
+    assert.equal(cancellationAudit.metadata.releasedQuantity, 1);
+    assert.equal(cancellationAudit.metadata.cancellationReason, 'I can no longer attend.');
+
+    const repeatedCancellations = await Promise.all([1, 2].map(() => request(`/api/bookings/${booking.data.data.id}/cancel`, {
+      method: 'PATCH',
+      cookie: accounts.attendee.cookie,
+      body: { reason: 'Trying again.' },
+    })));
+    assert.ok(repeatedCancellations.every(result => result.response.status === 409));
     const restoredFreeCapacity = await prisma.event.findUnique({ where: { id: bookableEventId } });
     assert.equal(restoredFreeCapacity.availableCapacity, 12, 'cancelling restores event capacity by booking quantity');
     const restoredTicketCapacity = await prisma.eventTicketType.findUnique({ where: { id: freeTicketTypeId } });

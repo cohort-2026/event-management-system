@@ -22,16 +22,16 @@ export default function AttendeeBookings() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [tab, setTab] = useState<BookingTab>('upcoming');
 
-  const loadBookings = useCallback(async () => {
+  const loadBookings = useCallback(async (showLoading = true) => {
     setError('');
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const response = await getMyBookings();
       setBookings(response.data.data);
     } catch (loadError) {
       setError(getErrorMessage(loadError, 'Your bookings could not be loaded.'));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
@@ -74,18 +74,13 @@ export default function AttendeeBookings() {
     setProcessingId(booking.id);
     try {
       const response = await cancelBooking(booking.id, reason);
-      setBookings(current => current.map(item => item.id === booking.id
-        ? {
-          ...item,
-          status: 'CANCELLED',
-          paymentStatus: item.paymentStatus === 'PENDING' ? 'FAILED' : item.paymentStatus,
-          tickets: item.tickets.map(ticket => ({ ...ticket, status: 'CANCELLED' })),
-          ticket: item.ticket ? { ...item.ticket, status: 'CANCELLED' } : null,
-        }
-        : item));
+      if (response.data.data) {
+        setBookings(current => current.map(item => item.id === booking.id ? response.data.data! : item));
+      }
       setNotice(response.data.message || 'Booking cancelled.');
       setConfirmingId(null);
       setCancellationReason('');
+      await loadBookings(false);
     } catch (cancelError) {
       setError(getErrorMessage(cancelError, 'This booking could not be cancelled.'));
     } finally {
@@ -176,7 +171,7 @@ export default function AttendeeBookings() {
               return (
                 <article key={booking.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:gap-4 sm:p-4">
                   <BookingDate date={new Date(booking.event.startTime)} />
-                  <EventArtwork title="" className="h-10 w-14 shrink-0 rounded-lg" />
+                  <EventArtwork title={booking.event.title} bannerImageUrl={booking.event.bannerImageUrl} className="h-10 w-14 shrink-0 rounded-lg" />
                   <div className="min-w-[180px] flex-1">
                     <Link to={`/events/${booking.eventId}`} className="block truncate text-sm font-bold text-neutral-950 hover:text-rose-700">
                       {booking.event.title}
@@ -191,11 +186,14 @@ export default function AttendeeBookings() {
                       {booking.quantity} {booking.quantity === 1 ? 'ticket' : 'tickets'}
                       {' · '}
                       {booking.totalAmount === 0 ? 'Free' : formatPrice(booking.totalAmount)}
+                      {' · Booked '}
+                      {new Date(booking.createdAt).toLocaleDateString('en-ZA')}
                       {' · '}
                       <span className="font-mono">{booking.reference}</span>
                     </p>
                   </div>
                   <BookingStatusBadge status={booking.status} paymentStatus={booking.paymentStatus} />
+                  {booking.cancelledAt && <p className="w-full text-right text-[10px] text-neutral-500 sm:w-auto">Cancelled {new Date(booking.cancelledAt).toLocaleString('en-ZA')}</p>}
                   {canPay && (
                     <Button size="sm" onClick={() => handlePayment(booking.id)}>
                       Pay now
