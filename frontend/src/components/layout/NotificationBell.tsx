@@ -166,13 +166,13 @@ export default function NotificationBell({
             className={`${user?.role === 'VENDOR' ? 'vendor-notification-panel ' : ''}max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl`}
           >
             <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-              <h2 className="text-sm font-bold text-neutral-900">Notifications</h2>
+              <h2 className="notification-panel-title text-sm font-bold text-neutral-900">Notifications</h2>
               {unreadCount > 0 && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void markAllRead()}
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50"
+                  className="notification-panel-action text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50"
                 >
                   Mark all as read
                 </button>
@@ -195,9 +195,9 @@ export default function NotificationBell({
                       <span className="flex items-start gap-3">
                         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.readAt ? 'bg-transparent' : 'bg-amber-500'}`} />
                         <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-neutral-900">{notification.title}</span>
-                          <span className="mt-1 block text-sm text-neutral-600">{notification.message}</span>
-                          <span className="mt-1 block text-xs text-neutral-400">
+                          <span className="notification-item-title block text-sm font-semibold text-neutral-900">{notification.title}</span>
+                          <span className="notification-item-message mt-1 block text-sm text-neutral-600">{notification.message}</span>
+                          <span className="notification-item-date mt-1 block text-xs text-neutral-400">
                             {new Date(notification.createdAt).toLocaleString()}
                           </span>
                         </span>

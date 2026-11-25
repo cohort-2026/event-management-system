@@ -1,7 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @page {
@@ -553,9 +552,25 @@ main.dashboard-shell {
 
 .vendor-dashboard-content *,
 .vendor-notification-panel * {
-  font-size: var(--text-base) !important;
+  font-size: var(--text-sm) !important;
   font-weight: 400 !important;
   line-height: var(--leading-normal) !important;
+}
+
+.vendor-notification-panel .notification-panel-title,
+.vendor-notification-panel .notification-item-title {
+  font-size: var(--text-sm) !important;
+  font-weight: 600 !important;
+}
+
+.vendor-notification-panel .notification-panel-action,
+.vendor-notification-panel .notification-item-date {
+  font-size: var(--text-xs) !important;
+}
+
+.vendor-notification-panel .notification-item-message {
+  font-size: 0.8125rem !important;
+  line-height: 1.45 !important;
 }
 
 .vendor-dashboard-content .profile-section-title {
@@ -636,6 +651,12 @@ main.dashboard-shell {
 .vendor-dashboard-content button:not(:disabled):hover :is([class*="text-[#222]"], [class*="text-[#777]"], [class*="text-[#888]"]),
 .vendor-notification-panel button:not(:disabled):hover span {
   color: #fff;
+}
+
+.vendor-dashboard-content button.vendor-apply-addon-button:not(:disabled):not(.vendor-drawer-backdrop):hover {
+  background-image: none;
+  background-color: #fff;
+  color: inherit;
 }
 
 .vendor-sidebar .vendor-sidebar-action:hover .vendor-account-name,

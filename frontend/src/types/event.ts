@@ -33,6 +33,7 @@ export interface Event {
   isFree: boolean;
   price?: number | null;
   vendorStandRatePerSqm: number;
+  vendorInvoiceTaxRate: number;
   status: EventStatus;
   closedAt?: string | null;
   organizerId: string;

@@ -6,6 +6,7 @@ import OrganizerSidebar from '@/components/layout/OrganizerSidebar';
 import OrganizerTopBar from '@/components/layout/OrganizerTopBar';
 import Badge, { type BadgeVariant } from '@/components/legacy/Badge';
 import Button from '@/components/legacy/Button';
+import Modal from '@/components/legacy/Modal';
 import { approveApplication, getEventApplications, markVendorInvoicePaid, rejectApplication } from '@/services/vendorService';
 import { downloadInvoicePdf } from '@/services/vendorInvoicePdf';
 import { getMyEvents } from '@/services/eventService';
@@ -86,6 +87,7 @@ export default function VendorApplications() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [paymentConfirmation, setPaymentConfirmation] = useState<VendorApplication | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
@@ -175,12 +177,13 @@ export default function VendorApplications() {
   }, [refresh]);
 
   const markPaid = async (application: VendorApplication) => {
-    if (!application.invoice || !window.confirm(`Confirm that invoice ${application.invoice.invoiceNumber} has been paid?`)) return;
+    if (!application.invoice) return;
     setError('');
     setNotice('');
     setPayingId(application.id);
     try {
       await markVendorInvoicePaid(application.id);
+      setPaymentConfirmation(null);
       setNotice('Invoice marked paid. The vendor can now access staff passes.');
       await refresh();
     } catch (paymentError) {
@@ -364,7 +367,12 @@ export default function VendorApplications() {
                           <div><dt className="inline font-medium text-neutral-600">Type and size: </dt><dd className="inline text-neutral-800">{application.requestedStandType} · {application.requestedStandSize}</dd></div>
                           <div><dt className="font-medium text-neutral-600">Setup and requirements</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{application.standDescription}</dd></div>
                           <div><dt className="font-medium text-neutral-600">Additional information</dt><dd className="mt-1 whitespace-pre-line text-neutral-800">{application.supportingInformation || 'None provided'}</dd></div>
-                          <div><dt className="font-medium text-neutral-600">Area and estimated charge</dt><dd className="mt-1 text-neutral-800">{Number(application.standAreaSqm).toFixed(2)} m² × ZAR {Number(application.standRatePerSqm).toFixed(2)} = ZAR {Number(application.quotedAmount).toFixed(2)}</dd></div>
+                          <div><dt className="font-medium text-neutral-600">Area and estimated charge</dt><dd className="mt-1 text-neutral-800">{Number(application.standAreaSqm).toFixed(2)} m² × ZAR {Number(application.standRatePerSqm).toFixed(2)} = ZAR {(Math.round(Number(application.standAreaSqm) * Number(application.standRatePerSqm) * 100) / 100).toFixed(2)}</dd>
+                            {Number(application.tablesAndChairsAmount) > 0 && <dd className="text-neutral-800">Tables and chairs: ZAR {Number(application.tablesAndChairsAmount).toFixed(2)}</dd>}
+                            {Number(application.extensionCordAmount) > 0 && <dd className="text-neutral-800">Extension cord: ZAR {Number(application.extensionCordAmount).toFixed(2)}</dd>}
+                            <dd className="text-neutral-800">Subtotal (excluding tax): ZAR {Number(application.quotedAmount).toFixed(2)}</dd>
+                            {application.invoice && <dd className="text-neutral-800">Tax ({Number(application.invoice.taxRate)}%): ZAR {Number(application.invoice.taxAmount).toFixed(2)} · Invoice total: ZAR {Number(application.invoice.amount).toFixed(2)}</dd>}
+                          </div>
                           <div>
                             <dt className="font-medium text-neutral-600">Staff ({application.staffMembers?.length ?? 0})</dt>
                             <dd className="mt-1 text-neutral-800">{application.staffMembers?.length ? application.staffMembers.map(member => `${member.name} (${member.email})`).join(', ') : 'None listed'}</dd>
@@ -408,7 +416,7 @@ export default function VendorApplications() {
                               Download invoice
                             </Button>
                             {application.invoice.status === 'ISSUED' && (
-                              <Button type="button" size="sm" loading={payingId === application.id} disabled={Boolean(payingId)} onClick={() => void markPaid(application)}>
+                              <Button type="button" size="sm" loading={payingId === application.id} disabled={Boolean(payingId)} onClick={() => setPaymentConfirmation(application)}>
                                 Mark invoice paid
                               </Button>
                             )}
@@ -564,6 +572,47 @@ export default function VendorApplications() {
           </section>
         </div>
       )}
+      <Modal
+        open={Boolean(paymentConfirmation)}
+        onClose={() => { if (!payingId) setPaymentConfirmation(null); }}
+        title="Confirm invoice payment"
+        size="sm"
+      >
+        {paymentConfirmation?.invoice && (
+          <div className="space-y-5">
+            <p className="text-sm leading-6 text-neutral-600">
+              Confirm that invoice <span className="font-semibold text-neutral-900">{paymentConfirmation.invoice.invoiceNumber}</span> has been paid?
+            </p>
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-neutral-500">Vendor</dt>
+                  <dd className="text-right font-semibold text-neutral-900">
+                    {paymentConfirmation.vendor?.vendorProfile?.businessName || paymentConfirmation.companyName}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-neutral-500">Amount</dt>
+                  <dd className="font-semibold text-neutral-900">
+                    {paymentConfirmation.invoice.currency} {Number(paymentConfirmation.invoice.amount).toFixed(2)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <p className="text-xs leading-5 text-neutral-500">
+              The vendor will be notified, and their staff passes will become available.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" disabled={Boolean(payingId)} onClick={() => setPaymentConfirmation(null)}>
+                Cancel
+              </Button>
+              <Button type="button" loading={payingId === paymentConfirmation.id} disabled={Boolean(payingId)} onClick={() => void markPaid(paymentConfirmation)}>
+                Confirm payment
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   );
 }

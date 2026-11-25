@@ -33,6 +33,8 @@ export default function ApplyForStand() {
   const [foodHandling, setFoodHandling] = useState('');
   const [supportingInformation, setSupportingInformation] = useState('');
   const [staffMembers, setStaffMembers] = useState<ApplicationStaffMember[]>([]);
+  const [tablesAndChairsIncluded, setTablesAndChairsIncluded] = useState(false);
+  const [extensionCordIncluded, setExtensionCordIncluded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -57,6 +59,8 @@ export default function ApplyForStand() {
         setStandDescription(previousApplication?.standDescription ?? '');
         setSupportingInformation(previousApplication?.supportingInformation ?? '');
         setStaffMembers(previousApplication?.staffMembers?.map(({ name, email }) => ({ name, email })) ?? []);
+        setTablesAndChairsIncluded(Number(previousApplication?.tablesAndChairsAmount ?? 0) > 0);
+        setExtensionCordIncluded(Number(previousApplication?.extensionCordAmount ?? 0) > 0);
         const latestRejected = loadedApplications
           .filter(application => application.eventId === eventId && application.status === 'REJECTED')
           .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0];
@@ -92,9 +96,13 @@ export default function ApplyForStand() {
   const dimensions = /^(\d{1,3}(?:\.\d{1,2})?)\s*m?\s*[x×]\s*(\d{1,3}(?:\.\d{1,2})?)\s*m?$/i.exec(requestedStandSize);
   const standWidth = dimensions ? Number(dimensions[1]) : 0;
   const standDepth = dimensions ? Number(dimensions[2]) : 0;
-  const standArea = standWidth * standDepth;
+  const standArea = Math.round(standWidth * standDepth * 100) / 100;
   const ratePerSquareMetre = Number(event?.vendorStandRatePerSqm ?? 0);
-  const quote = Math.round(standArea * ratePerSquareMetre * 100) / 100;
+  const subtotal = Math.round(standArea * ratePerSquareMetre * 100) / 100
+    + (tablesAndChairsIncluded ? 2000 : 0) + (extensionCordIncluded ? 100 : 0);
+  const taxRate = event?.vendorInvoiceTaxRate;
+  const taxAmount = taxRate === undefined ? null : Math.round(subtotal * taxRate) / 100;
+  const quote = taxAmount === null ? null : subtotal + taxAmount;
   const registrationOpensAt = event ? new Date(event.registrationOpensAt ?? event.createdAt) : null;
   const registrationClosesAt = event ? new Date(event.registrationClosesAt ?? event.startTime) : null;
   const now = new Date();
@@ -145,6 +153,8 @@ export default function ApplyForStand() {
         standDescription: standDescription.trim(),
         supportingInformation: applicationDetails,
         staffMembers,
+        tablesAndChairsIncluded,
+        extensionCordIncluded,
       });
       setMessage('Your stand request has been submitted.');
     } catch (requestError) {
@@ -235,6 +245,13 @@ export default function ApplyForStand() {
                         </p>
                         <dl className="mt-5 space-y-3 text-sm">
                           <InfoRow label="Expected" value={`${event.capacity.toLocaleString()} attendees`} />
+                          <div className="flex items-end justify-between gap-3">
+                            <div>
+                              <dt className="text-neutral-500">Provided</dt>
+                              <dd className="text-neutral-500">Extension cord (10 m)</dd>
+                            </div>
+                            <dd className="text-right font-semibold text-neutral-800">R100</dd>
+                          </div>
                           <InfoRow label="Stands left" value={`${event.availableVendorStands} of ${event.vendorStandsAvailable}`} />
                           <InfoRow label="Rate" value={`${formatRate(ratePerSquareMetre)}/m²`} />
                           <InfoRow label="Event time" value={`${formatTime(event.startTime)} – ${formatTime(event.endTime)}`} />
@@ -340,6 +357,52 @@ export default function ApplyForStand() {
                           )}
                         </fieldset>
 
+                        <fieldset>
+                          <legend className="mb-1 text-[8px] font-bold leading-[10px] text-neutral-800">Add-on</legend>
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              aria-pressed={tablesAndChairsIncluded}
+                              onClick={() => setTablesAndChairsIncluded(current => !current)}
+                              className={`vendor-apply-addon-button flex min-h-14 w-full cursor-pointer items-center justify-between gap-1.5 rounded-md border bg-white px-2 py-2 text-left transition ${
+                                tablesAndChairsIncluded
+                                  ? 'border-rose-600 ring-1 ring-rose-600'
+                                  : 'border-neutral-200 hover:border-neutral-400'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">Tables and chairs</span>
+                                <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                  20 chairs · 4 tables · R2,000
+                                </span>
+                              </span>
+                              <span className={`h-3 w-3 shrink-0 rounded-full border ${
+                                tablesAndChairsIncluded ? 'border-[3px] border-rose-600' : 'border-neutral-300'
+                              }`} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-pressed={extensionCordIncluded}
+                              onClick={() => setExtensionCordIncluded(current => !current)}
+                              className={`vendor-apply-addon-button flex min-h-14 w-full cursor-pointer items-center justify-between gap-1.5 rounded-md border bg-white px-2 py-2 text-left transition ${
+                                extensionCordIncluded
+                                  ? 'border-rose-600 ring-1 ring-rose-600'
+                                  : 'border-neutral-200 hover:border-neutral-400'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-[8px] font-bold leading-[10px] text-neutral-900">Extension cord</span>
+                                <span className="mt-0.5 block truncate text-[7px] leading-[9px] text-neutral-500">
+                                  10 m · R100
+                                </span>
+                              </span>
+                              <span className={`h-3 w-3 shrink-0 rounded-full border ${
+                                extensionCordIncluded ? 'border-[3px] border-rose-600' : 'border-neutral-300'
+                              }`} />
+                            </button>
+                          </div>
+                        </fieldset>
+
                         <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                           What will you sell or show?
                           <textarea
@@ -357,11 +420,19 @@ export default function ApplyForStand() {
                         <div className="grid gap-1.5 sm:grid-cols-2">
                           <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                             Power needed
-                            <input value={powerNeeded} onChange={formEvent => setPowerNeeded(formEvent.target.value)} maxLength={300} placeholder="e.g. One 15A plug point" className={inputClassName} />
+                            <select value={powerNeeded} onChange={formEvent => setPowerNeeded(formEvent.target.value)} className={inputClassName}>
+                              <option value="">Select an option</option>
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
                           </label>
                           <label className="block text-[8px] font-bold leading-[10px] text-neutral-800">
                             Handling food?
-                            <input value={foodHandling} onChange={formEvent => setFoodHandling(formEvent.target.value)} maxLength={300} placeholder="Yes · certificate on file" className={inputClassName} />
+                            <select value={foodHandling} onChange={formEvent => setFoodHandling(formEvent.target.value)} className={inputClassName}>
+                              <option value="">Select an option</option>
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
                           </label>
                         </div>
 
@@ -412,8 +483,11 @@ export default function ApplyForStand() {
                           <div>
                             <p className="text-sm font-semibold text-white/70">Estimated stand fee</p>
                             <p className="mt-1 text-sm">{standArea.toLocaleString()} m² × {formatRate(ratePerSquareMetre)} per m²</p>
+                            {tablesAndChairsIncluded && <p className="mt-0.5 text-[7px] leading-[9px]">Tables and chairs · R2,000</p>}
+                            {extensionCordIncluded && <p className="mt-0.5 text-[7px] leading-[9px]">Extension cord · R100</p>}
+                            {taxAmount !== null && <p className="mt-0.5 text-[7px] leading-[9px]">Tax ({taxRate}%) · {formatCurrency(taxAmount)}</p>}
                           </div>
-                          <p className="text-[16px] font-black leading-5">{formatCurrency(quote)}</p>
+                          <p className="text-[16px] font-black leading-5">{quote === null ? 'Tax rate unavailable' : formatCurrency(quote)}</p>
                         </div>
 
                         {error && <p role="alert" className="text-[8px] font-medium text-rose-700">{error}</p>}

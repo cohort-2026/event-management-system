@@ -98,6 +98,12 @@ enum VendorInvoiceStatus {
   VOID
 }
 
+enum VendorInvoiceEmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum ProfileApprovalStatus {
   PENDING_APPROVAL
   APPROVED
@@ -234,7 +240,7 @@ model Event {
   availableCapacity Int         @map("available_capacity")
   isFree            Boolean     @default(true) @map("is_free")
   price             Decimal?    @db.Decimal(10, 2)
-  vendorStandRatePerSqm Decimal @default(0) @map("vendor_stand_rate_per_sqm") @db.Decimal(10, 2)
+  vendorStandRatePerSqm Decimal @default(100) @map("vendor_stand_rate_per_sqm") @db.Decimal(10, 2)
   status            EventStatus @default(DRAFT)
   closedAt          DateTime?   @map("closed_at")
   createdAt         DateTime    @default(now()) @map("created_at")
@@ -402,6 +408,8 @@ model VendorApplication {
   supportingInformation String?               @map("supporting_information")
   standAreaSqm      Decimal                 @default(0) @map("stand_area_sqm") @db.Decimal(10, 2)
   standRatePerSqm   Decimal                 @default(0) @map("stand_rate_per_sqm") @db.Decimal(10, 2)
+  tablesAndChairsAmount Decimal             @default(0) @map("tables_and_chairs_amount") @db.Decimal(10, 2)
+  extensionCordAmount Decimal               @default(0) @map("extension_cord_amount") @db.Decimal(10, 2)
   quotedAmount      Decimal                 @default(0) @map("quoted_amount") @db.Decimal(14, 2)
   assignedStand      String?                 @map("assigned_stand")
   status             VendorApplicationStatus @default(PENDING_REVIEW)
@@ -428,8 +436,12 @@ model VendorInvoice {
   id            String             @id @default(uuid())
   invoiceNumber String             @unique @map("invoice_number")
   amount        Decimal            @db.Decimal(14, 2)
+  taxRate       Decimal            @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount     Decimal            @default(0) @map("tax_amount") @db.Decimal(14, 2)
   currency      String             @default("ZAR")
   status        VendorInvoiceStatus @default(ISSUED)
+  emailStatus   VendorInvoiceEmailStatus @default(PENDING) @map("email_status")
+  emailSentAt   DateTime?           @map("email_sent_at")
   issuedAt      DateTime           @default(now()) @map("issued_at")
   dueAt         DateTime           @map("due_at")
   application   VendorApplication?
