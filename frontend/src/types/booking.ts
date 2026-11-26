@@ -22,9 +22,13 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   createdAt: string;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
   event: {
     id: string;
     title: string;
+    category: string;
+    bannerImageUrl?: string | null;
     startTime: string;
     endTime: string;
     venue: string;

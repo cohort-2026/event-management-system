@@ -40,6 +40,20 @@ test('authentication rejects missing and invalid cookie tokens', async () => {
   assert.equal(invalid.status, 401);
 });
 
+test('waitlist endpoints reject unauthenticated reads and writes', async () => {
+  const read = await request('/api/waitlists/my');
+  assert.equal(read.status, 401);
+  assert.equal((await read.json()).success, false);
+
+  const write = await request('/api/waitlists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventId: '00000000-0000-4000-8000-000000000001', ticketTypeId: '00000000-0000-4000-8000-000000000002' }),
+  });
+  assert.equal(write.status, 401);
+  assert.equal((await write.json()).success, false);
+});
+
 test('role authorization denies a user with the wrong active role', async () => {
   const response = await request('/_foundation/role-check');
   assert.equal(response.status, 403);

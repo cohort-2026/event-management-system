@@ -5,6 +5,7 @@ import {
   notifyAttendeeBookingConfirmed,
 } from '../services/notificationService';
 import { TicketsAlreadyIssuedError, issueTicketsForBooking } from '../services/ticketService';
+import { sendBookingConfirmationOnce } from '../services/bookingConfirmationService';
 
 type SimulatedOutcome = 'SUCCESS' | 'FAILED';
 
@@ -15,6 +16,7 @@ type PaymentProcessResult =
   | { kind: 'not_found' }
   | { kind: 'free_booking' }
   | { kind: 'cancelled_booking' }
+  | { kind: 'waitlist_offer_expired' }
   | { kind: 'not_pending' }
   | { kind: 'amount_mismatch' }
   | { kind: 'ticket_conflict' }
@@ -150,6 +152,7 @@ const processPaymentTransaction = async (
       reference: true,
       eventId: true,
       eventTicketTypeId: true,
+      waitlistEntryId: true,
       attendeeId: true,
       quantity: true,
       totalAmount: true,
@@ -207,6 +210,13 @@ const processPaymentTransaction = async (
     payment.status !== PaymentStatus.PENDING ||
     payment.provider !== 'SIMULATED') {
     return { kind: 'not_pending' };
+  }
+
+  if (booking.waitlistEntryId) {
+    const offer = await transaction.waitlistEntry.findUnique({ where: { id: booking.waitlistEntryId }, select: { status: true, expiresAt: true } });
+    if (!offer || offer.status !== 'OFFERED' || !offer.expiresAt || offer.expiresAt <= new Date()) {
+      return { kind: 'waitlist_offer_expired' };
+    }
   }
 
   await transaction.$queryRaw<Array<{ id: string }>>`
@@ -271,8 +281,8 @@ const processPaymentTransaction = async (
     };
   }
 
-  if (event.availableCapacity < booking.quantity ||
-    ticketType.availableQuantity < booking.quantity) {
+  if (!booking.waitlistEntryId && (event.availableCapacity < booking.quantity ||
+    ticketType.availableQuantity < booking.quantity)) {
     await setFailed(transaction, bookingId, payment.id, 'SIMULATED-SUCCESS-CAPACITY-UNAVAILABLE');
     return {
       kind: 'capacity_unavailable',
@@ -281,43 +291,24 @@ const processPaymentTransaction = async (
     };
   }
 
-  const eventClaim = await transaction.event.updateMany({
-    where: {
-      id: booking.eventId,
-      status: EventStatus.PUBLISHED,
-      availableCapacity: { gte: booking.quantity },
-    },
-    data: { availableCapacity: { decrement: booking.quantity } },
-  });
-  if (eventClaim.count !== 1) {
-    await setFailed(transaction, bookingId, payment.id, 'SIMULATED-SUCCESS-CAPACITY-UNAVAILABLE');
-    return {
-      kind: 'capacity_unavailable',
-      data: await paymentView(transaction, bookingId),
-      repeated: false,
-    };
-  }
-
-  const ticketTypeClaim = await transaction.eventTicketType.updateMany({
-    where: {
-      id: ticketType.id,
-      eventId: booking.eventId,
-      price: ticketType.price,
-      availableQuantity: { gte: booking.quantity },
-    },
-    data: { availableQuantity: { decrement: booking.quantity } },
-  });
-  if (ticketTypeClaim.count !== 1) {
-    await transaction.event.update({
-      where: { id: booking.eventId },
-      data: { availableCapacity: { increment: booking.quantity } },
+  if (!booking.waitlistEntryId) {
+    const eventClaim = await transaction.event.updateMany({
+      where: { id: booking.eventId, status: EventStatus.PUBLISHED, availableCapacity: { gte: booking.quantity } },
+      data: { availableCapacity: { decrement: booking.quantity } },
     });
-    await setFailed(transaction, bookingId, payment.id, 'SIMULATED-SUCCESS-CAPACITY-UNAVAILABLE');
-    return {
-      kind: 'capacity_unavailable',
-      data: await paymentView(transaction, bookingId),
-      repeated: false,
-    };
+    if (eventClaim.count !== 1) {
+      await setFailed(transaction, bookingId, payment.id, 'SIMULATED-SUCCESS-CAPACITY-UNAVAILABLE');
+      return { kind: 'capacity_unavailable', data: await paymentView(transaction, bookingId), repeated: false };
+    }
+    const ticketTypeClaim = await transaction.eventTicketType.updateMany({
+      where: { id: ticketType.id, eventId: booking.eventId, price: ticketType.price, availableQuantity: { gte: booking.quantity } },
+      data: { availableQuantity: { decrement: booking.quantity } },
+    });
+    if (ticketTypeClaim.count !== 1) {
+      await transaction.event.update({ where: { id: booking.eventId }, data: { availableCapacity: { increment: booking.quantity } } });
+      await setFailed(transaction, bookingId, payment.id, 'SIMULATED-SUCCESS-CAPACITY-UNAVAILABLE');
+      return { kind: 'capacity_unavailable', data: await paymentView(transaction, bookingId), repeated: false };
+    }
   }
 
   const paymentUpdate = await transaction.payment.updateMany({
@@ -342,6 +333,13 @@ const processPaymentTransaction = async (
   });
   if (paymentUpdate.count !== 1 || bookingUpdate.count !== 1) {
     throw new Error('Booking payment state changed during simulated processing');
+  }
+  if (booking.waitlistEntryId) {
+    const claimed = await transaction.waitlistEntry.updateMany({
+      where: { id: booking.waitlistEntryId, status: 'OFFERED', expiresAt: { gt: new Date() } },
+      data: { status: 'CLAIMED', claimedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error('Waitlist offer expired while payment was being completed');
   }
 
   await issueTicketsForBooking(transaction, {
@@ -392,6 +390,13 @@ export const processSimulatedPayment = async (
       req.user!.id,
       body.outcome as SimulatedOutcome,
     );
+    if (result.kind === 'success') {
+      try {
+        await sendBookingConfirmationOnce(bookingId);
+      } catch (emailError) {
+        console.error('Attendee booking confirmation email processing failed:', bookingId, emailError);
+      }
+    }
     if (result.kind === 'not_found') {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
@@ -402,6 +407,10 @@ export const processSimulatedPayment = async (
     }
     if (result.kind === 'cancelled_booking') {
       res.status(409).json({ success: false, message: 'Cancelled bookings cannot be paid' });
+      return;
+    }
+    if (result.kind === 'waitlist_offer_expired') {
+      res.status(409).json({ success: false, message: 'The waitlist offer has expired; this booking can no longer be paid' });
       return;
     }
     if (result.kind === 'not_pending') {

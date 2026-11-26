@@ -89,6 +89,10 @@ export default function NotificationBell({
 
     setOpen(false);
     onClose?.();
+    if (user?.role === 'ATTENDEE') {
+      navigate('/attendee/notifications', { state: { selectedNotificationId: notification.id } });
+      return;
+    }
     if (appearance === 'header' && user?.role === 'VENDOR') {
       navigate('/vendor/notifications', { state: { selectedNotificationId: notification.id } });
       return;
@@ -162,13 +166,13 @@ export default function NotificationBell({
             className={`${user?.role === 'VENDOR' ? 'vendor-notification-panel ' : ''}max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl`}
           >
             <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-              <h2 className="text-sm font-bold text-neutral-900">Notifications</h2>
+              <h2 className="notification-panel-title text-sm font-bold text-neutral-900">Notifications</h2>
               {unreadCount > 0 && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void markAllRead()}
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50"
+                  className="notification-panel-action text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:opacity-50"
                 >
                   Mark all as read
                 </button>
@@ -191,9 +195,9 @@ export default function NotificationBell({
                       <span className="flex items-start gap-3">
                         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.readAt ? 'bg-transparent' : 'bg-amber-500'}`} />
                         <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-neutral-900">{notification.title}</span>
-                          <span className="mt-1 block text-sm text-neutral-600">{notification.message}</span>
-                          <span className="mt-1 block text-xs text-neutral-400">
+                          <span className="notification-item-title block text-sm font-semibold text-neutral-900">{notification.title}</span>
+                          <span className="notification-item-message mt-1 block text-sm text-neutral-600">{notification.message}</span>
+                          <span className="notification-item-date mt-1 block text-xs text-neutral-400">
                             {new Date(notification.createdAt).toLocaleString()}
                           </span>
                         </span>
@@ -203,9 +207,9 @@ export default function NotificationBell({
                 ))}
               </ul>
             )}
-            {user?.role === 'VENDOR' && (
+            {(user?.role === 'VENDOR' || user?.role === 'ATTENDEE') && (
               <div className="border-t border-neutral-100 p-3 text-right">
-                <button type="button" onClick={() => { setOpen(false); navigate('/vendor/notifications'); }} className="text-xs font-semibold text-rose-700 hover:underline">
+                <button type="button" onClick={() => { setOpen(false); navigate(user?.role === 'VENDOR' ? '/vendor/notifications' : '/attendee/notifications'); }} className="text-xs font-semibold text-rose-700 hover:underline">
                   View all notifications
                 </button>
               </div>

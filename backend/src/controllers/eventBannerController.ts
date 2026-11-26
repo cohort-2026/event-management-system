@@ -11,12 +11,6 @@ const getImageExtension = (buffer: Buffer): string | null => {
   return null;
 };
 
-const extensionByMimeType: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-};
-
 export const uploadEventBanner = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const file = req.file;
@@ -26,7 +20,7 @@ export const uploadEventBanner = async (req: Request, res: Response, next: NextF
     }
 
     const extension = getImageExtension(file.buffer);
-    if (!extension || extension !== extensionByMimeType[file.mimetype]) {
+    if (!extension) {
       res.status(400).json({ success: false, message: 'The selected file is not a valid JPG, PNG, or WebP image.' });
       return;
     }

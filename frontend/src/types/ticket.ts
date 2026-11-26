@@ -25,10 +25,12 @@ export interface Ticket {
   event?: {
     id: string;
     title: string;
+    description?: string;
     date: string;
     startTime: string;
     endTime: string;
     venue: string;
+    meetingDetails?: string | null;
     bannerImageUrl?: string | null;
   };
 }

@@ -12,6 +12,7 @@ import {
   sendEventChangeNotification,
 } from '../services/emailService';
 import { prisma } from '../lib/prisma';
+import { VENDOR_INVOICE_TAX_RATE } from '../services/vendorPricing';
 const MAX_CAPACITY = 1_000_000;
 const MAX_TICKETS = 20;
 const MAX_PRICE = 99_999_999.99;
@@ -35,10 +36,14 @@ interface EventInput {
   venue: string;
   eventType: EventType;
   meetingDetails: string | null;
+  directions: string | null;
+  parkingInformation: string | null;
   bannerImageUrl: string | null;
   vendorStandsAvailable: number;
   startTime: Date;
   endTime: Date;
+  registrationOpensAt: Date;
+  registrationClosesAt: Date;
   capacity: number;
   isFree: boolean;
   price: number | null;
@@ -94,7 +99,7 @@ const validWebUrl = (value: string): boolean => {
   }
 };
 
-const parseEventInput = (body: Record<string, unknown>):
+const parseEventInput = (body: Record<string, unknown>, defaultVendorStandRatePerSqm = 0):
   { value: EventInput; error?: never } | { value?: never; error: string } => {
   const title = text(body.title);
   const description = text(body.description);
@@ -103,12 +108,22 @@ const parseEventInput = (body: Record<string, unknown>):
   const eventType = body.eventType;
   const venue = text(body.venue);
   const meetingDetails = text(body.meetingDetails);
+  const directions = text(body.directions);
+  const parkingInformation = text(body.parkingInformation);
   const rawBannerImageUrl = text(body.bannerImageUrl);
   const startTime = typeof body.startTime === 'string' ? new Date(body.startTime) : new Date(Number.NaN);
   const endTime = typeof body.endTime === 'string' ? new Date(body.endTime) : new Date(Number.NaN);
+  const registrationOpensAt = body.registrationOpensAt === undefined
+    ? new Date()
+    : typeof body.registrationOpensAt === 'string' ? new Date(body.registrationOpensAt) : new Date(Number.NaN);
+  const registrationClosesAt = body.registrationClosesAt === undefined
+    ? startTime
+    : typeof body.registrationClosesAt === 'string' ? new Date(body.registrationClosesAt) : new Date(Number.NaN);
   const capacity = body.capacity;
   const vendorStandsAvailable = body.vendorStandsAvailable === undefined ? 0 : body.vendorStandsAvailable;
-  const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined ? 0 : body.vendorStandRatePerSqm;
+  const vendorStandRatePerSqm = body.vendorStandRatePerSqm === undefined
+    ? defaultVendorStandRatePerSqm
+    : body.vendorStandRatePerSqm;
   const ticketTypesInput = body.ticketTypes;
 
   if (title.length < 3 || title.length > 150) return { error: 'Event title must be between 3 and 150 characters' };
@@ -133,6 +148,12 @@ const parseEventInput = (body: Record<string, unknown>):
   }
   if (!Number.isFinite(endTime.getTime()) || endTime <= startTime) {
     return { error: 'Event end date and time must be after the start date and time' };
+  }
+  if (!Number.isFinite(registrationOpensAt.getTime()) || !Number.isFinite(registrationClosesAt.getTime())) {
+    return { error: 'Enter valid registration opening and closing dates and times' };
+  }
+  if (registrationOpensAt >= registrationClosesAt || registrationClosesAt > startTime) {
+    return { error: 'Registration must close after it opens and no later than the event start time' };
   }
   if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { error: `Event capacity must be a whole number between 1 and ${MAX_CAPACITY}` };
@@ -164,6 +185,8 @@ const parseEventInput = (body: Record<string, unknown>):
     return { error: 'Add online meeting details for a hybrid event' };
   }
   if (meetingDetails.length > 2000) return { error: 'Meeting details cannot exceed 2000 characters' };
+  if (directions.length > 2000) return { error: 'Directions cannot exceed 2000 characters' };
+  if (parkingInformation.length > 2000) return { error: 'Parking information cannot exceed 2000 characters' };
   if (normalizedEventType !== 'IN_PERSON' && meetingDetails.length > 0 &&
       (/^https?:\/\//i.test(meetingDetails) && !validWebUrl(meetingDetails))) {
     return { error: 'Meeting link must be a valid HTTP or HTTPS URL' };
@@ -226,10 +249,14 @@ const parseEventInput = (body: Record<string, unknown>):
       venue: normalizedVenue,
       eventType: normalizedEventType,
       meetingDetails: meetingDetails || null,
+      directions: directions || null,
+      parkingInformation: parkingInformation || null,
       bannerImageUrl,
       vendorStandsAvailable,
       startTime,
       endTime,
+      registrationOpensAt,
+      registrationClosesAt,
       capacity,
       isFree,
       price,
@@ -295,6 +322,7 @@ const serializeEvent = (event: Prisma.EventGetPayload<{ include: typeof eventInc
     ...eventData,
     price: event.price === null ? null : Number(event.price),
     vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
+    vendorInvoiceTaxRate: VENDOR_INVOICE_TAX_RATE,
     availableVendorStands: Math.max(0, event.vendorStandsAvailable - _count.vendorApplications),
     ticketTypes: event.ticketTypes.map(ticket => ({ ...ticket, price: Number(ticket.price) })),
   };
@@ -311,7 +339,7 @@ const serializePublicEvent = (event: Prisma.EventGetPayload<{ include: typeof ev
 
 export const createEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const parsed = parseEventInput(req.body ?? {});
+    const parsed = parseEventInput(req.body ?? {}, 100);
     if (!parsed.value) {
       res.status(400).json({ success: false, message: parsed.error });
       return;
@@ -327,8 +355,12 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
         date: data.startTime,
         startTime: data.startTime,
         endTime: data.endTime,
+        registrationOpensAt: data.registrationOpensAt,
+        registrationClosesAt: data.registrationClosesAt,
         eventType: data.eventType,
         meetingDetails: data.meetingDetails,
+        directions: data.directions,
+        parkingInformation: data.parkingInformation,
         bannerImageUrl: data.bannerImageUrl,
         vendorStandsAvailable: data.vendorStandsAvailable,
         capacity: data.capacity,
@@ -433,8 +465,12 @@ const updateEventRecord = async (
           date: data.startTime,
           startTime: data.startTime,
           endTime: data.endTime,
+          registrationOpensAt: data.registrationOpensAt,
+          registrationClosesAt: data.registrationClosesAt,
           eventType: data.eventType,
           meetingDetails: data.meetingDetails,
+          directions: data.directions,
+          parkingInformation: data.parkingInformation,
           bannerImageUrl: data.bannerImageUrl,
           vendorStandsAvailable: data.vendorStandsAvailable,
           capacity: data.capacity,
@@ -528,7 +564,21 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       res.status(400).json({ success: false, message: 'A valid event ID is required' });
       return;
     }
-    const parsed = parseEventInput(req.body ?? {});
+    const body = req.body ?? {};
+    let defaultVendorStandRatePerSqm = 0;
+    if (body.vendorStandRatePerSqm === undefined) {
+      const event = await prisma.event.findFirst({
+        where: { id: eventId, organizerId: req.user!.id },
+        select: { vendorStandRatePerSqm: true },
+      });
+      if (!event) {
+        res.status(404).json({ success: false, message: 'Event not found' });
+        return;
+      }
+      defaultVendorStandRatePerSqm = Number(event.vendorStandRatePerSqm);
+    }
+
+    const parsed = parseEventInput(body, defaultVendorStandRatePerSqm);
     if (!parsed.value) {
       res.status(400).json({ success: false, message: parsed.error });
       return;
@@ -552,6 +602,8 @@ const PATCHABLE_EVENT_FIELDS = new Set([
   'venue',
   'eventType',
   'meetingDetails',
+  'directions',
+  'parkingInformation',
   'bannerImageUrl',
   'vendorStandsAvailable',
   'vendorStandRatePerSqm',
@@ -601,11 +653,15 @@ export const patchEvent = async (req: Request, res: Response, next: NextFunction
       venue: event.venue,
       eventType: event.eventType,
       meetingDetails: event.meetingDetails ?? '',
+      directions: event.directions ?? '',
+      parkingInformation: event.parkingInformation ?? '',
       bannerImageUrl: event.bannerImageUrl ?? '',
       vendorStandsAvailable: event.vendorStandsAvailable,
       vendorStandRatePerSqm: Number(event.vendorStandRatePerSqm),
       startTime: event.startTime.toISOString(),
       endTime: event.endTime.toISOString(),
+      registrationOpensAt: (event.registrationOpensAt ?? event.createdAt).toISOString(),
+      registrationClosesAt: (event.registrationClosesAt ?? event.startTime).toISOString(),
       capacity: event.capacity,
       ticketTypes: event.ticketTypes.map(ticket => ({
         name: ticket.name,
@@ -1079,7 +1135,7 @@ export const completeEvent = async (req: Request, res: Response, next: NextFunct
 
     const updated = await prisma.event.updateMany({
       where: { id: eventId, organizerId: req.user!.id, status: EventStatus.PUBLISHED, endTime: { lte: new Date() } },
-      data: { status: EventStatus.COMPLETED },
+      data: { status: EventStatus.COMPLETED, closedAt: new Date() },
     });
     if (updated.count !== 1) {
       res.status(409).json({ success: false, message: 'Event status changed; reload and try again' });

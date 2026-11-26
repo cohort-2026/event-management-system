@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "waitlist_entries_event_id_ticket_type_id_status_position_create" RENAME TO "waitlist_entries_event_id_ticket_type_id_status_position_cr_idx";

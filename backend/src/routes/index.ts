@@ -10,6 +10,7 @@ import organizerRoutes    from './organizerRoutes';
 import reportRoutes       from './reportRoutes';
 import platformAdminRoutes from './platformAdminRoutes';
 import notificationRoutes from './notificationRoutes';
+import waitlistRoutes from './waitlistRoutes';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/organizer', organizerRoutes);
 router.use('/reports',   reportRoutes);
 router.use('/platform-admin', platformAdminRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/waitlists', waitlistRoutes);
 
 export default router;
