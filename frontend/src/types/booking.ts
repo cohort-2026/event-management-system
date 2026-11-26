@@ -32,7 +32,6 @@ export interface Booking {
     startTime: string;
     endTime: string;
     venue: string;
-    bannerImageUrl?: string | null;
   };
   eventTicketType: {
     id: string;
