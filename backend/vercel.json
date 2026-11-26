@@ -1,5 +1,7 @@
+
 {
   "version": 2,
+  "buildCommand": "cd backend && npx prisma generate && npm run build",
   "builds": [
     {
       "src": "api/index.ts",
@@ -7,6 +9,9 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index.ts" }
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.ts"
+    }
   ]
 }
